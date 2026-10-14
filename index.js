@@ -1,77 +1,99 @@
-//Detecting Button Press
-
-var numberOfDrumButtons = document.querySelectorAll(".drum").length;
-
-for (var i = 0; i<numberOfDrumButtons; i++) {
-
-  document.querySelectorAll(".drum")[i].addEventListener("click", function() {
-
-    var buttonInnerHTML = this.innerHTML;
-
-    makeSound(buttonInnerHTML);
-
-  });
-
+const soundFiles = {
+  w: 'tom-1', a: 'tom-2', s: 'tom-3', d: 'tom-4',
+  j: 'snare', k: 'crash', l: 'kick-bass'
+};
+const buttons = new Map();
+const animationTimers = new Map();
+const buffers = new Map();
+const fallbackSounds = new Map();
+const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+let audioContext;
+try {
+  if (AudioContextClass) audioContext = new AudioContextClass({ latencyHint: 'interactive' });
+} catch (error) {
+  // Older browsers can still use the preloaded audio elements below.
 }
-// detekting Keyboard Press
-document.addEventListener("keypress", function(event) {
 
-   makeSound(event.key);
+for (const [key, file] of Object.entries(soundFiles)) {
+  const path = 'sounds/' + file + '.mp3';
+  const voices = Array.from({ length: 4 }, () => {
+    const audio = new Audio(path);
+    audio.preload = 'auto';
+    audio.load();
+    return audio;
+  });
+  fallbackSounds.set(key, { voices, next: 0 });
+  if (audioContext) {
+    fetch(path)
+      .then(response => {
+        if (!response.ok) throw new Error('Sound unavailable: ' + path);
+        return response.arrayBuffer();
+      })
+      .then(data => audioContext.decodeAudioData(data))
+      .then(buffer => buffers.set(key, buffer))
+      .catch(() => {}); // Keep the preloaded audio fallback if decoding fails.
+  }
+}
 
-   buttonAnimation(event.key);
+function playFallback(key) {
+  const pool = fallbackSounds.get(key);
+  const audio = pool.voices[pool.next];
+  pool.next = (pool.next + 1) % pool.voices.length;
+  audio.currentTime = 0;
+  const playback = audio.play();
+  if (playback) playback.catch(() => {});
+}
 
- });
+function playBuffer(key) {
+  const source = audioContext.createBufferSource();
+  source.buffer = buffers.get(key);
+  source.connect(audioContext.destination);
+  source.onended = () => source.disconnect();
+  source.start();
+}
 
- function makeSound(key) {
+function hitDrum(key) {
+  const button = buttons.get(key);
+  if (!button) return;
 
-   switch (key) {
-     case "w":
-         var tom1 = new Audio("sounds/tom-1.mp3");
-         tom1.play();
-         break;
+  clearTimeout(animationTimers.get(key));
+  button.classList.add('pressed');
+  animationTimers.set(key, setTimeout(() => {
+    button.classList.remove('pressed');
+    animationTimers.delete(key);
+  }, 100));
 
-     case "a":
-                 var tom2 = new Audio("sounds/tom-2.mp3");
-                 tom2.play();
-         break;
+  // Resume within the user gesture: mobile browsers initially suspend audio.
+  if (audioContext && audioContext.state !== 'running') {
+    audioContext.resume().catch(() => {});
+    // Use the already loaded element for this hit instead of queuing a late hit.
+    playFallback(key);
+  } else if (audioContext && buffers.has(key)) {
+    playBuffer(key);
+  } else {
+    playFallback(key);
+  }
+}
 
-     case "s":
-                 var tom3 = new Audio("sounds/tom-3.mp3");
-                 tom3.play();
-         break;
+for (const button of document.querySelectorAll('.drum')) {
+  const key = button.textContent.trim();
+  buttons.set(key, button);
+  button.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    hitDrum(key);
+  });
+  // Native keyboard/assistive activation has no preceding pointerdown.
+  button.addEventListener('click', event => {
+    if (event.detail === 0) hitDrum(key);
+  });
+}
 
-         case "d":
-                 var tom4 = new Audio("sounds/tom-4.mp3");
-                 tom4.play();
-         break;
-
-         case "j":
-                 var snare = new Audio("sounds/snare.mp3");
-                 snare.play();
-         break;
-
-         case "k":
-                 var crash = new Audio("sounds/crash.mp3");
-                 crash.play();
-         break;
-
-         case "l":
-                 var kick = new Audio("sounds/kick-bass.mp3");
-                 kick.play();
-         break;
-
-     default: console.log(buttonInnerHTML);
-   }
- }
-
- function buttonAnimation(currentKey) {
-
-   var activeButton = document.querySelector("." + currentKey);
-
-   activeButton.classList.add("pressed");
-
-   setTimeout(function() {
-     activeButton.classList.remove("pressed");
-   }, 100);
-
- }
+document.addEventListener('keydown', event => {
+  if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+  const key = event.key.toLowerCase();
+  if (!buttons.has(key)) return;
+  event.preventDefault();
+  hitDrum(key);
+});
