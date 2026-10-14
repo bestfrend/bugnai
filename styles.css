@@ -16,6 +16,16 @@ footer {
   font-family: sans-serif;
 }
 
+.version {
+  margin-top: 0.65rem;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  color: #a5b1c9;
+}
+
 .w {
 background-image: url("images/tom1.png");
 }
