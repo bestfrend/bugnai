@@ -259,3 +259,26 @@ footer { padding: 24px 0 32px; }
 @media (max-width: 600px) { .welcome > .library-tools { flex-basis: 100%; margin-left: 0; } }
 .slot-heading { align-items: flex-start; }
 .slot-heading h3, .slot-heading > p { margin-top: 5px; line-height: 18px; }
+
+.kit-tabs { display: flex; justify-content: center; gap: 6px; margin: 18px auto 0; padding: 5px; max-width: 440px; border: 1px solid #526381; border-radius: 16px; background: #202a40; font-family: system-ui, sans-serif; }
+.kit-tabs a { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 42px; padding: 8px; border-radius: 11px; color: #c0cce2; text-decoration: none; font-size: 13px; font-weight: 600; }
+.kit-tabs a[aria-current="page"] { color: #fff; background: #485d80; box-shadow: 0 2px 8px #1115; }
+.kit-tabs a:focus-visible { outline: 3px solid #dbedf3; outline-offset: 2px; }
+.strength-control { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; color: #c9d6ed; font-size: 13px; }
+.strength-control input { width: min(180px, 45vw); height: 32px; accent-color: #6dc5ac; }
+.strength-control output { min-width: 42px; font-variant-numeric: tabular-nums; }
+.studio-kit .drum { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border-radius: 22px; vertical-align: top; background-size: cover; background-position: center; }
+.studio-kit .drum-key { font-size: 2.3rem; line-height: 1; }
+.studio-kit .drum-name { max-width: 100%; padding: 3px 4px; border-radius: 6px; font: 600 10px/1.2 system-ui, sans-serif; color: #f2f6ff; background: #172238dc; text-shadow: none; }
+.studio-kit .a { background-image: url('images/tom4.png'); }
+.studio-kit .s { background-image: url('images/hihat.svg'); }
+.studio-kit .d { background-image: url('images/ride.svg'); }
+.studio-kit .drum.pressed { border-color: #8be2be; box-shadow: 0 0 12px #64d2a7; }
+.sound-credit { margin-top: 12px; font-size: 10px; }
+.sound-credit a { color: #a5b1c9; text-decoration: none; }
+.rhythm-kit { display: block; color: #a5b1c9; font-size: 9px; line-height: 12px; }
+@media (max-width: 400px) {
+  .studio-kit .drum { gap: 3px; }
+  .studio-kit .drum-key { font-size: 1.8rem; }
+  .studio-kit .drum-name { font-size: 9px; padding: 2px 3px; }
+}

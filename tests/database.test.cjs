@@ -147,3 +147,23 @@ test('creation dates are backfilled from known timestamps and immutable after cr
   const created=(await db.query('select created_at from performances where owner_id=$1 and slot=2',[bob])).rows[0].created_at;
   assert.notEqual(new Date(created).getUTCFullYear(),2000,'the database stamps new records itself');
 });
+test('versioned kits and optional integer velocities preserve legacy recordings',async()=>{
+  await db.exec('reset role; alter table performances drop column kit');
+  const migration=readFileSync('supabase/drum-kits.sql','utf8');
+  await db.exec(migration);
+  await db.exec(migration);
+  await user(alice);
+  assert.equal((await db.query('select kit from performances where owner_id=$1 and slot=1',[alice])).rows[0].kit,'classic-v1');
+  await user(bob);
+  const events=JSON.stringify([{key:'w',time:0,velocity:20},{key:'j',time:100,velocity:96},{key:'k',time:200,velocity:127}]);
+  await db.query('insert into performances(owner_id,slot,events,duration_ms,kit) values($1,3,$2,200,$3)',[bob,events,'virtuosity-v1']);
+  for(const velocity of [0,128,1.5,'96',null]) {
+    await assert.rejects(insert(bob,4,JSON.stringify([{key:'w',time:0,velocity}]),0),{code:'23514'});
+  }
+  await assert.rejects(db.query('insert into performances(owner_id,slot,events,duration_ms,kit) values($1,4,$2,250,$3)',[bob,notes,'unknown-v2']),{code:'23514'});
+  await user(alice);
+  const saved=(await db.query('select * from performances where owner_id=$1 and slot=3',[bob])).rows[0];
+  assert.equal(saved.kit,'virtuosity-v1');
+  assert.equal(saved.events[1].velocity,96);
+  assert.equal((await db.query("update performances set kit='classic-v1' where owner_id=$1 returning *",[bob])).rows.length,0);
+});

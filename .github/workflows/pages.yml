@@ -37,7 +37,8 @@ jobs:
       - name: Prepare versioned site
         run: |
           mkdir -p _site
-          cp index.html index.js app.js database.js supabase-config.js styles.css _site/
+          python3 scripts/build-studio.py
+          cp index.html studio.html index.js kits.js app.js database.js supabase-config.js styles.css _site/
           cp -R images sounds _site/
           python3 - <<'PY'
           import os
@@ -46,12 +47,13 @@ jobs:
           # The workflow run number increases for each push, even with several commits.
           # Re-running an existing workflow preserves that release's version.
           version = f"1.{int(os.environ['GITHUB_RUN_NUMBER']):02d}"
-          page = Path('_site/index.html')
           marker = '<span id="app-version">1.01</span>'
-          html = page.read_text()
-          if html.count(marker) != 1:
-              raise SystemExit('Expected exactly one version marker')
-          page.write_text(html.replace(marker, f'<span id="app-version">{version}</span>'))
+          for name in ['index.html', 'studio.html']:
+              page = Path('_site') / name
+              html = page.read_text()
+              if html.count(marker) != 1:
+                  raise SystemExit('Expected exactly one version marker')
+              page.write_text(html.replace(marker, f'<span id="app-version">{version}</span>'))
           print(f'Publishing version {version}')
           PY
       - name: Configure Pages

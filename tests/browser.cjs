@@ -7,7 +7,7 @@ const path = require('node:path');
 // Exercise the actual browser UI with an isolated Supabase HTTP contract double.
 // RLS and data constraints are tested against PostgreSQL separately by npm test.
 const root = path.resolve(__dirname, '..');
-const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.mp3':'audio/mpeg','.png':'image/png'};
+const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.mp3':'audio/mpeg','.png':'image/png','.svg':'image/svg+xml'};
 const server = http.createServer(async(req,res)=>{
   const file=path.resolve(root,'.'+new URL(req.url,'http://local').pathname.replace(/\/$/,'/index.html'));
   if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}
@@ -20,11 +20,12 @@ async function wait(check) {
   for(let i=0;i<100;i++){if(await check())return;await new Promise(resolve=>setTimeout(resolve,25));}
   throw new Error('Timed out waiting for expected app state');
 }
-async function scenario(browser,mobile){
+async function scenario(browser,mobile,kit='classic-v1'){
+  const studio=kit==='virtuosity-v1';
   const context=await browser.newContext(mobile?{...devices['Pixel 7']} : {});
   const profiles=[{id:other,nickname:'Kitas <img src=x>',created_at:new Date().toISOString()}];
   const recordings=new Map([[other+':1',{slot:1,events:[{key:'w',time:0},{key:'k',time:50}],duration_ms:50,created_at:'2026-10-15T09:00:00Z',updated_at:new Date().toISOString()}]]);
-  let signups=0,refreshes=0,saves=0,failSave=false,profileReads=0;
+  let signups=0,refreshes=0,saves=0,failSave=false,profileReads=0,missingKitSchema=true;
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',async route=>{
@@ -51,6 +52,7 @@ async function scenario(browser,mobile){
       if(method==='POST'){
         if(failSave)return reply({code:'temporary_error'},503);
         const item=req.postDataJSON();assert.equal(item.owner_id,own);
+        if(missingKitSchema && item.kit)return reply({code:'PGRST204',message:"Could not find the 'kit' column"},400);
         if(recordings.has(own+':'+item.slot))return reply({code:'23505'},409);
         const saved={...item,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};recordings.set(own+':'+item.slot,saved);saves++;
         return reply([saved],201);
@@ -75,9 +77,16 @@ async function scenario(browser,mobile){
   const page=await context.newPage();
   await page.addInitScript(() => {
     window.audioHits = [];
+    window.audioDetails = [];
+    const connect=AudioNode.prototype.connect;
+    AudioBufferSourceNode.prototype.connect=function(destination,...args){
+      this.testGain=destination instanceof GainNode ? destination : null;
+      return connect.call(this,destination,...args);
+    };
     const start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function(...args) {
       window.audioHits.push(performance.now());
+      window.audioDetails.push({duration:this.buffer.duration,gain:this.testGain?.gain.value});
       return start.apply(this, args);
     };
     const play = HTMLMediaElement.prototype.play;
@@ -91,7 +100,9 @@ async function scenario(browser,mobile){
   page.on('dialog',dialog=>{dialogs.push(dialog.message());dialog.accept();});
   await page.clock.install();
   const base=`http://127.0.0.1:${server.address().port}`;
-  await page.goto(base);
+  await page.goto(base+(studio?'/studio.html':'/index.html'));
+  await wait(()=>page.locator('#audio-status').isHidden());
+  assert.equal(await page.locator('.kit-tabs [aria-current="page"]').getAttribute('data-kit-link'),kit);
   assert(await page.locator('#workspace').isHidden());
   assert.equal(await page.locator('#nickname').evaluate(e=>getComputedStyle(e).userSelect),'text');
   await page.locator('#nickname').fill('Ritmas');
@@ -99,6 +110,7 @@ async function scenario(browser,mobile){
   const mine=page.locator(`[data-owner="${own}"]`);
   const theirs=page.locator(`[data-owner="${other}"]`);
   await wait(()=>page.locator('#create-rhythm').isEnabled());
+  assert.equal(await page.locator('#strength-control').isVisible(),studio);
   assert.equal(signups,1);
   assert.equal(await mine.locator('.slot').count(),0);
   assert.equal(await page.locator('.user-card .create-rhythm').count(),0);
@@ -137,7 +149,7 @@ async function scenario(browser,mobile){
   assert(await page.locator('#remove-avatar').isHidden());
   await page.locator('#welcome-name').dblclick();
   assert(await page.locator('#remove-avatar').isVisible());
-  await page.locator('.kit .hint').click();
+  await page.locator('.kit .hint').first().click();
   assert(await page.locator('#remove-avatar').isHidden());
   await page.locator('#avatar-file').setInputFiles({name:'invalid.svg',mimeType:'image/svg+xml',buffer:Buffer.from('<svg/>')});
   await wait(async()=>await page.locator('#status').textContent().then(text=>text.includes('JPG, PNG arba WebP')));
@@ -147,16 +159,35 @@ async function scenario(browser,mobile){
   await page.locator('#create-rhythm').click();
   assert.equal(await page.evaluate(()=>scrollY),0,'creating a rhythm moves the page to the top');
   assert.equal(await mine.locator('.slot').count(),0,'unsaved attempts must not create cards');
+  if(studio)await page.locator('#strike-strength').evaluate(e=>{e.value=20;e.dispatchEvent(new Event('input',{bubbles:true}));});
+  const firstHitIndex=await page.evaluate(()=>window.audioDetails.length);
   await strike('w');
   assert(await page.locator('.w.drum').evaluate(e=>e.classList.contains('pressed')));
   await page.clock.runFor(250);
+  if(studio)await page.locator('#strike-strength').evaluate(e=>{e.value=127;e.dispatchEvent(new Event('input',{bubbles:true}));});
   await strike('a');
   await page.clock.runFor(2000); // Silence must not extend the saved duration.
   await page.locator('#finish-recording').click();
+  if(studio) {
+    await wait(()=>page.locator('#retry-recording').isVisible());
+    assert.equal(saves,0);
+    assert((await page.locator('#status').textContent()).includes('drum-kits.sql'));
+    missingKitSchema=false;
+    await page.locator('#retry-recording').click();
+  }
   await wait(()=>saves===1);
+  missingKitSchema=false;
   await wait(()=>page.locator('#recording-bar').isHidden());
   const first=recordings.get(own+':1');
   const originalCreation=first.created_at;
+  assert.equal(first.kit||'classic-v1',kit);
+  if(studio) {
+    assert.deepEqual(first.events.map(note=>note.velocity),[20,127]);
+    assert.equal(await page.locator('#strength-output').textContent(),'100 %');
+    const live=await page.evaluate(index=>window.audioDetails.slice(index),firstHitIndex);
+    assert(Math.abs(live[0].gain-20/127)<0.00001);
+    assert.equal(live[1].gain,1);
+  } else assert(first.events.every(note=>!('velocity' in note)));
   assert.deepEqual(first.events.map(e=>e.key),['w','a']);
   assert.equal(first.events[0].time,0);
   assert.equal(first.duration_ms,first.events.at(-1).time);
@@ -181,6 +212,28 @@ async function scenario(browser,mobile){
   await wait(()=>page.locator('#rename-dialog').isHidden());
   assert.equal(recordings.get(own+':1').title,'Pirmas ritmas');
   assert.equal(recordings.get(own+':1').created_at,originalCreation);
+  // Both pages share one identity/library and play saved notes with their recorded kit.
+  const otherKit=studio?'classic-v1':'virtuosity-v1';
+  await page.locator(`[data-kit-link="${otherKit}"]`).click();
+  await wait(()=>page.locator('#audio-status').isHidden());
+  await wait(()=>page.locator('#create-rhythm').isEnabled());
+  assert.equal(signups,1);
+  assert.equal(await mine.locator('.slot').count(),1);
+  await ownSlot(1).locator('.play-rhythm').click();
+  await wait(()=>page.locator('#playback-bar').isVisible());
+  const expectedPath=studio?'sounds/virtuosity-v1/w-0.mp3':'sounds/tom-1.mp3';
+  const expectedDuration=await page.evaluate(async path=>{
+    const context=new OfflineAudioContext(2,128,44100);
+    return (await context.decodeAudioData(await (await fetch(path)).arrayBuffer())).duration;
+  },expectedPath);
+  const cross=await page.evaluate(()=>window.audioDetails[0]);
+  assert(Math.abs(cross.duration-expectedDuration)<0.001,'cross-page playback uses the original recorded sample');
+  assert(Math.abs(cross.gain-(studio?20/127:1))<0.00001,'cross-page playback retains strike strength');
+  await page.locator(`[data-kit-link="${kit}"]`).click();
+  await wait(()=>page.locator('#audio-status').isHidden());
+  await wait(()=>page.locator('#create-rhythm').isEnabled());
+  if(!await theirs.evaluate(e=>e.open))await theirs.locator('summary').click();
+  await wait(async()=>await theirs.locator('.slot').count()===1);
   const playBox=await ownSlot(1).locator('.play-rhythm').boundingBox();
   const titleBox=await ownSlot(1).locator('h3').boundingBox();
   assert(playBox.x+playBox.width<=titleBox.x,'play control precedes the title');
@@ -301,6 +354,7 @@ async function scenario(browser,mobile){
   if(!await theirs.evaluate(e=>e.open)) await theirs.locator('summary').click();
   await wait(async()=>await theirs.locator('.slot').count()===2);
   const beforePlayback = await page.evaluate(() => window.audioHits.length);
+  const beforeDetail=await page.evaluate(()=>window.audioDetails.length);
   await theirs.locator('[data-slot="1"]').getByRole('button',{name:'Atkurti',exact:true}).click();
   await wait(()=>page.locator('#playback-bar').isVisible());
   const firstPlay=theirs.locator('[data-slot="1"] .play-rhythm');
@@ -310,6 +364,13 @@ async function scenario(browser,mobile){
   assert.equal(await secondPlay.getAttribute('aria-pressed'),'false');
   await page.clock.runFor(80);
   const played = await page.evaluate(before => window.audioHits.slice(before), beforePlayback);
+  const playedDetail=await page.evaluate(before=>window.audioDetails.slice(before),beforeDetail);
+  const classicDuration=await page.evaluate(async()=>{
+    const context=new OfflineAudioContext(2,128,44100);
+    return (await context.decodeAudioData(await (await fetch('sounds/tom-1.mp3')).arrayBuffer())).duration;
+  });
+  assert(Math.abs(playedDetail[0].duration-classicDuration)<0.001,'legacy performances retain their original sound even on the studio page');
+  assert.equal(playedDetail[0].gain,1);
   assert.equal(played.length, 2, 'playback must produce every saved drum hit exactly once');
   assert(played[1] - played[0] >= 40 && played[1] - played[0] <= 80, 'playback preserves the recorded spacing');
   await page.clock.fastForward(10000);
@@ -395,7 +456,7 @@ async function scenario(browser,mobile){
     assert.deepEqual(await geometry(),before,`repeating preserves geometry at ${width}px`);
   await page.locator('#finish-recording').click();
   }
-  console.log('PASS',mobile?'mobile touch':'desktop mouse','login/refresh, saved-only cards, create/play/overwrite/delete/rename, read-only others, 2-minute auto-save, retry/discard, avatars and 30-second polling');
+  console.log('PASS',kit,mobile?'mobile touch':'desktop mouse','login/refresh, save/play/overwrite/rename, legacy compatibility, kit/velocity, review/repeat, layout, polling and avatars');
   await context.close();
 }
 (async()=>{
@@ -403,7 +464,9 @@ async function scenario(browser,mobile){
  let browser;
  try {
   browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
-  await scenario(browser,false);
-  await scenario(browser,true);
+  for(const kit of ['classic-v1','virtuosity-v1']) {
+    await scenario(browser,false,kit);
+    await scenario(browser,true,kit);
+  }
  }finally{if(browser)await browser.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1});

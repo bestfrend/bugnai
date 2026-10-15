@@ -1,5 +1,5 @@
 import * as db from './database.js';
-import { prepareAudio, hitDrum, stopAudio, soundDuration } from './index.js';
+import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit } from './index.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TIME = 120000;
@@ -169,6 +169,10 @@ function renderSlots(member) {
     }
     const info = document.createElement('p');
     info.textContent = active ? (recording.stage === 'review' ? 'Perklausa' : 'Bandymas') : duration(saved.duration_ms);
+    const kitLabel = document.createElement('span');
+    kitLabel.className = 'rhythm-kit';
+    kitLabel.textContent = getKit(active ? recording.kit : saved.kit || DEFAULT_KIT).name;
+    info.append(kitLabel);
     const heading = document.createElement('div');
     heading.className = 'slot-heading';
     const controls = document.createElement('div');
@@ -473,7 +477,7 @@ function startRecording(slot) {
   mutationRevision++;
   stopPlayback();
   prepareAudio().catch(() => {});
-  recording = { slot, title: saved ? rhythmTitle(saved) : 'Ritmas ' + slot, replace: !!saved, stage: 'armed', started: null, events: [] };
+  recording = { slot, kit: ACTIVE_KIT, title: saved ? rhythmTitle(saved) : 'Ritmas ' + slot, replace: !!saved, stage: 'armed', started: null, events: [] };
   updateRecordBar();
   refreshControls();
   status(saved ? 'Senas ritmas pasikeis tik paspaudus „Atnaujinti ritmą“.'
@@ -496,7 +500,8 @@ window.addEventListener('drumhit', event => {
     finishRecording();
     return;
   }
-  recording.events.push({ key: event.detail.key, time });
+  recording.events.push({ key: event.detail.key, time,
+    ...(recording.kit === DEFAULT_KIT ? {} : { velocity: event.detail.velocity }) });
   updateRecordBar();
   if (recording.events.length >= MAX_NOTES) finishRecording();
 });
@@ -527,7 +532,7 @@ async function persistRecording() {
   draft.stage = 'saving';
   updateRecordBar();
   try {
-    const [saved] = await db.savePerformance(draft.slot, draft.events, draft.title, draft.replace);
+    const [saved] = await db.savePerformance(draft.slot, draft.events, draft.title, draft.replace, draft.kit);
     // A pagehide can discard local state while the explicitly requested save finishes.
     if (recording !== draft) return;
     members.get(me.id).performances.set(draft.slot, saved);
@@ -545,12 +550,12 @@ async function persistRecording() {
 
 function repeatRecording() {
   if (!recording || recording.stage === 'saving') return;
-  const { slot, title, replace } = recording;
+  const { slot, title, replace, kit } = recording;
   clearRecordTimers();
   stopPlayback();
   stopAudio();
   mutationRevision++;
-  recording = { slot, title, replace, stage: 'armed', started: null, events: [] };
+  recording = { slot, title, replace, kit, stage: 'armed', started: null, events: [] };
   updateRecordBar();
   refreshControls();
   status(replace ? 'Senas ritmas pasikeis tik paspaudus „Atnaujinti ritmą“.'
@@ -618,19 +623,21 @@ async function playSequence(saved, owner, slot, label, draft = null) {
   stopPlayback();
   const generation = playbackGeneration;
   try {
-    await prepareAudio();
+    const kit = saved.kit || DEFAULT_KIT;
+    await prepareAudio(kit);
     if (generation !== playbackGeneration || (draft ? recording !== draft || !['review', 'failed'].includes(draft.stage) : recording)) return;
     let index = 0;
     const started = performance.now();
     playback = { owner, slot };
     updatePlaybackButtons();
-    const endsAt = started + Math.max(...saved.events.map(note => note.time + soundDuration(note.key))) + 8;
+    const endsAt = started + Math.max(...saved.events.map(note => note.time + soundDuration(note.key, kit, note.velocity || 127))) + 8;
     $('playback-title').textContent = label;
     $('playback-bar').hidden = false;
     const tick = () => {
       const elapsed = performance.now() - started;
       while (index < saved.events.length && saved.events[index].time <= elapsed) {
-        hitDrum(saved.events[index++].key, false);
+        const note = saved.events[index++];
+        hitDrum(note.key, false, note.velocity || 127, kit);
       }
       if (index === saved.events.length) {
         clearInterval(playback.timer);
@@ -675,6 +682,9 @@ $('login-form').addEventListener('submit', async event => {
 });
 $('finish-recording').addEventListener('click', finishRecording);
 $('create-rhythm').addEventListener('click', createRhythm);
+$('strike-strength').addEventListener('input', () => {
+  $('strength-output').textContent = Math.round(Number($('strike-strength').value) / 127 * 100) + ' %';
+});
 $('retry-recording').addEventListener('click', persistRecording);
 $('preview-recording').addEventListener('click', previewRecording);
 $('commit-recording').addEventListener('click', persistRecording);

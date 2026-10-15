@@ -125,3 +125,35 @@ Senų ritmų tikra sukūrimo data anksčiau nebuvo saugoma, todėl migracija pan
 paskutinę žinomą `updated_at` datą, nekeisdama įrašų ar jų atnaujinimo laiko.
 Iki migracijos programa rodo turimą atnaujinimo datą su tai paaiškinančiu tooltip.
 Naujam projektui pakanka viso `supabase/schema.sql`.
+
+### Antras būgnų puslapis: Virtuosity
+
+Viršuje yra du tikri puslapiai: `index.html` (klasikiniai) ir `studio.html`
+(Virtuosity). Prisijungimas, vartotojų sąrašas ir iki 50 ritmų biblioteka bendri.
+`studio.html` generuojamas iš bendro `index.html` šablono su
+`python3 scripts/build-studio.py`; įrašymo logika ir stiliai abiem bendri.
+Pakeitus šabloną, prieš naršyklės testus sugeneruokite studijos puslapį iš naujo.
+
+Esamame Supabase projekte **SQL Editor** paleiskite
+[supabase/drum-kits.sql](supabase/drum-kits.sql). Jis prideda versijuotą `kit` lauką
+ir leidžia neprivalomą sveiką smūgio `velocity` nuo 1 iki 127. Senieji `{key,time}`
+įrašai lieka klasikiniai; naujam projektui pakanka viso `supabase/schema.sql`.
+Kol migracija nepritaikyta, klasikinis formatas dar gali būti saugomas senu būdu,
+o Virtuosity bandymą galima pakartotinai išsaugoti tame pačiame lange pritaikius SQL.
+
+Naujas rinkinys naudoja autentiškų Virtuosity Drums overhead mikrofono įrašų
+atranką: aukštas ir žemas tomai, uždaras hi-hat, ride, snare, crash ir kick.
+Kiekvienam paruošti trys skirtingo stiprumo smūgio mėginiai; MP3 suma apie 1,54 MB.
+Tai sumažintas rinkinys telefonams, ne visas originalus SFZ instrumentas su visais
+mikrofonais, artikuliacijomis ir round-robin variantais.
+
+Valdiklis „Smūgio stiprumas“ veikia iš karto smūgio pradžioje ir įrašomas kiekvienai
+natai. Laikymo trukmė stiprumo nekeičia: būgno smūgis negali laukti būsimo atleidimo.
+Seni įrašai grojami pradiniais MP3 ir vienodu pradiniu stiprumu. Perrašymas naudoja
+pasirinkto puslapio rinkinį ir tik po patvirtinimo pakeičia seno ritmo duomenis.
+
+Garsų kilmė, CC0 licencija, šaltinio commit, SHA-256 ir paruošimas aprašyti
+[sounds/virtuosity-v1/README.md](sounds/virtuosity-v1/README.md) bei `sources.json`.
+Paruošti failai saugomi saugykloje, todėl naudojantis svetaine nereikia jokio CDN,
+FFmpeg ar SFZ grotuvo. Keisdami patį rinkinį ateityje naudokite naują versijos ID,
+kad senų įrašų skambesys nepasikeistų.
