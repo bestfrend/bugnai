@@ -124,10 +124,15 @@ async function scenario(browser,mobile){
   assert.equal(await page.locator('#upload-avatar').evaluate(e=>getComputedStyle(e).borderRadius),'50%');
   assert.equal(await page.locator('#remove-avatar').evaluate(e=>getComputedStyle(e).fontSize),'11px');
   assert.equal(await page.locator('#remove-avatar').evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');
+  assert(await page.locator('#remove-avatar').isHidden());
+  await page.locator('#welcome-name').dblclick();
+  assert(await page.locator('#remove-avatar').isVisible());
+  await page.locator('.kit .hint').click();
+  assert(await page.locator('#remove-avatar').isHidden());
   await page.locator('#avatar-file').setInputFiles({name:'invalid.svg',mimeType:'image/svg+xml',buffer:Buffer.from('<svg/>')});
   await wait(async()=>await page.locator('#status').textContent().then(text=>text.includes('JPG, PNG arba WebP')));
   assert.equal(profiles.find(p=>p.id===own).avatar_data,avatar,'invalid uploads must leave the old avatar intact');
-  const ownSlot=n=>mine.locator(`[data-slot="${n}"]`);
+  const ownSlot=n=>mine.locator(`.slot[data-slot="${n}"]`);
   const strike=async key=>{if(mobile)await page.locator('.'+key+'.drum').tap();else await page.locator('.'+key+'.drum').click();};
   await mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).click();
   assert.equal(await mine.locator('.slot').count(),0,'unsaved attempts must not create cards');
@@ -146,7 +151,7 @@ async function scenario(browser,mobile){
   assert(first.duration_ms<1000);
   assert.equal(await mine.locator('.slot').count(),1);
   assert.equal(await theirs.getByRole('button',{name:'Pervadinti',exact:true}).count(),0);
-  // Desktop double-click and an explicit mobile-friendly button edit the same title.
+  // Double-click or keyboard activation of the title can rename without a separate button.
   await ownSlot(1).locator('h3').dblclick();
   assert(await page.locator('#rename-dialog').isVisible());
   assert.equal(await page.locator('#rhythm-title-input').evaluate(e=>getComputedStyle(e).userSelect),'text');
@@ -156,11 +161,18 @@ async function scenario(browser,mobile){
   assert.equal(recordings.get(own+':1').title,'Mano <img src=x> ritmas');
   assert.equal(await ownSlot(1).locator('h3').textContent(),'Mano <img src=x> ritmas');
   assert.equal(await ownSlot(1).locator('img').count(),0);
-  await ownSlot(1).getByRole('button',{name:'Pervadinti',exact:true}).click();
+  assert.equal(await mine.getByRole('button',{name:'Pervadinti',exact:true}).count(),0);
+  await ownSlot(1).locator('h3').focus();
+  await page.keyboard.press('Enter');
   await page.locator('#rhythm-title-input').fill('Pirmas ritmas');
   await page.locator('#save-title').click();
   await wait(()=>page.locator('#rename-dialog').isHidden());
   assert.equal(recordings.get(own+':1').title,'Pirmas ritmas');
+  const playBox=await ownSlot(1).locator('.play-rhythm').boundingBox();
+  const titleBox=await ownSlot(1).locator('h3').boundingBox();
+  assert(playBox.x+playBox.width<=titleBox.x,'play control precedes the title');
+  assert(Math.abs(playBox.y+playBox.height/2-titleBox.y-titleBox.height/2)<2,'play and title share a row');
+  assert((await ownSlot(1).boundingBox()).height <= (mobile?90:60),'rhythm cards stay compact');
   assert(!/smūgi|"key"|"time"/.test(await mine.locator('.slot').allTextContents().then(values=>values.join(' '))));
   // Another device creates a slot and a profile; polling preserves open groups/focus.
   recordings.set(other+':2',{slot:2,events:[{key:'l',time:0}],duration_ms:0,updated_at:new Date().toISOString()});
@@ -189,10 +201,32 @@ async function scenario(browser,mobile){
   assert(recordings.get(own+':2').duration_ms<1000);
   // A failed replacement preserves the old record, with a retry kept only in RAM.
   const original=JSON.stringify(recordings.get(own+':1'));
+  await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
+  await strike('d');
+  await page.locator('#finish-recording').click();
+  assert(await page.locator('#commit-recording').isVisible());
+  assert.equal(JSON.stringify(recordings.get(own+':1')),original,'finishing an overwrite must not save it');
+  assert.equal(saves,2);
+  const beforePreview=await page.evaluate(()=>window.audioHits.length);
+  await page.locator('#preview-recording').click();
+  await wait(async()=>await page.locator('#preview-recording').getAttribute('aria-pressed')==='true');
+  assert.equal(await page.evaluate(()=>window.audioHits.length),beforePreview+1);
+  await page.locator('#cancel-recording').click();
+  assert(await page.locator('#playback-bar').isHidden());
+  assert.equal(JSON.stringify(recordings.get(own+':1')),original,'discarding a preview keeps the original rhythm');
+  // The overwrite time limit enters review rather than replacing the old recording.
+  await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
+  await strike('k');
+  await page.clock.fastForward(120000);
+  assert(await page.locator('#commit-recording').isVisible());
+  assert.equal(JSON.stringify(recordings.get(own+':1')),original);
+  await page.locator('#cancel-recording').click();
   failSave=true;
   await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
   await strike('j');
   await page.locator('#finish-recording').click();
+  assert.equal(JSON.stringify(recordings.get(own+':1')),original);
+  await page.locator('#commit-recording').click();
   await wait(()=>page.locator('#retry-recording').isVisible());
   assert.equal(JSON.stringify(recordings.get(own+':1')),original);
   failSave=false;
@@ -204,6 +238,7 @@ async function scenario(browser,mobile){
   const replacement=JSON.stringify(recordings.get(own+':1'));
   await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
   await strike('d');
+  await page.locator('#finish-recording').click();
   await page.reload();
   await wait(async()=>await mine.locator('.slot').count()===2);
   assert(await page.locator('#recording-bar').isHidden());
@@ -259,6 +294,8 @@ async function scenario(browser,mobile){
   await page.keyboard.press('x');
   // Own profile image survives reload and can be removed without touching another profile.
   assert.equal(await mine.locator('.avatar img').count(),1);
+  assert(await page.locator('#remove-avatar').isHidden());
+  await page.locator('#welcome-name').dblclick();
   await page.locator('#remove-avatar').click();
   await wait(()=>profiles.find(p=>p.id===own).avatar_data===null);
   assert.equal(await page.locator('#my-avatar img').count(),0);
@@ -279,6 +316,15 @@ async function scenario(browser,mobile){
   await page.clock.fastForward(30000);
   await wait(async()=>await mine.locator('.slot').count()===50);
   assert(await mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).isDisabled());
+  const list=mine.locator('.rhythm-list');
+  assert(await list.evaluate(e=>e.scrollHeight>e.clientHeight));
+  assert.equal(await list.evaluate(e=>getComputedStyle(e).scrollbarWidth),'thin');
+  await list.evaluate(e=>{e.scrollTop=150;});
+  const scroll=await list.evaluate(e=>e.scrollTop);
+  recordings.get(own+':1').title='Pavadinimas atnaujintas kitur';
+  await page.clock.fastForward(30000);
+  await wait(async()=>await ownSlot(1).locator('h3').textContent()==='Pavadinimas atnaujintas kitur');
+  assert.equal(await list.evaluate(e=>e.scrollTop),scroll,'polling preserves library scroll position');
   await ownSlot(50).getByRole('button',{name:'Ištrinti',exact:true}).click();
   await wait(()=>mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).isEnabled());
   assert.equal(await mine.locator('.slot').count(),49);

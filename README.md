@@ -34,7 +34,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 ### Įrašymo taisyklės
 
 - Vardas yra viešas slapyvardis, ne slaptažodis. Tapatybę suteikia Supabase Auth.
-  Vienodi slapyvardžiai leidžiami; kitus vartotojus atskiria ID žymė.
+  Vienodi slapyvardžiai leidžiami; tapatybę atskiria Supabase vartotojo ID.
 - Prisijungimo sesija išsaugoma `localStorage` ir automatiškai atnaujinama.
   Išvalius naršyklės duomenis, prieigos prie senos anoniminės paskyros galima netekti.
 - Prisijungę vartotojai mato visus profilius, o išskleidę profilį — tik išsaugotus ritmus.
@@ -45,8 +45,11 @@ python3 -m http.server 8000 --bind 127.0.0.1
   sąrašas atnaujinamas iš karto; užvertos grupės atnaujinamos jas išskleidus.
 - Įrašomas tik `{key, time}` masyvas: laikas milisekundėmis nuo pirmo smūgio.
   Pirmas smūgis prasideda ties 0, įrašo trukmė baigiasi paskutiniu smūgiu.
-- Po 120 sekundžių nuo pirmo smūgio įrašymas automatiškai išsaugomas. Vieno įrašo
-  duomenų riba — 6000 smūgių; ją pasiekus taip pat automatiškai išsaugoma.
+- Po 120 sekundžių nuo pirmo smūgio arba pasiekus 6000 smūgių ribą įrašymas baigiamas.
+  Naujas ritmas automatiškai išsaugomas. Perrašomas ritmas pirmiausia pateikiamas
+  perklausai: „Perklausyti bandymą“, „Atnaujinti ritmą“ arba „Atmesti bandymą“.
+  „Baigti“ perrašymo metu taip pat atveria šią perklausą. Senas ritmas pakeičiamas
+  tik paspaudus „Atnaujinti ritmą“ ir sėkmingai išsaugojus.
 - Užvėrus ar perkrovus puslapį nebaigtas bandymas atmetamas; juodraščiai nesaugomi.
   Perrašant ankstesnis įrašas lieka iki naujo įrašo išsaugojimo. Paspaudus išsaugojimą
   užklausa jau gali pasiekti bazę, net jei langas uždaromas dar negavus atsakymo.
@@ -56,7 +59,10 @@ python3 -m http.server 8000 --bind 127.0.0.1
   Pasiekus limitą, galima perrašyti arba ištrinti savo ritmą. Naujo ritmo įrašymas
   nepakeičia kito įrašo, net jei ta pati vieta užimama kitame naršyklės lange.
 - Pavadinimą (1–60 simbolių) galima pakeisti dukart paspaudus savo kortelę arba
-  mygtuku „Pervadinti“. Kitų vartotojų pavadinimų keisti negalima.
+  sufokusavus jos pavadinimą ir paspaudus Enter ar tarpo klavišą. Atskiro pervadinimo
+  mygtuko nėra. Kitų vartotojų pavadinimų keisti negalima.
+- Kompaktiškoje kortelėje atkūrimo mygtukas yra kairėje prie pavadinimo. Ritmų
+  sąrašas turi atskirą slinkimo sritį, kurios pozicija išlaikoma atnaujinant duomenis.
 
 ### Patikros
 
@@ -94,6 +100,9 @@ profilio `avatar_data` lauke (iki 32 KB), todėl papildomo Storage bucket nereik
 Duomenų bazė leidžia keisti tik savo nuotrauką; kiti profilio laukai nepakeičiami.
 Nuotraukas mato tik prisijungę vartotojai. Nepasirinkus nuotraukos, apskritime rodoma
 slapyvardžio pirmoji raidė. Smūgių masyvas lieka įrašo duomenyse ir sąsajoje nerodomas.
+Nuotrauka įkeliama paspaudus savo avatarą. Jos pašalinimo užrašas atsiranda tik
+dukart paspaudus vardą; paspaudus kitur ar perkėlus fokusą į kitą elementą pasislepia.
+Klaviatūra pašalinimą taip pat galima atverti aktyvavus vardo mygtuką.
 
 ### Atnaujinimas nuo 7 iki 50 ritmų
 

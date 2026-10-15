@@ -17,6 +17,7 @@ let pollTimer;
 let mutationRevision = 0;
 let renamingSlot = null;
 let renamingBusy = false;
+let avatarRemovalVisible = false;
 
 function status(message = '', error = false) {
   $('status').textContent = message;
@@ -43,6 +44,7 @@ function markPlayButton(button, owner, slot) {
 }
 
 function updatePlaybackButtons() {
+  markPlayButton($('preview-recording'), 'draft', recording?.slot);
   for (const member of members.values()) {
     for (const button of member.slots.querySelectorAll('.play-rhythm')) {
       markPlayButton(button, member.profile.id, Number(button.dataset.slot));
@@ -73,6 +75,7 @@ function createRhythm() {
 
 function renderSlots(member) {
   if (!member.loaded) return;
+  const previousScroll = member.slots.querySelector('.rhythm-list')?.scrollTop || 0;
   member.slots.replaceChildren();
   const own = member.profile.id === me.id;
   if (own) {
@@ -92,6 +95,11 @@ function renderSlots(member) {
     empty.textContent = own ? 'Dar nėra išsaugotų ritmų.' : 'Dar nėra ritmų.';
     member.slots.append(empty);
   }
+  const list = document.createElement('div');
+  list.className = 'rhythm-list';
+  list.tabIndex = 0;
+  list.setAttribute('role', 'region');
+  list.setAttribute('aria-label', member.profile.nickname + ' ritmai');
   for (const [slot, saved] of [...member.performances].sort(([a], [b]) => a - b)) {
     const active = own && recording?.slot === slot;
     const card = document.createElement('article');
@@ -99,8 +107,21 @@ function renderSlots(member) {
     card.dataset.slot = slot;
     const title = document.createElement('h3');
     title.textContent = rhythmTitle(saved);
+    if (own) {
+      title.tabIndex = 0;
+      title.setAttribute('role', 'button');
+      title.setAttribute('aria-label', 'Pervadinti: ' + rhythmTitle(saved));
+      title.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openRename(slot);
+        }
+      });
+    }
     const info = document.createElement('p');
-    info.textContent = active ? 'Įrašomas naujas bandymas' : duration(saved.duration_ms);
+    info.textContent = active ? (recording.stage === 'review' ? 'Perklausa' : 'Bandymas') : duration(saved.duration_ms);
+    const heading = document.createElement('div');
+    heading.className = 'slot-heading';
     const controls = document.createElement('div');
     controls.className = 'actions';
     if (saved) {
@@ -108,15 +129,13 @@ function renderSlots(member) {
       play.dataset.slot = slot;
       markPlayButton(play, member.profile.id, slot);
       play.disabled = !!recording || busy;
-      controls.append(play);
+      heading.append(play);
     }
+    heading.append(title, info);
     if (own) {
       const record = action('Perrašyti', () => startRecording(slot), 'primary');
       record.disabled = !!recording || busy;
       controls.append(record);
-      const rename = action('Pervadinti', () => openRename(slot));
-      rename.disabled = !!recording || busy;
-      controls.append(rename);
       if (saved) {
         const remove = action('Ištrinti', () => removePerformance(slot), 'danger');
         remove.disabled = !!recording || busy;
@@ -126,8 +145,13 @@ function renderSlots(member) {
     if (own) card.addEventListener('dblclick', event => {
       if (!event.target.closest('button')) openRename(slot);
     });
-    card.append(title, info, controls);
-    member.slots.append(card);
+    card.append(heading);
+    if (own) card.append(controls);
+    list.append(card);
+  }
+  if (member.performances.size) {
+    member.slots.append(list);
+    list.scrollTop = previousScroll;
   }
 }
 
@@ -231,7 +255,8 @@ function updateProfile(member, profile) {
     me = profile;
     $('welcome-name').textContent = 'Labas, ' + profile.nickname + '!';
     showAvatar($('my-avatar'), profile);
-    $('remove-avatar').hidden = !profile.avatar_data;
+    $('remove-avatar').hidden = !profile.avatar_data || !avatarRemovalVisible;
+    $('welcome-name').setAttribute('aria-expanded', String(!!profile.avatar_data && avatarRemovalVisible));
   }
 }
 
@@ -341,6 +366,7 @@ async function changeAvatar(file) {
   try {
     const avatar = file ? await optimizeAvatar(file) : null;
     const [profile] = await db.saveAvatar(avatar);
+    avatarRemovalVisible = false;
     updateProfile(members.get(me.id), profile);
     status(file ? 'Nuotrauka išsaugota.' : 'Nuotrauka pašalinta.');
   } catch (error) {
@@ -364,13 +390,17 @@ function updateRecordBar() {
   const stage = recording.stage;
   $('recording-title').textContent = `${recording.title} · ` + ({
     armed: 'Laukiama pirmo smūgio', recording: 'Įrašoma',
-    saving: 'Išsaugoma…', failed: 'Nepavyko išsaugoti'
+    review: 'Perklausyk naują bandymą', saving: 'Išsaugoma…', failed: 'Nepavyko išsaugoti'
   })[stage];
-  $('finish-recording').hidden = stage === 'failed';
+  $('finish-recording').hidden = ['review', 'failed'].includes(stage);
+  $('finish-recording').textContent = recording.replace ? 'Baigti' : 'Baigti ir išsaugoti';
   $('finish-recording').disabled = stage === 'saving';
+  $('preview-recording').hidden = !['review', 'failed'].includes(stage);
+  $('commit-recording').hidden = stage !== 'review';
   $('retry-recording').hidden = stage !== 'failed';
   $('cancel-recording').disabled = stage === 'saving';
-  const elapsed = recording.started === null ? 0 : Math.min(MAX_TIME, performance.now() - recording.started);
+  const elapsed = ['review', 'failed', 'saving'].includes(stage) ? (recording.events.at(-1)?.time || 0)
+    : recording.started === null ? 0 : Math.min(MAX_TIME, performance.now() - recording.started);
   $('recording-clock').textContent = `${duration(elapsed)} / 120 s`;
 }
 
@@ -409,13 +439,27 @@ window.addEventListener('drumhit', event => {
 });
 
 async function finishRecording() {
-  if (!recording || recording.stage === 'saving') return;
+  if (!recording || ['saving', 'review', 'failed'].includes(recording.stage)) return;
   clearRecordTimers();
   if (!recording.events.length) {
     cancelRecording();
     status('Tuščias bandymas neišsaugotas. Ankstesnis grojimas nepakeistas.');
     return;
   }
+  if (recording.replace) {
+    recording.stage = 'review';
+    updateRecordBar();
+    refreshControls();
+    status('Perklausyk bandymą. Senasis ritmas liks, kol pasirinksi „Atnaujinti ritmą“.');
+    return;
+  }
+  await persistRecording();
+}
+
+async function persistRecording() {
+  if (!recording || recording.stage === 'saving' || !recording.events.length) return;
+  clearRecordTimers();
+  stopPlayback();
   const draft = recording;
   draft.stage = 'saving';
   updateRecordBar();
@@ -439,6 +483,7 @@ async function finishRecording() {
 function cancelRecording() {
   if (recording?.stage === 'saving') return;
   clearRecordTimers();
+  stopPlayback();
   recording = null;
   stopAudio();
   updateRecordBar();
@@ -479,22 +524,31 @@ function stopPlayback() {
 
 async function playPerformance(member, slot) {
   if (recording || busy) return;
-  if (playback?.owner === member.profile.id && playback.slot === slot) {
+  await playSequence(member.performances.get(slot), member.profile.id, slot,
+    `${member.profile.nickname} · ${rhythmTitle(member.performances.get(slot))}`);
+}
+
+async function previewRecording() {
+  if (!recording || !['review', 'failed'].includes(recording.stage)) return;
+  await playSequence(recording, 'draft', recording.slot, recording.title + ' · bandymas', recording);
+}
+
+async function playSequence(saved, owner, slot, label, draft = null) {
+  if (playback?.owner === owner && playback.slot === slot) {
     stopPlayback();
     return;
   }
   stopPlayback();
   const generation = playbackGeneration;
-  const saved = member.performances.get(slot);
   try {
     await prepareAudio();
-    if (generation !== playbackGeneration || recording) return;
+    if (generation !== playbackGeneration || (draft ? recording !== draft || !['review', 'failed'].includes(draft.stage) : recording)) return;
     let index = 0;
     const started = performance.now();
-    playback = { owner: member.profile.id, slot };
+    playback = { owner, slot };
     updatePlaybackButtons();
     const endsAt = started + Math.max(...saved.events.map(note => note.time + soundDuration(note.key))) + 8;
-    $('playback-title').textContent = `${member.profile.nickname} · ${rhythmTitle(saved)}`;
+    $('playback-title').textContent = label;
     $('playback-bar').hidden = false;
     const tick = () => {
       const elapsed = performance.now() - started;
@@ -543,7 +597,9 @@ $('login-form').addEventListener('submit', async event => {
   }
 });
 $('finish-recording').addEventListener('click', finishRecording);
-$('retry-recording').addEventListener('click', finishRecording);
+$('retry-recording').addEventListener('click', persistRecording);
+$('preview-recording').addEventListener('click', previewRecording);
+$('commit-recording').addEventListener('click', persistRecording);
 $('cancel-recording').addEventListener('click', cancelRecording);
 $('stop-playback').addEventListener('click', stopPlayback);
 $('rename-form').addEventListener('submit', finishRename);
@@ -560,6 +616,30 @@ $('avatar-file').addEventListener('change', () => {
   if (file) changeAvatar(file);
 });
 $('remove-avatar').addEventListener('click', () => changeAvatar(null));
+function revealAvatarRemoval() {
+  if (!me?.avatar_data || busy || recording) return;
+  avatarRemovalVisible = true;
+  $('remove-avatar').hidden = false;
+  $('welcome-name').setAttribute('aria-expanded', 'true');
+}
+function hideAvatarRemoval() {
+  avatarRemovalVisible = false;
+  $('remove-avatar').hidden = true;
+  $('welcome-name').setAttribute('aria-expanded', 'false');
+}
+$('welcome-name').addEventListener('dblclick', revealAvatarRemoval);
+$('welcome-name').addEventListener('click', event => {
+  if (event.detail === 0) revealAvatarRemoval();
+});
+document.addEventListener('pointerdown', event => {
+  if (!event.target.closest('#welcome-name, #remove-avatar')) hideAvatarRemoval();
+});
+document.addEventListener('focusin', event => {
+  if (!event.target.closest('#welcome-name, #remove-avatar')) hideAvatarRemoval();
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') hideAvatarRemoval();
+});
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && me && window.drumAppReady) loadUsers(true, true);
 });
