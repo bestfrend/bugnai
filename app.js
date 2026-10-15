@@ -407,7 +407,6 @@ function updateRecordBar() {
 function startRecording(slot) {
   if (recording || busy) return;
   const saved = members.get(me.id)?.performances.get(slot);
-  if (saved && !confirm(`Perrašyti „${rhythmTitle(saved)}“? Ankstesnis ritmas bus pakeistas tik išsaugojus naują.`)) return;
   mutationRevision++;
   stopPlayback();
   prepareAudio().catch(() => {});
@@ -415,7 +414,7 @@ function startRecording(slot) {
   updateRecordBar();
   refreshControls();
   status('Grok būgnais. Dviejų minučių laikas prasidės nuo pirmo smūgio.');
-  $('recording-bar').scrollIntoView({ block: 'start' });
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 }
 
 window.addEventListener('drumhit', event => {

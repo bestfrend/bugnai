@@ -87,7 +87,8 @@ async function scenario(browser,mobile){
     };
   });
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  page.on('dialog',dialog=>dialog.accept());
+  const dialogs=[];
+  page.on('dialog',dialog=>{dialogs.push(dialog.message());dialog.accept();});
   await page.clock.install();
   const base=`http://127.0.0.1:${server.address().port}`;
   await page.goto(base);
@@ -135,6 +136,7 @@ async function scenario(browser,mobile){
   const ownSlot=n=>mine.locator(`.slot[data-slot="${n}"]`);
   const strike=async key=>{if(mobile)await page.locator('.'+key+'.drum').tap();else await page.locator('.'+key+'.drum').click();};
   await mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).click();
+  assert.equal(await page.evaluate(()=>scrollY),0,'creating a rhythm moves the page to the top');
   assert.equal(await mine.locator('.slot').count(),0,'unsaved attempts must not create cards');
   await strike('w');
   assert(await page.locator('.w.drum').evaluate(e=>e.classList.contains('pressed')));
@@ -201,7 +203,10 @@ async function scenario(browser,mobile){
   assert(recordings.get(own+':2').duration_ms<1000);
   // A failed replacement preserves the old record, with a retry kept only in RAM.
   const original=JSON.stringify(recordings.get(own+':1'));
+  const dialogsBeforeOverwrite=dialogs.length;
   await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
+  assert.equal(dialogs.length,dialogsBeforeOverwrite,'overwrite starts without a popup');
+  assert.equal(await page.evaluate(()=>scrollY),0,'overwrite moves the page to the top');
   await strike('d');
   await page.locator('#finish-recording').click();
   assert(await page.locator('#commit-recording').isVisible());
