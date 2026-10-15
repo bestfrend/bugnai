@@ -19,6 +19,46 @@ let renamingSlot = null;
 let renamingBusy = false;
 let avatarRemovalVisible = false;
 
+const iconPaths = {
+  play: ['M8 5v14l11-7z'],
+  stop: ['M6 6h12v12H6z'],
+  repeat: ['M3 11a9 9 0 1 1 2.9 6.9', 'M3 4v7h7'],
+  check: ['M5 12l4 4L19 6'],
+  trash: ['M3 6h18', 'M9 6V4h6v2', 'M5 6l1 14h12l1-14', 'M10 10v6', 'M14 10v6'],
+  plus: ['M12 5v14', 'M5 12h14'],
+  edit: ['M16 3l5 5L8 21H3v-5z', 'M14 5l5 5'],
+  save: ['M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2z', 'M7 3v6h10V3', 'M7 21v-8h10v8'],
+  close: ['M6 6l12 12', 'M6 18L18 6'],
+  arrow: ['M4 12h16', 'M14 6l6 6-6 6'],
+  more: ['M6 9l6 6 6-6']
+};
+const actionIcons = {
+  'Atkurti': 'play', 'Perklausyti bandymą': 'play', 'Perrašyti': 'edit',
+  'Sukurti ritmą': 'plus', 'Ištrinti': 'trash', 'Atnaujinti ritmą': 'check',
+  'Pakartoti bandymą': 'repeat', 'Bandyti dar kartą': 'repeat',
+  'Išsaugoti dar kartą': 'save', 'Stabdyti atkūrimą': 'stop',
+  'Išsaugoti pavadinimą': 'check', 'Atšaukti': 'close',
+  'Pradėti groti': 'arrow', 'Rodyti daugiau vartotojų': 'more'
+};
+
+function decorateAction(button, icon = button.dataset.icon || actionIcons[button.textContent.trim()]) {
+  if (!icon || !iconPaths[icon]) return;
+  const label = document.createElement('span');
+  label.className = 'button-label';
+  label.textContent = button.textContent;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.classList.add('button-icon');
+  for (const data of iconPaths[icon]) {
+    const path = document.createElementNS(svg.namespaceURI, 'path');
+    path.setAttribute('d', data);
+    svg.append(path);
+  }
+  button.replaceChildren(svg, label);
+}
+
 function status(message = '', error = false) {
   $('status').textContent = message;
   $('status').classList.toggle('error', error);
@@ -29,6 +69,7 @@ function action(label, handler, className = '') {
   button.type = 'button';
   button.className = 'action ' + className;
   button.textContent = label;
+  decorateAction(button);
   button.addEventListener('click', handler);
   return button;
 }
@@ -393,12 +434,12 @@ function updateRecordBar() {
     review: 'Perklausyk naują bandymą', saving: 'Išsaugoma…', failed: 'Nepavyko išsaugoti'
   })[stage];
   $('finish-recording').hidden = ['review', 'failed'].includes(stage);
-  $('finish-recording').textContent = recording.replace ? 'Baigti' : 'Baigti ir išsaugoti';
+  $('finish-recording').querySelector('.button-label').textContent = recording.replace ? 'Baigti' : 'Baigti ir išsaugoti';
   $('finish-recording').disabled = stage === 'saving';
   $('preview-recording').hidden = !['review', 'failed'].includes(stage);
   $('commit-recording').hidden = stage !== 'review';
   $('retry-recording').hidden = stage !== 'failed';
-  $('cancel-recording').disabled = stage === 'saving';
+  $('restart-recording').disabled = stage === 'saving';
   const elapsed = ['review', 'failed', 'saving'].includes(stage) ? (recording.events.at(-1)?.time || 0)
     : recording.started === null ? 0 : Math.min(MAX_TIME, performance.now() - recording.started);
   $('recording-clock').textContent = `${duration(elapsed)} / 120 s`;
@@ -476,8 +517,22 @@ async function persistRecording() {
     if (recording !== draft) return;
     draft.stage = 'failed';
     updateRecordBar();
-    status(error.message + ' Bandymas tebėra šiame lange — gali išsaugoti dar kartą arba atmesti.', true);
+    status(error.message + ' Gali išsaugoti dar kartą arba pakartoti bandymą.', true);
   }
+}
+
+function repeatRecording() {
+  if (!recording || recording.stage === 'saving') return;
+  const { slot, title, replace } = recording;
+  clearRecordTimers();
+  stopPlayback();
+  stopAudio();
+  mutationRevision++;
+  recording = { slot, title, replace, stage: 'armed', started: null, events: [] };
+  updateRecordBar();
+  refreshControls();
+  status(replace ? 'Senas ritmas pasikeis tik paspaudus „Atnaujinti ritmą“.'
+    : 'Grok būgnais. Dviejų minučių laikas prasidės nuo pirmo smūgio.');
 }
 
 function cancelRecording() {
@@ -600,7 +655,7 @@ $('finish-recording').addEventListener('click', finishRecording);
 $('retry-recording').addEventListener('click', persistRecording);
 $('preview-recording').addEventListener('click', previewRecording);
 $('commit-recording').addEventListener('click', persistRecording);
-$('cancel-recording').addEventListener('click', cancelRecording);
+$('restart-recording').addEventListener('click', repeatRecording);
 $('stop-playback').addEventListener('click', stopPlayback);
 $('rename-form').addEventListener('submit', finishRename);
 $('cancel-title').addEventListener('click', () => $('rename-dialog').close());
@@ -669,6 +724,9 @@ window.addEventListener('storage', event => {
     status('Prisijungimas šiame įrenginyje pasikeitė. Perkrauk puslapį.', true);
   }
 });
+
+document.querySelectorAll('.action').forEach(button => decorateAction(button));
+decorateAction($('remove-avatar'), 'trash');
 
 (async () => {
   try {

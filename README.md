@@ -47,14 +47,16 @@ python3 -m http.server 8000 --bind 127.0.0.1
   Pirmas smūgis prasideda ties 0, įrašo trukmė baigiasi paskutiniu smūgiu.
 - Po 120 sekundžių nuo pirmo smūgio arba pasiekus 6000 smūgių ribą įrašymas baigiamas.
   Naujas ritmas automatiškai išsaugomas. Perrašomas ritmas pirmiausia pateikiamas
-  perklausai: „Perklausyti bandymą“, „Atnaujinti ritmą“ arba „Atmesti bandymą“.
+  perklausai: „Perklausyti bandymą“, „Atnaujinti ritmą“ arba „Pakartoti bandymą“.
   „Baigti“ perrašymo metu taip pat atveria šią perklausą. Senas ritmas pakeičiamas
   tik paspaudus „Atnaujinti ritmą“ ir sėkmingai išsaugojus.
 - Užvėrus ar perkrovus puslapį nebaigtas bandymas atmetamas; juodraščiai nesaugomi.
   Perrašant ankstesnis įrašas lieka iki naujo įrašo išsaugojimo. Paspaudus išsaugojimą
   užklausa jau gali pasiekti bazę, net jei langas uždaromas dar negavus atsakymo.
 - Tuščias bandymas neišsaugomas. Nepavykus išsaugoti, galima pakartoti išsaugojimą
-  arba atmesti bandymą, kol tas pats langas dar atidarytas.
+  arba pakartoti grojimą, kol tas pats langas dar atidarytas.
+- „Pakartoti bandymą“ išvalo tik laikiną smūgių seką ir laikmatį, sustabdo perklausą
+  ir pradeda naują bandymą tame pačiame ritme. Ankstesnis išsaugotas ritmas nepakeičiamas.
 - Teises ir 50 ritmų limitą užtikrina bazė, ne vien sąsajos mygtukai.
   Pasiekus limitą, galima perrašyti arba ištrinti savo ritmą. Naujo ritmo įrašymas
   nepakeičia kito įrašo, net jei ta pati vieta užimama kitame naršyklės lange.

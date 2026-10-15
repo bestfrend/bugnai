@@ -218,7 +218,23 @@ async function scenario(browser,mobile){
   await page.locator('#preview-recording').click();
   await wait(async()=>await page.locator('#preview-recording').getAttribute('aria-pressed')==='true');
   assert.equal(await page.evaluate(()=>window.audioHits.length),beforePreview+1);
-  await page.locator('#cancel-recording').click();
+  await page.locator('#restart-recording').click();
+  assert(await page.locator('#recording-bar').isVisible());
+  assert(await page.locator('#recording-title').textContent().then(text=>text.includes('Laukiama pirmo smūgio')));
+  assert.equal(await page.locator('#recording-clock').textContent(),'0.0 s / 120 s');
+  assert.equal(JSON.stringify(recordings.get(own+':1')),original,'repeating preserves the old saved rhythm');
+  assert.equal(saves,2);
+  await strike('a');
+  await page.clock.runFor(180);
+  await strike('j');
+  await page.locator('#finish-recording').click();
+  const beforeRepeatPreview=await page.evaluate(()=>window.audioHits.length);
+  await page.locator('#preview-recording').click();
+  await wait(async()=>await page.locator('#preview-recording').getAttribute('aria-pressed')==='true');
+  await page.clock.runFor(1000);
+  assert.equal(await page.evaluate(()=>window.audioHits.length),beforeRepeatPreview+2,'repeated take contains only its two new notes');
+  await page.locator('#restart-recording').click();
+  await page.locator('#finish-recording').click();
   assert(await page.locator('#playback-bar').isHidden());
   assert.equal(JSON.stringify(recordings.get(own+':1')),original,'discarding a preview keeps the original rhythm');
   // The overwrite time limit enters review rather than replacing the old recording.
@@ -227,7 +243,8 @@ async function scenario(browser,mobile){
   await page.clock.fastForward(120000);
   assert(await page.locator('#commit-recording').isVisible());
   assert.equal(JSON.stringify(recordings.get(own+':1')),original);
-  await page.locator('#cancel-recording').click();
+  await page.locator('#restart-recording').click();
+  await page.locator('#finish-recording').click();
   failSave=true;
   await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
   await strike('j');
@@ -317,7 +334,8 @@ async function scenario(browser,mobile){
   await wait(()=>page.locator('#retry-recording').isVisible());
   assert.equal(recordings.get(own+':2').title,'Kitas langas');
   assert.equal(recordings.get(own+':2').events[0].key,'s');
-  await page.locator('#cancel-recording').click();
+  await page.locator('#restart-recording').click();
+  await page.locator('#finish-recording').click();
   // Fifty saved cards disable creation; deleting one enables exactly one new rhythm.
   for(let slot=2;slot<=50;slot++)recordings.set(own+':'+slot,{slot,title:'Ritmas '+slot,events:[{key:'w',time:0}],duration_ms:0,updated_at:new Date().toISOString()});
   await page.clock.fastForward(30000);
@@ -356,10 +374,14 @@ async function scenario(browser,mobile){
     const before=await geometry();
     await page.locator('#finish-recording').click();
     assert.deepEqual(await geometry(),before,`no layout shift during review at ${width}px`);
-    for(const id of ['preview-recording','commit-recording','cancel-recording']) {
+    for(const id of ['preview-recording','commit-recording','restart-recording']) {
       assert(await page.locator('#'+id).evaluate(e=>e.scrollHeight<=e.clientHeight),'button labels fit their reserved cells');
+      assert.equal(await page.locator('#'+id+' .button-icon').count(),1);
     }
-    await page.locator('#cancel-recording').click();
+    assert.equal(await page.locator('.action:not(:has(.button-icon))').count(),0,'all action buttons have matching icons');
+    await page.locator('#restart-recording').click();
+    assert.deepEqual(await geometry(),before,`repeating preserves geometry at ${width}px`);
+  await page.locator('#finish-recording').click();
   }
   console.log('PASS',mobile?'mobile touch':'desktop mouse','login/refresh, saved-only cards, create/play/overwrite/delete/rename, read-only others, 2-minute auto-save, retry/discard, avatars and 30-second polling');
   await context.close();

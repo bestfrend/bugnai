@@ -231,9 +231,23 @@ footer { padding: 24px 0 32px; }
 .recording-bar .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "main secondary cancel"; grid-template-rows: 56px; gap: 8px; }
 #finish-recording, #preview-recording { grid-area: main; }
 #commit-recording, #retry-recording { grid-area: secondary; }
-#cancel-recording { grid-area: cancel; }
+#restart-recording { grid-area: cancel; }
 .recording-bar .action { height: 100%; min-height: 0; min-width: 0; padding: 6px; line-height: 1.2; overflow-wrap: anywhere; }
 @media (max-width: 600px) {
   .recording-bar .actions { grid-template-rows: 64px; }
   .recording-bar .action { font-size: 12px; }
+}
+
+
+/* Shared line icons inherit each action's accent color. */
+.action, .avatar-remove { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.button-icon { display: block; flex: 0 0 auto; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.button-label { min-width: 0; }
+.slot .action { gap: 4px; }
+.slot .button-icon { width: 14px; height: 14px; }
+.avatar-remove .button-icon { width: 12px; height: 12px; }
+.recording-bar .action { padding: 4px 6px; gap: 5px; }
+@media (max-width: 600px) {
+  .recording-bar .action { flex-direction: column; gap: 4px; }
+  .recording-bar .button-icon { width: 14px; height: 14px; }
 }
