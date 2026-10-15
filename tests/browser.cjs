@@ -111,7 +111,7 @@ async function scenario(browser,mobile){
   assert.equal(await displayedDate.getAttribute('datetime'),'2026-10-15T09:00:00.000Z');
   const dateRect=await displayedDate.boundingBox();
   const playRect=await theirs.locator('.play-rhythm').boundingBox();
-  assert(dateRect.y>=playRect.y+playRect.height,'the tiny date appears below the play button');
+  assert(dateRect.y>=playRect.y+playRect.height+4,'the tiny date has breathing room below the play button');
   assert.equal(await displayedDate.evaluate(e=>getComputedStyle(e).fontSize),'9px');
   assert.equal(await theirs.locator('img').count(),0,'nicknames must be rendered as text');
   assert.equal(await theirs.locator('.member-name').textContent(),'Kitas <img src=x>');
@@ -185,7 +185,7 @@ async function scenario(browser,mobile){
   const titleBox=await ownSlot(1).locator('h3').boundingBox();
   assert(playBox.x+playBox.width<=titleBox.x,'play control precedes the title');
   assert(Math.abs(playBox.y+playBox.height/2-titleBox.y-titleBox.height/2)<2,'play and title share a row');
-  assert((await ownSlot(1).boundingBox()).height <= (mobile?90:60),'rhythm cards stay compact');
+  assert((await ownSlot(1).boundingBox()).height <= (mobile?96:64),'rhythm cards stay compact');
   assert(!/smūgi|"key"|"time"/.test(await mine.locator('.slot').allTextContents().then(values=>values.join(' '))));
   // Another device creates a slot and a profile; polling preserves open groups/focus.
   recordings.set(other+':2',{slot:2,events:[{key:'l',time:0}],duration_ms:0,updated_at:new Date().toISOString()});
