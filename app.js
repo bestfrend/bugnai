@@ -4,6 +4,7 @@ import { prepareAudio, hitDrum, stopAudio } from './index.js';
 const $ = id => document.getElementById(id);
 const MAX_TIME = 120000;
 const MAX_NOTES = 6000;
+const MAX_RHYTHMS = 50;
 const members = new Map();
 let me;
 let offset = 0;
@@ -14,6 +15,8 @@ let playbackGeneration = 0;
 let usersLoading = false;
 let pollTimer;
 let mutationRevision = 0;
+let renamingSlot = null;
+let renamingBusy = false;
 
 function status(message = '', error = false) {
   $('status').textContent = message;
@@ -33,21 +36,57 @@ function duration(ms) {
   return (ms / 1000).toFixed(1) + ' s';
 }
 
+function rhythmTitle(saved) {
+  return saved.title || 'Ritmas ' + saved.slot;
+}
+
+function nextFreeSlot(member) {
+  for (let slot = 1; slot <= MAX_RHYTHMS; slot++) {
+    if (!member.performances.has(slot)) return slot;
+  }
+  return null;
+}
+
+function createRhythm() {
+  if (recording || busy) return;
+  const slot = nextFreeSlot(members.get(me.id));
+  if (slot === null) {
+    status('Pasiektas 50 ritmų limitas. Gali perrašyti arba ištrinti vieną iš savo ritmų.');
+    return;
+  }
+  startRecording(slot);
+}
+
 function renderSlots(member) {
   if (!member.loaded) return;
   member.slots.replaceChildren();
-  for (let slot = 1; slot <= 7; slot++) {
-    const saved = member.performances.get(slot);
-    const own = member.profile.id === me.id;
+  const own = member.profile.id === me.id;
+  if (own) {
+    const tools = document.createElement('div');
+    tools.className = 'library-tools';
+    const create = action('Sukurti ritmą', createRhythm, 'primary create-rhythm');
+    create.disabled = !!recording || busy || member.performances.size >= MAX_RHYTHMS;
+    const count = document.createElement('span');
+    count.className = 'hint rhythm-count';
+    count.textContent = `${member.performances.size} / ${MAX_RHYTHMS} ritmų`;
+    tools.append(create, count);
+    member.slots.append(tools);
+  }
+  if (!member.performances.size) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-library hint';
+    empty.textContent = own ? 'Dar nėra išsaugotų ritmų.' : 'Dar nėra ritmų.';
+    member.slots.append(empty);
+  }
+  for (const [slot, saved] of [...member.performances].sort(([a], [b]) => a - b)) {
     const active = own && recording?.slot === slot;
     const card = document.createElement('article');
     card.className = 'slot' + (active ? ' is-recording' : '');
     card.dataset.slot = slot;
     const title = document.createElement('h3');
-    title.textContent = 'Grojimas ' + slot;
+    title.textContent = rhythmTitle(saved);
     const info = document.createElement('p');
-    info.textContent = active ? 'Naujas bandymas · ankstesnis įrašas lieka iki išsaugojimo' : saved
-      ? duration(saved.duration_ms) : 'Laisva vieta';
+    info.textContent = active ? 'Įrašomas naujas bandymas' : duration(saved.duration_ms);
     const controls = document.createElement('div');
     controls.className = 'actions';
     if (saved) {
@@ -56,19 +95,63 @@ function renderSlots(member) {
       controls.append(play);
     }
     if (own) {
-      const record = action(saved ? 'Perrašyti' : 'Įrašyti', () => startRecording(slot), 'primary');
+      const record = action('Perrašyti', () => startRecording(slot), 'primary');
       record.disabled = !!recording || busy;
       controls.append(record);
+      const rename = action('Pervadinti', () => openRename(slot));
+      rename.disabled = !!recording || busy;
+      controls.append(rename);
       if (saved) {
         const remove = action('Ištrinti', () => removePerformance(slot), 'danger');
         remove.disabled = !!recording || busy;
         controls.append(remove);
       }
-    } else if (!saved) {
-      info.textContent = 'Dar neįrašyta';
     }
+    if (own) card.addEventListener('dblclick', event => {
+      if (!event.target.closest('button')) openRename(slot);
+    });
     card.append(title, info, controls);
     member.slots.append(card);
+  }
+}
+
+function openRename(slot) {
+  if (busy || recording) return;
+  const saved = members.get(me.id).performances.get(slot);
+  if (!saved) return;
+  renamingSlot = slot;
+  $('rhythm-title-input').value = rhythmTitle(saved);
+  $('rhythm-title-input').setCustomValidity('');
+  $('rename-error').textContent = '';
+  $('rename-dialog').showModal();
+  $('rhythm-title-input').focus();
+  $('rhythm-title-input').select();
+}
+
+async function finishRename(event) {
+  event.preventDefault();
+  if (renamingBusy || renamingSlot === null) return;
+  const title = $('rhythm-title-input').value.trim();
+  if (!title || Array.from(title).length > 60) {
+    $('rhythm-title-input').setCustomValidity('Pavadinimas turi būti nuo 1 iki 60 simbolių.');
+    $('rhythm-title-input').reportValidity();
+    return;
+  }
+  busy = renamingBusy = true;
+  mutationRevision++;
+  $('save-title').disabled = $('cancel-title').disabled = true;
+  refreshControls();
+  try {
+    const saved = await db.renamePerformance(renamingSlot, title);
+    members.get(me.id).performances.set(renamingSlot, saved);
+    $('rename-dialog').close();
+    status('Ritmo pavadinimas išsaugotas.');
+  } catch (error) {
+    $('rename-error').textContent = error.message;
+  } finally {
+    busy = renamingBusy = false;
+    $('save-title').disabled = $('cancel-title').disabled = false;
+    refreshControls();
   }
 }
 
@@ -263,7 +346,7 @@ function updateRecordBar() {
   $('recording-bar').hidden = !recording;
   if (!recording) return;
   const stage = recording.stage;
-  $('recording-title').textContent = `Tavo ${recording.slot} vieta · ` + ({
+  $('recording-title').textContent = `${recording.title} · ` + ({
     armed: 'Laukiama pirmo smūgio', recording: 'Įrašoma',
     saving: 'Išsaugoma…', failed: 'Nepavyko išsaugoti'
   })[stage];
@@ -278,11 +361,11 @@ function updateRecordBar() {
 function startRecording(slot) {
   if (recording || busy) return;
   const saved = members.get(me.id)?.performances.get(slot);
-  if (saved && !confirm(`Perrašyti ${slot} vietą? Ankstesnis grojimas bus pakeistas tik išsaugojus naują.`)) return;
+  if (saved && !confirm(`Perrašyti „${rhythmTitle(saved)}“? Ankstesnis ritmas bus pakeistas tik išsaugojus naują.`)) return;
   mutationRevision++;
   stopPlayback();
   prepareAudio().catch(() => {});
-  recording = { slot, stage: 'armed', started: null, events: [] };
+  recording = { slot, title: saved ? rhythmTitle(saved) : 'Ritmas ' + slot, replace: !!saved, stage: 'armed', started: null, events: [] };
   updateRecordBar();
   refreshControls();
   status('Grok būgnais. Dviejų minučių laikas prasidės nuo pirmo smūgio.');
@@ -321,14 +404,14 @@ async function finishRecording() {
   draft.stage = 'saving';
   updateRecordBar();
   try {
-    const [saved] = await db.savePerformance(draft.slot, draft.events);
+    const [saved] = await db.savePerformance(draft.slot, draft.events, draft.title, draft.replace);
     // A pagehide can discard local state while the explicitly requested save finishes.
     if (recording !== draft) return;
     members.get(me.id).performances.set(draft.slot, saved);
     recording = null;
     updateRecordBar();
     refreshControls();
-    status(`Grojimas išsaugotas ${draft.slot} vietoje. Jį gali perklausyti visi prisijungę vartotojai.`);
+    status(`„${rhythmTitle(saved)}“ išsaugotas. Jį gali perklausyti visi prisijungę vartotojai.`);
   } catch (error) {
     if (recording !== draft) return;
     draft.stage = 'failed';
@@ -348,7 +431,8 @@ function cancelRecording() {
 }
 
 async function removePerformance(slot) {
-  if (recording || busy || !confirm(`Ištrinti savo grojimą ${slot} vietoje?`)) return;
+  const saved = members.get(me.id)?.performances.get(slot);
+  if (recording || busy || !saved || !confirm(`Ištrinti ritmą „${rhythmTitle(saved)}“?`)) return;
   busy = true;
   mutationRevision++;
   stopPlayback();
@@ -356,7 +440,7 @@ async function removePerformance(slot) {
   try {
     await db.deletePerformance(slot);
     members.get(me.id).performances.delete(slot);
-    status(`Grojimas ištrintas. ${slot} vieta vėl laisva.`);
+    status('Ritmas ištrintas. Gali sukurti naują.');
   } catch (error) {
     status(error.message, true);
   } finally {
@@ -387,7 +471,7 @@ async function playPerformance(member, slot) {
     let index = 0;
     const started = performance.now();
     playback = {};
-    $('playback-title').textContent = `${member.profile.nickname} · Grojimas ${slot}`;
+    $('playback-title').textContent = `${member.profile.nickname} · ${rhythmTitle(saved)}`;
     $('playback-bar').hidden = false;
     const tick = () => {
       const elapsed = performance.now() - started;
@@ -439,6 +523,13 @@ $('finish-recording').addEventListener('click', finishRecording);
 $('retry-recording').addEventListener('click', finishRecording);
 $('cancel-recording').addEventListener('click', cancelRecording);
 $('stop-playback').addEventListener('click', stopPlayback);
+$('rename-form').addEventListener('submit', finishRename);
+$('cancel-title').addEventListener('click', () => $('rename-dialog').close());
+$('rename-dialog').addEventListener('cancel', event => {
+  if (renamingBusy) event.preventDefault();
+});
+$('rename-dialog').addEventListener('close', () => { renamingSlot = null; });
+$('rhythm-title-input').addEventListener('input', () => $('rhythm-title-input').setCustomValidity(''));
 $('more-users').addEventListener('click', () => loadUsers());
 $('upload-avatar').addEventListener('click', () => $('avatar-file').click());
 $('avatar-file').addEventListener('change', () => {

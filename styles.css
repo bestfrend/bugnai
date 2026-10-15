@@ -181,3 +181,13 @@ footer { padding: 24px 0 32px; }
 .member-arrow { display: inline-block; padding: 0 6px; font-size: 30px; line-height: 1; font-weight: 400; color: #b7c4df; transition: transform 160ms ease; }
 .user-card[open] > summary .member-arrow { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) { .member-arrow { transition: none; } }
+
+.library-tools { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 4px 0 8px; }
+.empty-library { grid-column: 1 / -1; }
+.slot { touch-action: manipulation; }
+.slot h3 { overflow-wrap: anywhere; }
+#rename-dialog { max-width: 440px; width: calc(100% - 32px); padding: 24px; border: 1px solid #7e8caa; border-radius: 20px; background: #222b41; color: #dbedf3; font-family: system-ui, sans-serif; }
+#rename-dialog::backdrop { background: #101727b8; }
+#rename-dialog label { display: block; margin: 16px 0 8px; }
+.text-input { width: 100%; min-height: 44px; padding: 12px; border: 1px solid #7e8caa; border-radius: 12px; background: #192136; color: #fff; font-size: 16px; user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
+#rename-error { color: #ffb6c4; font-size: 14px; }

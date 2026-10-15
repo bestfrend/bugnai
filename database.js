@@ -56,6 +56,10 @@ async function request(path, options = {}, token) {
     let message = 'Veiksmas nepavyko. Bandyk dar kartą.';
     if (data?.code === '42P01' || data?.code === 'PGRST205') {
       message = 'Duomenų bazė dar neparuošta. Reikia paleisti projekto schema.sql Supabase SQL Editor.';
+    } else if (data?.code === 'PGRST204' || data?.code === '42703') {
+      message = 'Duomenų bazę reikia atnaujinti. Supabase SQL Editor paleisk recordings-50.sql.';
+    } else if (data?.code === '23505') {
+      message = 'Šią vietą jau užėmė įrašas kitame lange. Ankstesnis ritmas nepakeistas.';
     } else if (data?.code === 'anonymous_provider_disabled') {
       message = 'Supabase nustatymuose reikia įjungti anoniminį prisijungimą.';
     } else if (response.status === 429) {
@@ -147,18 +151,31 @@ export function saveAvatar(avatar) {
 }
 
 export function listPerformances(owner) {
-  return rest('performances?select=slot,events,duration_ms,updated_at&owner_id=eq.' + encodeURIComponent(owner) + '&order=slot.asc');
+  return rest('performances?select=*&owner_id=eq.' + encodeURIComponent(owner) + '&order=slot.asc');
 }
 
-export function savePerformance(slot, events) {
+export async function savePerformance(slot, events, title, replace = false) {
   const user = currentUser();
-  return rest('performances?on_conflict=owner_id,slot', {
-    method: 'POST',
-    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+  const path = replace ? 'performances?owner_id=eq.' + user.id + '&slot=eq.' + slot : 'performances';
+  const result = await rest(path, {
+    method: replace ? 'PATCH' : 'POST',
+    headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
-      owner_id: user.id, slot, events, duration_ms: events.at(-1).time
+      ...(replace ? {} : { owner_id: user.id, slot }),
+      events, duration_ms: events.at(-1).time, title
     })
   });
+  if (!result.length) throw new Error('Ritmas kitame lange jau pašalintas. Atmesk bandymą ir sukurk naują ritmą.');
+  return result;
+}
+
+export async function renamePerformance(slot, title) {
+  const result = await rest('performances?owner_id=eq.' + currentUser().id + '&slot=eq.' + slot, {
+    method: 'PATCH', headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ title })
+  });
+  if (!result.length) throw new Error('Šis ritmas kitame lange jau pašalintas.');
+  return result[0];
 }
 
 export function deletePerformance(slot) {

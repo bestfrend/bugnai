@@ -13,7 +13,7 @@
   <main>
     <p id="status" class="status" role="status" aria-live="polite">Jungiamasi…</p>
     <section id="login" class="panel login-panel" aria-labelledby="login-title">
-      <h2 id="login-title">Tavo ritmas. Tavo septynios vietos.</h2>
+      <h2 id="login-title">Tavo ritmas. Tavo kūryba.</h2>
       <p>Įvesk slapyvardį, grok ir klausyk kitų sukurtų ritmų.</p>
       <form id="login-form">
         <label for="nickname">Tavo slapyvardis</label>
@@ -67,6 +67,18 @@
     </div>
     <noscript>Šiai programai reikia įjungti JavaScript.</noscript>
   </main>
+  <dialog id="rename-dialog" aria-labelledby="rename-heading">
+    <form id="rename-form">
+      <h2 id="rename-heading">Ritmo pavadinimas</h2>
+      <label for="rhythm-title-input">Pavadinimas</label>
+      <input id="rhythm-title-input" class="text-input" maxlength="60" required autocomplete="off">
+      <p id="rename-error" role="alert"></p>
+      <div class="actions">
+        <button id="save-title" type="submit" class="action primary">Išsaugoti pavadinimą</button>
+        <button id="cancel-title" type="button" class="action">Atšaukti</button>
+      </div>
+    </form>
+  </dialog>
   <footer>
     <div>Kurta su ❤️ Londone</div>
     <div class="version">Versija <span id="app-version">1.01</span></div>

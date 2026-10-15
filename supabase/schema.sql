@@ -36,7 +36,7 @@ $$;
 
 create table if not exists public.performances (
   owner_id uuid not null references public.profiles(id) on delete cascade,
-  slot smallint not null check (slot between 1 and 7),
+  slot smallint not null check (slot between 1 and 50),
   events jsonb not null,
   duration_ms integer not null,
   updated_at timestamptz not null default now(),
@@ -93,5 +93,10 @@ grant update (avatar_data) on public.profiles to authenticated;
 drop policy if exists profiles_update_own_avatar on public.profiles;
 create policy profiles_update_own_avatar on public.profiles for update to authenticated
 using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
+
+alter table public.performances drop constraint if exists performances_slot_check;
+alter table public.performances add constraint performances_slot_check check (slot between 1 and 50);
+alter table public.performances add column if not exists title text not null default ''
+  check (title = btrim(title) and char_length(title) <= 60);
 
 commit;

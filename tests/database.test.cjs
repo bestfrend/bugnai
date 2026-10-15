@@ -31,6 +31,10 @@ before(async () => {
   const avatars = readFileSync('supabase/avatars.sql', 'utf8');
   await db.exec(avatars);
   await db.exec(avatars);
+  await db.exec('alter table public.performances drop constraint performances_slot_check; alter table public.performances add constraint performances_slot_check check(slot between 1 and 7); alter table public.performances drop column title');
+  const rhythms = readFileSync('supabase/recordings-50.sql', 'utf8');
+  await db.exec(rhythms);
+  await db.exec(rhythms);
   await user(alice);
   await db.query('insert into profiles(id,nickname) values ($1,$2)',[alice,'Pirmas']);
   await user(bob);
@@ -65,17 +69,17 @@ test('only an owner can create their profile or performance',async()=>{
   await assert.rejects(insert(bob,1),{code:'42501'});
   await insert(alice,1);
 });
-test('seven slots are a database constraint, not just a UI limit',async()=>{
+test('fifty rhythms are a database constraint, not just a UI limit',async()=>{
   await user(alice);
-  for(let slot=2;slot<=7;slot++) await insert(alice,slot);
-  assert.equal((await db.query('select * from performances where owner_id=$1',[alice])).rows.length,7);
-  await assert.rejects(insert(alice,8),{code:'23514'});
+  for(let slot=2;slot<=50;slot++) await insert(alice,slot);
+  assert.equal((await db.query('select * from performances where owner_id=$1',[alice])).rows.length,50);
+  await assert.rejects(insert(alice,51),{code:'23514'});
   await assert.rejects(insert(alice,0),{code:'23514'});
   await assert.rejects(insert(alice,1),{code:'23505'});
 });
 test('other users can read but cannot update, delete or take ownership of recordings',async()=>{
   await user(bob);
-  assert.equal((await db.query('select * from performances')).rows.length,7);
+  assert.equal((await db.query('select * from performances')).rows.length,50);
   const changed=await db.query('update performances set duration_ms=250 where owner_id=$1 returning *',[alice]);
   assert.equal(changed.rows.length,0);
   const removed=await db.query('delete from performances where owner_id=$1 returning *',[alice]);
@@ -108,4 +112,18 @@ test('malformed, oversized, unsorted and over-two-minute recordings are rejected
   ];
   for(const [events,ms] of invalid) await assert.rejects(insert(alice,1,JSON.stringify(events),ms),{code:'23514'});
   await insert(alice,1,JSON.stringify([{key:'w',time:0},{key:'k',time:120000}]),120000);
+});
+test('rhythm titles are editable only by their owner and migration preserves existing data',async()=>{
+  await user(alice);
+  const before = (await db.query('select events from performances where owner_id=$1 and slot=1',[alice])).rows[0].events;
+  await db.query('update performances set title=$1 where owner_id=$2 and slot=1',['Mano ritmas',alice]);
+  await assert.rejects(db.query('update performances set title=$1 where owner_id=$2 and slot=1',['x'.repeat(61),alice]),{code:'23514'});
+  await assert.rejects(db.query('update performances set title=$1 where owner_id=$2 and slot=1',[' tarpai ',alice]),{code:'23514'});
+  await user(bob);
+  assert.equal((await db.query('select title from performances where owner_id=$1 and slot=1',[alice])).rows[0].title,'Mano ritmas');
+  assert.equal((await db.query('update performances set title=$1 where owner_id=$2 returning *',['Svetimas',alice])).rows.length,0);
+  await db.exec('reset role');
+  await db.exec(readFileSync('supabase/recordings-50.sql','utf8'));
+  assert.deepEqual((await db.query('select events from performances where owner_id=$1 and slot=1',[alice])).rows[0].events,before);
+  assert.equal((await db.query('select title from performances where owner_id=$1 and slot=1',[alice])).rows[0].title,'Mano ritmas');
 });

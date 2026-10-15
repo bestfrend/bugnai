@@ -23,7 +23,7 @@ Workflow numeracija turi būti išsaugota tęsiant tą patį workflow failą.
 4. Publikuokite tik po lentelių sukūrimo. GitHub Pages workflow įkelia tik programos
    failus, paveikslėlius bei garsus ir prieš publikavimą paleidžia bazės taisyklių testus.
 5. Tikroje svetainėje išbandykite dvi atskiras naršykles: abi turi matyti visus
-   slapyvardžius ir jų 7 vietas; kiekviena gali keisti ir trinti tik savo įrašus.
+   slapyvardžius ir išsaugotus ritmus; kiekviena gali keisti ir trinti tik savo įrašus.
 
 Programai nereikia papildomo backend serverio ar build komandos. Paleiskite:
 
@@ -37,7 +37,9 @@ python3 -m http.server 8000 --bind 127.0.0.1
   Vienodi slapyvardžiai leidžiami; kitus vartotojus atskiria ID žymė.
 - Prisijungimo sesija išsaugoma `localStorage` ir automatiškai atnaujinama.
   Išvalius naršyklės duomenis, prieigos prie senos anoniminės paskyros galima netekti.
-- Prisijungę vartotojai mato visus profilius, o išskleidę profilį — jo 7 vietas.
+- Prisijungę vartotojai mato visus profilius, o išskleidę profilį — tik išsaugotus ritmus.
+  Savo grupėje mygtukas „Sukurti ritmą“ pradeda naują bandymą; kortelė atsiranda
+  tik sėkmingai išsaugojus. Vienam vartotojui leidžiama iki 50 ritmų.
   Sąrašas papildomas po 50 vartotojų ir atnaujinamas kas 30 sekundžių. Atvertos grupės
   išlieka atvertos, vykstantis įrašymas nenutraukiamas. Sugrįžus į naršyklės kortelę,
   sąrašas atnaujinamas iš karto; užvertos grupės atnaujinamos jas išskleidus.
@@ -50,7 +52,11 @@ python3 -m http.server 8000 --bind 127.0.0.1
   užklausa jau gali pasiekti bazę, net jei langas uždaromas dar negavus atsakymo.
 - Tuščias bandymas neišsaugomas. Nepavykus išsaugoti, galima pakartoti išsaugojimą
   arba atmesti bandymą, kol tas pats langas dar atidarytas.
-- Teises ir 7 vietų limitą užtikrina bazė, ne vien sąsajos mygtukai.
+- Teises ir 50 ritmų limitą užtikrina bazė, ne vien sąsajos mygtukai.
+  Pasiekus limitą, galima perrašyti arba ištrinti savo ritmą. Naujo ritmo įrašymas
+  nepakeičia kito įrašo, net jei ta pati vieta užimama kitame naršyklės lange.
+- Pavadinimą (1–60 simbolių) galima pakeisti dukart paspaudus savo kortelę arba
+  mygtuku „Pervadinti“. Kitų vartotojų pavadinimų keisti negalima.
 
 ### Patikros
 
@@ -88,3 +94,11 @@ profilio `avatar_data` lauke (iki 32 KB), todėl papildomo Storage bucket nereik
 Duomenų bazė leidžia keisti tik savo nuotrauką; kiti profilio laukai nepakeičiami.
 Nuotraukas mato tik prisijungę vartotojai. Nepasirinkus nuotraukos, apskritime rodoma
 slapyvardžio pirmoji raidė. Smūgių masyvas lieka įrašo duomenyse ir sąsajoje nerodomas.
+
+### Atnaujinimas nuo 7 iki 50 ritmų
+
+Jau veikiančiame projekte Supabase **SQL Editor** paleiskite
+[supabase/recordings-50.sql](supabase/recordings-50.sql). Jis išplečia leistinų
+įrašų vietų ribą ir prideda pavadinimą, išsaugodamas ankstesnius įrašus.
+Esami ritmai be pavadinimo rodomi kaip „Ritmas 1“, „Ritmas 2“ ir t. t.
+Naujame projekte pakanka viso atnaujinto `supabase/schema.sql`.
