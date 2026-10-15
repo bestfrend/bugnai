@@ -6,6 +6,8 @@ const buttons = new Map();
 const animationTimers = new Map();
 const buffers = new Map();
 const fallbackSounds = new Map();
+const activeSources = new Set();
+const loadingSounds = [];
 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 let audioContext;
 try {
@@ -24,14 +26,14 @@ for (const [key, file] of Object.entries(soundFiles)) {
   });
   fallbackSounds.set(key, { voices, next: 0 });
   if (audioContext) {
-    fetch(path)
+    loadingSounds.push(fetch(path)
       .then(response => {
         if (!response.ok) throw new Error('Sound unavailable: ' + path);
         return response.arrayBuffer();
       })
       .then(data => audioContext.decodeAudioData(data))
       .then(buffer => buffers.set(key, buffer))
-      .catch(() => {}); // Keep the preloaded audio fallback if decoding fails.
+      .catch(() => {})); // Keep the preloaded audio fallback if decoding fails.
   }
 }
 
@@ -48,13 +50,18 @@ function playBuffer(key) {
   const source = audioContext.createBufferSource();
   source.buffer = buffers.get(key);
   source.connect(audioContext.destination);
-  source.onended = () => source.disconnect();
+  activeSources.add(source);
+  source.onended = () => {
+    activeSources.delete(source);
+    source.disconnect();
+  };
   source.start();
 }
 
-function hitDrum(key) {
+export function hitDrum(key, live = true) {
   const button = buttons.get(key);
   if (!button) return;
+  if (live) window.dispatchEvent(new CustomEvent('drumhit', { detail: { key } }));
 
   clearTimeout(animationTimers.get(key));
   button.classList.add('pressed');
@@ -79,17 +86,18 @@ for (const button of document.querySelectorAll('.drum')) {
   const key = button.textContent.trim();
   buttons.set(key, button);
   button.addEventListener('pointerdown', event => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || !window.drumAppReady) return;
     event.preventDefault();
     hitDrum(key);
   });
   // Native keyboard/assistive activation has no preceding pointerdown.
   button.addEventListener('click', event => {
-    if (event.detail === 0) hitDrum(key);
+    if (event.detail === 0 && window.drumAppReady) hitDrum(key);
   });
 }
 
 document.addEventListener('keydown', event => {
+  if (!window.drumAppReady) return;
   if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
   const key = event.key.toLowerCase();
@@ -97,3 +105,24 @@ document.addEventListener('keydown', event => {
   event.preventDefault();
   hitDrum(key);
 });
+
+export async function prepareAudio() {
+  if (audioContext && audioContext.state !== 'running') await audioContext.resume();
+  await Promise.all(loadingSounds);
+}
+
+export function stopAudio() {
+  for (const source of activeSources) source.stop();
+  activeSources.clear();
+  for (const { voices } of fallbackSounds.values()) {
+    for (const audio of voices) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+  }
+  for (const [key, timer] of animationTimers) {
+    clearTimeout(timer);
+    buttons.get(key).classList.remove('pressed');
+  }
+  animationTimers.clear();
+}

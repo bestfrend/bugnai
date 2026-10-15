@@ -1,34 +1,69 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
-
+<html lang="lt" dir="ltr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#283149">
   <title>Būgnai</title>
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css?family=Arvo" rel="stylesheet">
 </head>
-
 <body>
+  <header><h1 id="title">Būgnų 🥁 komplektas</h1></header>
+  <main>
+    <p id="status" class="status" role="status" aria-live="polite">Jungiamasi…</p>
+    <section id="login" class="panel login-panel" aria-labelledby="login-title">
+      <h2 id="login-title">Tavo ritmas. Tavo septynios vietos.</h2>
+      <p>Įvesk slapyvardį, grok ir klausyk kitų sukurtų ritmų.</p>
+      <form id="login-form">
+        <label for="nickname">Tavo slapyvardis</label>
+        <div class="login-fields">
+          <input id="nickname" name="nickname" autocomplete="nickname" maxlength="24" required placeholder="Kaip tave vadinti?">
+          <button type="submit" class="action primary" id="login-button">Pradėti groti</button>
+        </div>
+      </form>
+      <p class="hint">Be slaptažodžio. Ši naršyklė prisimins tave; išvalius jos duomenis prieigos prie savo įrašų galima netekti.</p>
+    </section>
 
-  <h1 id="title">Būgnų 🥁 komplektas</h1>
-  <div class="set">
-    <button class="w drum">w</button>
-    <button class="a drum">a</button>
-    <button class="s drum">s</button>
-    <button class="d drum">d</button>
-    <button class="j drum">j</button>
-    <button class="k drum">k</button>
-    <button class="l drum">l</button>
-  </div>
-
-
-
-<script src=index.js charset="utf-8"></script>
+    <div id="workspace" hidden>
+      <div class="welcome"><span id="welcome-name"></span><span class="badge">7 vietos kūrybai</span></div>
+      <section id="recording-bar" class="recording-bar" hidden aria-label="Įrašymo valdymas">
+        <div><strong id="recording-title"></strong><span id="recording-clock" class="recording-clock"></span></div>
+        <div class="actions">
+          <button id="finish-recording" class="action primary" type="button">Baigti ir išsaugoti</button>
+          <button id="retry-recording" class="action primary" type="button" hidden>Bandyti išsaugoti dar kartą</button>
+          <button id="cancel-recording" class="action" type="button">Atmesti bandymą</button>
+        </div>
+      </section>
+      <section class="kit" aria-label="Būgnai">
+        <p class="hint">Paliesk būgnus arba grok klavišais W A S D J K L.</p>
+        <div class="set">
+          <button type="button" class="w drum" aria-label="Pirmas tomas, W">w</button>
+          <button type="button" class="a drum" aria-label="Antras tomas, A">a</button>
+          <button type="button" class="s drum" aria-label="Trečias tomas, S">s</button>
+          <button type="button" class="d drum" aria-label="Ketvirtas tomas, D">d</button>
+          <button type="button" class="j drum" aria-label="Mažasis būgnas, J">j</button>
+          <button type="button" class="k drum" aria-label="Lėkštė, K">k</button>
+          <button type="button" class="l drum" aria-label="Bosinis būgnas, L">l</button>
+        </div>
+      </section>
+      <div id="playback-bar" class="playback-bar" hidden>
+        <span id="playback-title"></span>
+        <button id="stop-playback" type="button" class="action">Stabdyti atkūrimą</button>
+      </div>
+      <section class="community panel" aria-labelledby="community-title">
+        <div class="section-heading"><div><h2 id="community-title">Mūsų ritmai</h2><p class="hint">Paspausk vardą ir išskleisk septynias įrašų vietas.</p></div><button type="button" id="refresh-users" class="action">Atnaujinti sąrašą</button></div>
+        <p class="hint">Įrašai matomi visiems prisijungusiems. Keisti ir trinti gali tik savo.</p>
+        <div id="users"></div>
+        <button type="button" id="more-users" class="action" hidden>Rodyti daugiau vartotojų</button>
+      </section>
+    </div>
+    <noscript>Šiai programai reikia įjungti JavaScript.</noscript>
+  </main>
   <footer>
     <div>Kurta su ❤️ Londone</div>
     <div class="version">Versija <span id="app-version">1.01</span></div>
   </footer>
+  <script type="module" src="app.js"></script>
 </body>
-
 </html>

@@ -1,0 +1,12 @@
+{
+  "name": "bugnai",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/database.test.cjs",
+    "test:browser": "node tests/browser.cjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "playwright": "1.62.1"
+  }
+}

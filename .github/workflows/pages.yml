@@ -25,10 +25,19 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Check database permissions and recording limits
+        run: |
+          npm ci --ignore-scripts
+          npm test
       - name: Prepare versioned site
         run: |
           mkdir -p _site
-          cp index.html index.js styles.css _site/
+          cp index.html index.js app.js database.js supabase-config.js styles.css _site/
           cp -R images sounds _site/
           python3 - <<'PY'
           import os
