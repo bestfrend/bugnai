@@ -111,6 +111,11 @@ export async function prepareAudio() {
   await Promise.all(loadingSounds);
 }
 
+export function soundDuration(key) {
+  const seconds = buffers.get(key)?.duration || fallbackSounds.get(key)?.voices[0].duration;
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 5000;
+}
+
 export function stopAudio() {
   for (const source of activeSources) source.stop();
   activeSources.clear();

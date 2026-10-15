@@ -112,7 +112,8 @@ async function scenario(browser,mobile){
   await wait(async()=>await theirs.locator('.member-arrow').evaluate(e=>getComputedStyle(e).transform)==='matrix(0, 1, -1, 0, 0, 0)');
   // Browser uploads a real image, and the app rasterizes a small JPEG avatar.
   const png=await page.locator('.drum').first().screenshot();
-  await page.locator('#avatar-file').setInputFiles({name:'avatar.png',mimeType:'image/png',buffer:png});
+  const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.locator('#upload-avatar').click()]);
+  await chooser.setFiles({name:'avatar.png',mimeType:'image/png',buffer:png});
   await wait(()=>!!profiles.find(p=>p.id===own)?.avatar_data);
   await wait(()=>page.locator('#remove-avatar').isEnabled());
   const avatar=profiles.find(p=>p.id===own).avatar_data;
@@ -120,6 +121,9 @@ async function scenario(browser,mobile){
   assert(avatar.length<=32768);
   assert(await page.locator('#my-avatar img').evaluate(e=>e.naturalWidth===128 && e.naturalHeight===128));
   assert.equal(await mine.locator('.avatar').evaluate(e=>getComputedStyle(e).borderRadius),'50%');
+  assert.equal(await page.locator('#upload-avatar').evaluate(e=>getComputedStyle(e).borderRadius),'50%');
+  assert.equal(await page.locator('#remove-avatar').evaluate(e=>getComputedStyle(e).fontSize),'11px');
+  assert.equal(await page.locator('#remove-avatar').evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');
   await page.locator('#avatar-file').setInputFiles({name:'invalid.svg',mimeType:'image/svg+xml',buffer:Buffer.from('<svg/>')});
   await wait(async()=>await page.locator('#status').textContent().then(text=>text.includes('JPG, PNG arba WebP')));
   assert.equal(profiles.find(p=>p.id===own).avatar_data,avatar,'invalid uploads must leave the old avatar intact');
@@ -228,12 +232,30 @@ async function scenario(browser,mobile){
   const beforePlayback = await page.evaluate(() => window.audioHits.length);
   await theirs.locator('[data-slot="1"]').getByRole('button',{name:'Atkurti',exact:true}).click();
   await wait(()=>page.locator('#playback-bar').isVisible());
+  const firstPlay=theirs.locator('[data-slot="1"] .play-rhythm');
+  const secondPlay=theirs.locator('[data-slot="2"] .play-rhythm');
+  assert.equal(await firstPlay.getAttribute('aria-pressed'),'true');
+  assert.equal(await firstPlay.evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(24, 115, 78)');
+  assert.equal(await secondPlay.getAttribute('aria-pressed'),'false');
   await page.clock.runFor(80);
   const played = await page.evaluate(before => window.audioHits.slice(before), beforePlayback);
   assert.equal(played.length, 2, 'playback must produce every saved drum hit exactly once');
   assert(played[1] - played[0] >= 40 && played[1] - played[0] <= 80, 'playback preserves the recorded spacing');
+  await page.clock.fastForward(10000);
+  await wait(()=>page.locator('#playback-bar').isHidden());
+  assert.equal(await firstPlay.getAttribute('aria-pressed'),'false','highlight clears at natural playback end');
+  await firstPlay.click();
+  await wait(async()=>await firstPlay.getAttribute('aria-pressed')==='true');
+  await secondPlay.click();
+  await wait(async()=>await secondPlay.getAttribute('aria-pressed')==='true');
+  assert.equal(await firstPlay.getAttribute('aria-pressed'),'false','switching tracks clears the previous highlight');
+  await secondPlay.click();
+  assert.equal(await secondPlay.getAttribute('aria-pressed'),'false','clicking the active button stops playback');
+  await firstPlay.click();
+  await wait(async()=>await firstPlay.getAttribute('aria-pressed')==='true');
   await strike('w');
   assert(await page.locator('#playback-bar').isHidden());
+  assert.equal(await firstPlay.getAttribute('aria-pressed'),'false');
   await page.keyboard.press('x');
   // Own profile image survives reload and can be removed without touching another profile.
   assert.equal(await mine.locator('.avatar img').count(),1);

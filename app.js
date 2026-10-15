@@ -1,5 +1,5 @@
 import * as db from './database.js';
-import { prepareAudio, hitDrum, stopAudio } from './index.js';
+import { prepareAudio, hitDrum, stopAudio, soundDuration } from './index.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TIME = 120000;
@@ -34,6 +34,20 @@ function action(label, handler, className = '') {
 
 function duration(ms) {
   return (ms / 1000).toFixed(1) + ' s';
+}
+
+function markPlayButton(button, owner, slot) {
+  const active = playback?.owner === owner && playback.slot === slot;
+  button.classList.toggle('is-playing', active);
+  button.setAttribute('aria-pressed', String(active));
+}
+
+function updatePlaybackButtons() {
+  for (const member of members.values()) {
+    for (const button of member.slots.querySelectorAll('.play-rhythm')) {
+      markPlayButton(button, member.profile.id, Number(button.dataset.slot));
+    }
+  }
 }
 
 function rhythmTitle(saved) {
@@ -90,7 +104,9 @@ function renderSlots(member) {
     const controls = document.createElement('div');
     controls.className = 'actions';
     if (saved) {
-      const play = action('Atkurti', () => playPerformance(member, slot));
+      const play = action('Atkurti', () => playPerformance(member, slot), 'play-rhythm');
+      play.dataset.slot = slot;
+      markPlayButton(play, member.profile.id, slot);
       play.disabled = !!recording || busy;
       controls.append(play);
     }
@@ -456,12 +472,17 @@ function stopPlayback() {
     clearTimeout(playback.endTimer);
     playback = null;
     stopAudio();
+    updatePlaybackButtons();
   }
   $('playback-bar').hidden = true;
 }
 
 async function playPerformance(member, slot) {
   if (recording || busy) return;
+  if (playback?.owner === member.profile.id && playback.slot === slot) {
+    stopPlayback();
+    return;
+  }
   stopPlayback();
   const generation = playbackGeneration;
   const saved = member.performances.get(slot);
@@ -470,7 +491,9 @@ async function playPerformance(member, slot) {
     if (generation !== playbackGeneration || recording) return;
     let index = 0;
     const started = performance.now();
-    playback = {};
+    playback = { owner: member.profile.id, slot };
+    updatePlaybackButtons();
+    const endsAt = started + Math.max(...saved.events.map(note => note.time + soundDuration(note.key))) + 8;
     $('playback-title').textContent = `${member.profile.nickname} · ${rhythmTitle(saved)}`;
     $('playback-bar').hidden = false;
     const tick = () => {
@@ -480,8 +503,8 @@ async function playPerformance(member, slot) {
       }
       if (index === saved.events.length) {
         clearInterval(playback.timer);
-        // Leave the last drum's tail audible rather than cutting it at the final hit.
-        playback.endTimer = setTimeout(stopPlayback, 5000);
+        // Wait for every drum's tail, including overlapping earlier hits.
+        playback.endTimer = setTimeout(stopPlayback, Math.max(0, endsAt - performance.now()));
       }
     };
     playback.timer = setInterval(tick, 8);

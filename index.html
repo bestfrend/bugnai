@@ -27,12 +27,11 @@
 
     <div id="workspace" hidden>
       <div class="welcome">
-        <div class="profile-heading"><span id="my-avatar" class="avatar" aria-hidden="true"></span><span id="welcome-name"></span></div>
-        <div class="actions">
-          <button type="button" id="upload-avatar" class="action">Įkelti nuotrauką</button>
-          <button type="button" id="remove-avatar" class="action" hidden>Pašalinti nuotrauką</button>
-          <input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+        <div class="profile-heading">
+          <button type="button" id="upload-avatar" class="avatar avatar-upload" aria-label="Įkelti arba pakeisti profilio nuotrauką" title="Įkelti arba pakeisti nuotrauką"><span id="my-avatar" class="avatar" aria-hidden="true"></span></button>
+          <div class="profile-name"><span id="welcome-name"></span><button type="button" id="remove-avatar" class="avatar-remove" hidden aria-label="Pašalinti profilio nuotrauką">Pašalinti nuotrauką</button></div>
         </div>
+        <input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
       </div>
       <section id="recording-bar" class="recording-bar" hidden aria-label="Įrašymo valdymas">
         <div><strong id="recording-title"></strong><span id="recording-clock" class="recording-clock"></span></div>
