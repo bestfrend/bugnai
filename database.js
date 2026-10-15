@@ -122,7 +122,7 @@ export async function signIn(nickname) {
 export async function ensureProfile(nickname) {
   const user = currentUser();
   if (!user) throw new DatabaseError('Prisijunk įvesdamas vardą.', 401);
-  const existing = await rest('profiles?select=id,nickname,created_at&id=eq.' + user.id);
+  const existing = await rest('profiles?select=id,nickname,created_at,avatar_data&id=eq.' + user.id);
   if (existing.length) return existing[0];
   const name = (nickname || user.user_metadata?.nickname || '').trim();
   if (!name || name.length > 24) throw new Error('Įvesk vardą nuo 1 iki 24 simbolių.');
@@ -131,11 +131,19 @@ export async function ensureProfile(nickname) {
     headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
     body: JSON.stringify({ id: user.id, nickname: name })
   });
-  return (await rest('profiles?select=id,nickname,created_at&id=eq.' + user.id))[0];
+  return (await rest('profiles?select=id,nickname,created_at,avatar_data&id=eq.' + user.id))[0];
 }
 
 export function listProfiles(offset = 0) {
-  return rest('profiles?select=id,nickname,created_at&order=nickname.asc,id.asc&limit=50&offset=' + offset);
+  return rest('profiles?select=id,nickname,created_at,avatar_data&order=nickname.asc,id.asc&limit=50&offset=' + offset);
+}
+
+export function saveAvatar(avatar) {
+  return rest('profiles?id=eq.' + currentUser().id, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ avatar_data: avatar })
+  });
 }
 
 export function listPerformances(owner) {

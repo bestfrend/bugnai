@@ -24,12 +24,12 @@ async function scenario(browser,mobile){
   const context=await browser.newContext(mobile?{...devices['Pixel 7']} : {});
   const profiles=[{id:other,nickname:'Kitas <img src=x>',created_at:new Date().toISOString()}];
   const recordings=new Map([[other+':1',{slot:1,events:[{key:'w',time:0},{key:'k',time:50}],duration_ms:50,updated_at:new Date().toISOString()}]]);
-  let signups=0,refreshes=0,saves=0,failSave=false;
+  let signups=0,refreshes=0,saves=0,failSave=false,profileReads=0;
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',async route=>{
     const req=route.request(),url=new URL(req.url()),method=req.method();
-    const headers={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'GET,POST,DELETE,OPTIONS','content-type':'application/json'};
+    const headers={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS','content-type':'application/json'};
     const reply=(data,status=200)=>route.fulfill({status,headers,body:JSON.stringify(data)});
     if(method==='OPTIONS')return reply(null);
     if(url.pathname==='/auth/v1/signup'){signups++;return reply(session());}
@@ -38,6 +38,12 @@ async function scenario(browser,mobile){
     if(url.pathname==='/rest/v1/profiles'){
       if(method==='POST'){profiles.push(req.postDataJSON());return reply(null,201);}
       const id=url.searchParams.get('id')?.slice(3);
+      if(method==='PATCH'){
+        assert.equal(id,own);
+        Object.assign(profiles.find(p=>p.id===own),req.postDataJSON());
+        return reply([profiles.find(p=>p.id===own)]);
+      }
+      if(!id)profileReads++;
       const data=id?profiles.filter(p=>p.id===id):profiles.slice().sort((a,b)=>a.nickname.localeCompare(b.nickname));
       return reply(data.slice(Number(url.searchParams.get('offset')||0)));
     }
@@ -86,7 +92,25 @@ async function scenario(browser,mobile){
   await wait(async()=>await theirs.locator('.slot').count()===7);
   assert.equal(await theirs.locator('.primary,.danger').count(),0);
   assert.equal(await theirs.locator('img').count(),0,'nicknames must be rendered as text');
-  assert.equal(await theirs.locator('summary').textContent(),'Kitas <img src=x>#222222');
+  assert.equal(await theirs.locator('.member-name').textContent(),'Kitas <img src=x>');
+  assert.equal(await page.locator('#refresh-users').count(),0);
+  assert.equal(await page.getByText('Paspausk vardą ir išskleisk septynias įrašų vietas.').count(),0);
+  assert.equal(await theirs.locator('summary').evaluate(e=>getComputedStyle(e).listStyleType),'none');
+  await page.clock.runFor(200);
+  await wait(async()=>await theirs.locator('.member-arrow').evaluate(e=>getComputedStyle(e).transform)==='matrix(0, 1, -1, 0, 0, 0)');
+  // Browser uploads a real image, and the app rasterizes a small JPEG avatar.
+  const png=await page.locator('.drum').first().screenshot();
+  await page.locator('#avatar-file').setInputFiles({name:'avatar.png',mimeType:'image/png',buffer:png});
+  await wait(()=>!!profiles.find(p=>p.id===own)?.avatar_data);
+  await wait(()=>page.locator('#remove-avatar').isEnabled());
+  const avatar=profiles.find(p=>p.id===own).avatar_data;
+  assert(avatar.startsWith('data:image/jpeg;base64,'));
+  assert(avatar.length<=32768);
+  assert(await page.locator('#my-avatar img').evaluate(e=>e.naturalWidth===128 && e.naturalHeight===128));
+  assert.equal(await mine.locator('.avatar').evaluate(e=>getComputedStyle(e).borderRadius),'50%');
+  await page.locator('#avatar-file').setInputFiles({name:'invalid.svg',mimeType:'image/svg+xml',buffer:Buffer.from('<svg/>')});
+  await wait(async()=>await page.locator('#status').textContent().then(text=>text.includes('JPG, PNG arba WebP')));
+  assert.equal(profiles.find(p=>p.id===own).avatar_data,avatar,'invalid uploads must leave the old avatar intact');
   const ownSlot=n=>mine.locator(`[data-slot="${n}"]`);
   const strike=async key=>{if(mobile)await page.locator('.'+key+'.drum').tap();else await page.locator('.'+key+'.drum').click();};
   await ownSlot(1).getByRole('button',{name:'Įrašyti',exact:true}).click();
@@ -103,10 +127,24 @@ async function scenario(browser,mobile){
   assert.equal(first.events[0].time,0);
   assert.equal(first.duration_ms,first.events.at(-1).time);
   assert(first.duration_ms<1000);
+  assert(!/smūgi|"key"|"time"/.test(await mine.locator('.slot').allTextContents().then(values=>values.join(' '))));
+  // Another device creates a slot and a profile; polling preserves open groups/focus.
+  recordings.set(other+':2',{slot:2,events:[{key:'l',time:0}],duration_ms:0,updated_at:new Date().toISOString()});
+  profiles.push({id:'33333333-3333-4333-8333-333333333333',nickname:'Naujas',created_at:new Date().toISOString()});
+  const summaryNode=await theirs.locator('summary').elementHandle();
+  await theirs.locator('summary').focus();
+  const beforePoll=profileReads;
+  await page.clock.fastForward(30000);
+  await wait(()=>profileReads>beforePoll);
+  await wait(async()=>await theirs.locator('[data-slot="2"]').getByRole('button',{name:'Atkurti',exact:true}).count()===1);
+  assert(await theirs.evaluate(e=>e.open));
+  assert(await summaryNode.evaluate(e=>e.isConnected && e===document.activeElement));
+  assert.equal(await page.locator('[data-owner="33333333-3333-4333-8333-333333333333"]').count(),1);
   // The 2-minute limit starts on the first note, not when the slot is armed.
   await ownSlot(2).getByRole('button',{name:'Įrašyti',exact:true}).click();
   await page.clock.fastForward(130000);
   assert.equal(saves,1);
+  assert(await page.locator('#recording-title').textContent().then(text=>text.includes('Laukiama pirmo smūgio')));
   await strike('k');
   await page.clock.runFor(200);
   await strike('l');
@@ -149,15 +187,15 @@ async function scenario(browser,mobile){
   assert(recordings.has(other+':1'));
   // Expired sessions refresh rather than creating a new anonymous user.
   await page.evaluate(()=>{const key=Object.keys(localStorage).find(k=>k.startsWith('bugnai.auth.'));const value=JSON.parse(localStorage.getItem(key));value.expires_at=1;localStorage.setItem(key,JSON.stringify(value));});
-  await page.locator('#refresh-users').click();
+  await page.clock.fastForward(30000);
   await wait(()=>refreshes===1);
   await wait(async()=>await mine.locator('.slot').count()===7);
   assert.equal(signups,1);
   // Playback of another user's sequence and stopping it with a live strike.
-  await theirs.locator('summary').click();
+  if(!await theirs.evaluate(e=>e.open)) await theirs.locator('summary').click();
   await wait(async()=>await theirs.locator('.slot').count()===7);
   const beforePlayback = await page.evaluate(() => window.audioHits.length);
-  await theirs.getByRole('button',{name:'Atkurti',exact:true}).click();
+  await theirs.locator('[data-slot="1"]').getByRole('button',{name:'Atkurti',exact:true}).click();
   await wait(()=>page.locator('#playback-bar').isVisible());
   await page.clock.runFor(80);
   const played = await page.evaluate(before => window.audioHits.slice(before), beforePlayback);
@@ -166,6 +204,11 @@ async function scenario(browser,mobile){
   await strike('w');
   assert(await page.locator('#playback-bar').isHidden());
   await page.keyboard.press('x');
+  // Own profile image survives reload and can be removed without touching another profile.
+  assert.equal(await mine.locator('.avatar img').count(),1);
+  await page.locator('#remove-avatar').click();
+  await wait(()=>profiles.find(p=>p.id===own).avatar_data===null);
+  assert.equal(await page.locator('#my-avatar img').count(),0);
   assert.deepEqual(errors,[]);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   if(mobile){await fs.mkdir(path.join(root,'test-results'),{recursive:true});await page.screenshot({path:path.join(root,'test-results/mobile-library.png'),fullPage:true});}

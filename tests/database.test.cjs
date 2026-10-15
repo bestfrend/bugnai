@@ -26,12 +26,30 @@ before(async () => {
   const schema = readFileSync('supabase/schema.sql','utf8');
   await db.exec(schema);
   await db.exec(schema);
+  // Existing installations need only the additive avatar migration.
+  await db.exec('alter table public.profiles drop column avatar_data');
+  const avatars = readFileSync('supabase/avatars.sql', 'utf8');
+  await db.exec(avatars);
+  await db.exec(avatars);
   await user(alice);
   await db.query('insert into profiles(id,nickname) values ($1,$2)',[alice,'Pirmas']);
   await user(bob);
   await db.query('insert into profiles(id,nickname) values ($1,$2)',[bob,'Antras']);
 });
 after(async()=>{ await db.close(); });
+test('avatars are readable by signed-in users but writable only by their owner',async()=>{
+  const avatar='data:image/jpeg;base64,/9j/2Q==';
+  await user(alice);
+  await db.query('update profiles set avatar_data=$1 where id=$2',[avatar,alice]);
+  await user(bob);
+  assert.equal((await db.query('select avatar_data from profiles where id=$1',[alice])).rows[0].avatar_data,avatar);
+  assert.equal((await db.query('update profiles set avatar_data=null where id=$1 returning id',[alice])).rows.length,0);
+  await assert.rejects(db.query('update profiles set nickname=$1 where id=$2',['Other',bob]),{code:'42501'});
+  await user(alice);
+  await assert.rejects(db.query('update profiles set avatar_data=$1 where id=$2',['data:image/svg+xml;base64,PHN2Zz4=',alice]),{code:'23514'});
+  await assert.rejects(db.query('update profiles set avatar_data=$1 where id=$2',['data:image/jpeg;base64,'+'A'.repeat(32768),alice]),{code:'23514'});
+  await db.query('update profiles set avatar_data=null where id=$1',[alice]);
+});
 test('authenticated visitors see all profiles; unauthenticated visitors cannot read or write',async()=>{
   await user(alice);
   assert.equal((await db.query('select * from profiles')).rows.length,2);

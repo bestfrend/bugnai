@@ -38,7 +38,9 @@ python3 -m http.server 8000 --bind 127.0.0.1
 - Prisijungimo sesija išsaugoma `localStorage` ir automatiškai atnaujinama.
   Išvalius naršyklės duomenis, prieigos prie senos anoniminės paskyros galima netekti.
 - Prisijungę vartotojai mato visus profilius, o išskleidę profilį — jo 7 vietas.
-  Sąrašas papildomas po 50 vartotojų; naujus įrašus galima pamatyti atnaujinus sąrašą.
+  Sąrašas papildomas po 50 vartotojų ir atnaujinamas kas 30 sekundžių. Atvertos grupės
+  išlieka atvertos, vykstantis įrašymas nenutraukiamas. Sugrįžus į naršyklės kortelę,
+  sąrašas atnaujinamas iš karto; užvertos grupės atnaujinamos jas išskleidus.
 - Įrašomas tik `{key, time}` masyvas: laikas milisekundėmis nuo pirmo smūgio.
   Pirmas smūgis prasideda ties 0, įrašo trukmė baigiasi paskutiniu smūgiu.
 - Po 120 sekundžių nuo pirmo smūgio įrašymas automatiškai išsaugomas. Vieno įrašo
@@ -73,3 +75,16 @@ Testas paleidžia laikiną HTTP serverį ir naudoja izoliuotą Supabase HTTP imi
 Tikrinami pelės ir telefono lietimai, prisijungimas bei jo atnaujinimas, atkūrimas,
 2 minučių automatinis išsaugojimas, nesėkmingo išsaugojimo pakartojimas ir nebaigto
 bandymo atmetimas. Tikrą Supabase Auth ir PostgREST ryšį reikia patikrinti atskirai.
+
+### Profilio nuotraukos
+
+Anksčiau paruoštame projekte **SQL Editor** paleiskite papildomą
+[supabase/avatars.sql](supabase/avatars.sql). Naujame projekte pakanka viso
+`supabase/schema.sql` — nuotraukų pakeitimai jau įtraukti.
+
+Savo profiliui galima pasirinkti JPG, PNG ar WebP failą iki 5 MB. Naršyklė iškerpa
+centrinį kvadratą ir sumažina jį iki 128 × 128 JPEG. Maža nuotrauka saugoma tiesiogiai
+profilio `avatar_data` lauke (iki 32 KB), todėl papildomo Storage bucket nereikia.
+Duomenų bazė leidžia keisti tik savo nuotrauką; kiti profilio laukai nepakeičiami.
+Nuotraukas mato tik prisijungę vartotojai. Nepasirinkus nuotraukos, apskritime rodoma
+slapyvardžio pirmoji raidė. Smūgių masyvas lieka įrašo duomenyse ir sąsajoje nerodomas.

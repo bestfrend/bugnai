@@ -11,6 +11,9 @@ let recording = null;
 let busy = false;
 let playback = null;
 let playbackGeneration = 0;
+let usersLoading = false;
+let pollTimer;
+let mutationRevision = 0;
 
 function status(message = '', error = false) {
   $('status').textContent = message;
@@ -30,12 +33,6 @@ function duration(ms) {
   return (ms / 1000).toFixed(1) + ' s';
 }
 
-function noteCount(count) {
-  const ending = count % 100 >= 11 && count % 100 <= 19 ? 'smūgių'
-    : count % 10 === 1 ? 'smūgis' : count % 10 >= 2 && count % 10 <= 9 ? 'smūgiai' : 'smūgių';
-  return `${count} ${ending}`;
-}
-
 function renderSlots(member) {
   if (!member.loaded) return;
   member.slots.replaceChildren();
@@ -50,7 +47,7 @@ function renderSlots(member) {
     title.textContent = 'Grojimas ' + slot;
     const info = document.createElement('p');
     info.textContent = active ? 'Naujas bandymas · ankstesnis įrašas lieka iki išsaugojimo' : saved
-      ? `${noteCount(saved.events.length)} · ${duration(saved.duration_ms)}` : 'Laisva vieta';
+      ? duration(saved.duration_ms) : 'Laisva vieta';
     const controls = document.createElement('div');
     controls.className = 'actions';
     if (saved) {
@@ -77,20 +74,26 @@ function renderSlots(member) {
 
 function refreshControls() {
   for (const member of members.values()) renderSlots(member);
-  $('refresh-users').disabled = busy || !!recording;
-  $('more-users').disabled = busy || !!recording;
+  $('more-users').disabled = usersLoading || busy || !!recording;
+  $('upload-avatar').disabled = busy || !!recording;
+  $('remove-avatar').disabled = busy || !!recording;
 }
 
-async function loadMember(member) {
+async function loadMember(member, silent = false) {
   if (member.pending) return member.pending;
-  member.slots.textContent = 'Įkeliami grojimai…';
+  if (member.profile.id === me.id && (recording || busy)) return;
+  if (!member.loaded) member.slots.textContent = 'Įkeliami grojimai…';
+  const revision = mutationRevision;
   member.pending = (async () => {
     try {
       const data = await db.listPerformances(member.profile.id);
-      member.performances = new Map(data.map(item => [item.slot, item]));
+      if (member.profile.id === me.id && (revision !== mutationRevision || recording || busy)) return;
+      const changed = !member.loaded || JSON.stringify([...member.performances.values()]) !== JSON.stringify(data);
+      if (changed) member.performances = new Map(data.map(item => [item.slot, item]));
       member.loaded = true;
-      renderSlots(member);
+      if (changed) renderSlots(member);
     } catch (error) {
+      if (silent && member.loaded) return;
       member.slots.replaceChildren();
       const message = document.createElement('p');
       message.textContent = error.message;
@@ -103,48 +106,149 @@ async function loadMember(member) {
   return member.pending;
 }
 
+function showAvatar(element, profile) {
+  const avatar = profile.avatar_data;
+  if (element.dataset.avatar === (avatar || profile.nickname)) return;
+  element.dataset.avatar = avatar || profile.nickname;
+  element.replaceChildren();
+  const initial = document.createElement('span');
+  initial.textContent = Array.from(profile.nickname)[0].toLocaleUpperCase('lt');
+  element.append(initial);
+  if (avatar && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(avatar)) {
+    const image = document.createElement('img');
+    image.alt = '';
+    image.src = avatar;
+    image.draggable = false;
+    image.addEventListener('error', () => image.remove());
+    element.append(image);
+  }
+}
+
+function updateProfile(member, profile) {
+  member.profile = profile;
+  member.name.textContent = profile.nickname;
+  showAvatar(member.avatar, profile);
+  if (profile.id === me.id) {
+    me = profile;
+    $('welcome-name').textContent = 'Labas, ' + profile.nickname + '!';
+    showAvatar($('my-avatar'), profile);
+    $('remove-avatar').hidden = !profile.avatar_data;
+  }
+}
+
 function addMember(profile) {
-  if (members.has(profile.id)) return;
+  if (members.has(profile.id)) {
+    updateProfile(members.get(profile.id), profile);
+    return;
+  }
   const details = document.createElement('details');
   details.className = 'user-card';
   details.dataset.owner = profile.id;
   const summary = document.createElement('summary');
-  summary.textContent = profile.nickname;
-  const badge = document.createElement('span');
-  badge.className = 'badge';
-  badge.textContent = profile.id === me.id ? 'Tu' : '#' + profile.id.slice(-6);
-  summary.append(badge);
+  const avatar = document.createElement('span');
+  avatar.className = 'avatar';
+  avatar.setAttribute('aria-hidden', 'true');
+  const name = document.createElement('span');
+  name.className = 'member-name';
+  const arrow = document.createElement('span');
+  arrow.className = 'member-arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  arrow.textContent = '›';
+  summary.append(avatar, name, arrow);
   const slots = document.createElement('div');
   slots.className = 'slots';
   details.append(summary, slots);
-  const member = { profile, details, slots, loaded: false, performances: new Map() };
+  const member = { profile, details, slots, avatar, name, loaded: false, performances: new Map() };
   members.set(profile.id, member);
+  updateProfile(member, profile);
   $('users').append(details);
   details.addEventListener('toggle', () => {
-    if (details.open && !member.loaded) loadMember(member);
+    if (details.open) loadMember(member);
   });
   if (profile.id === me.id) details.open = true;
 }
 
-async function loadUsers(reset = false) {
-  if (busy || recording) return;
-  $('refresh-users').disabled = true;
+async function loadUsers(refresh = false, silent = false) {
+  if (usersLoading || !me || document.hidden) return;
+  usersLoading = true;
   $('more-users').disabled = true;
+  const revision = mutationRevision;
   try {
-    const nextOffset = reset ? 0 : offset;
-    const profiles = await db.listProfiles(nextOffset);
-    if (reset) {
-      members.clear();
-      $('users').replaceChildren();
-      addMember(me);
+    const pages = refresh ? Math.max(1, Math.ceil(offset / 50)) : 1;
+    let nextOffset = refresh ? 0 : offset;
+    let hasMore;
+    for (let page = 0; page < pages; page++) {
+      const profiles = await db.listProfiles(nextOffset);
+      for (const profile of profiles) {
+        if (profile.id !== me.id || (revision === mutationRevision && !busy)) addMember(profile);
+      }
+      nextOffset += profiles.length;
+      hasMore = profiles.length === 50;
+      if (!hasMore) break;
     }
-    profiles.forEach(addMember);
-    offset = nextOffset + profiles.length;
-    $('more-users').hidden = profiles.length < 50;
-    status('');
+    offset = nextOffset;
+    $('more-users').hidden = !hasMore;
+    // Refresh open groups in place: leave closed groups, focus and recording alone.
+    if (refresh) {
+      await Promise.all([...members.values()]
+        .filter(member => member.details.open)
+        .map(member => loadMember(member, silent)));
+    }
+    if (!silent) status('');
+  } catch (error) {
+    if (!silent) status(error.message, true);
+  } finally {
+    usersLoading = false;
+    $('more-users').disabled = busy || !!recording;
+  }
+}
+
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => loadUsers(true, true), 30000);
+}
+
+async function optimizeAvatar(file) {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+    throw new Error('Pasirink JPG, PNG arba WebP nuotrauką iki 5 MB.');
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode().catch(() => {
+      throw new Error('Nepavyko perskaityti nuotraukos. Pasirink kitą JPG, PNG arba WebP failą.');
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 128;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, 128, 128);
+    const edge = Math.min(image.naturalWidth, image.naturalHeight);
+    context.drawImage(image, (image.naturalWidth - edge) / 2, (image.naturalHeight - edge) / 2, edge, edge, 0, 0, 128, 128);
+    const data = canvas.toDataURL('image/jpeg', 0.8);
+    if (data.length > 32768) throw new Error('Nuotrauka per didelė. Pasirink mažesnę.');
+    return data;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function changeAvatar(file) {
+  if (busy || recording) return;
+  busy = true;
+  mutationRevision++;
+  refreshControls();
+  try {
+    const avatar = file ? await optimizeAvatar(file) : null;
+    const [profile] = await db.saveAvatar(avatar);
+    updateProfile(members.get(me.id), profile);
+    status(file ? 'Nuotrauka išsaugota.' : 'Nuotrauka pašalinta.');
   } catch (error) {
     status(error.message, true);
   } finally {
+    $('avatar-file').value = '';
+    busy = false;
     refreshControls();
   }
 }
@@ -168,13 +272,14 @@ function updateRecordBar() {
   $('retry-recording').hidden = stage !== 'failed';
   $('cancel-recording').disabled = stage === 'saving';
   const elapsed = recording.started === null ? 0 : Math.min(MAX_TIME, performance.now() - recording.started);
-  $('recording-clock').textContent = `${duration(elapsed)} / 120 s · ${noteCount(recording.events.length)}`;
+  $('recording-clock').textContent = `${duration(elapsed)} / 120 s`;
 }
 
 function startRecording(slot) {
   if (recording || busy) return;
   const saved = members.get(me.id)?.performances.get(slot);
   if (saved && !confirm(`Perrašyti ${slot} vietą? Ankstesnis grojimas bus pakeistas tik išsaugojus naują.`)) return;
+  mutationRevision++;
   stopPlayback();
   prepareAudio().catch(() => {});
   recording = { slot, stage: 'armed', started: null, events: [] };
@@ -245,6 +350,7 @@ function cancelRecording() {
 async function removePerformance(slot) {
   if (recording || busy || !confirm(`Ištrinti savo grojimą ${slot} vietoje?`)) return;
   busy = true;
+  mutationRevision++;
   stopPlayback();
   refreshControls();
   try {
@@ -307,7 +413,9 @@ async function enter(profile) {
   $('workspace').hidden = false;
   $('welcome-name').textContent = 'Labas, ' + profile.nickname + '!';
   window.drumAppReady = true;
+  addMember(profile);
   await loadUsers(true);
+  startPolling();
 }
 
 $('login-form').addEventListener('submit', async event => {
@@ -331,9 +439,24 @@ $('finish-recording').addEventListener('click', finishRecording);
 $('retry-recording').addEventListener('click', finishRecording);
 $('cancel-recording').addEventListener('click', cancelRecording);
 $('stop-playback').addEventListener('click', stopPlayback);
-$('refresh-users').addEventListener('click', () => loadUsers(true));
 $('more-users').addEventListener('click', () => loadUsers());
+$('upload-avatar').addEventListener('click', () => $('avatar-file').click());
+$('avatar-file').addEventListener('change', () => {
+  const file = $('avatar-file').files[0];
+  if (file) changeAvatar(file);
+});
+$('remove-avatar').addEventListener('click', () => changeAvatar(null));
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && me && window.drumAppReady) loadUsers(true, true);
+});
+window.addEventListener('pageshow', event => {
+  if (event.persisted && me) {
+    startPolling();
+    loadUsers(true, true);
+  }
+});
 window.addEventListener('pagehide', () => {
+  clearInterval(pollTimer);
   clearRecordTimers();
   recording = null;
   stopPlayback();
@@ -343,6 +466,7 @@ window.addEventListener('pagehide', () => {
 });
 window.addEventListener('storage', event => {
   if (event.key?.startsWith('bugnai.auth.') && !event.newValue) {
+    clearInterval(pollTimer);
     window.drumAppReady = false;
     cancelRecording();
     stopPlayback();

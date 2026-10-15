@@ -26,7 +26,14 @@
     </section>
 
     <div id="workspace" hidden>
-      <div class="welcome"><span id="welcome-name"></span><span class="badge">7 vietos kūrybai</span></div>
+      <div class="welcome">
+        <div class="profile-heading"><span id="my-avatar" class="avatar" aria-hidden="true"></span><span id="welcome-name"></span></div>
+        <div class="actions">
+          <button type="button" id="upload-avatar" class="action">Įkelti nuotrauką</button>
+          <button type="button" id="remove-avatar" class="action" hidden>Pašalinti nuotrauką</button>
+          <input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+        </div>
+      </div>
       <section id="recording-bar" class="recording-bar" hidden aria-label="Įrašymo valdymas">
         <div><strong id="recording-title"></strong><span id="recording-clock" class="recording-clock"></span></div>
         <div class="actions">
@@ -52,7 +59,7 @@
         <button id="stop-playback" type="button" class="action">Stabdyti atkūrimą</button>
       </div>
       <section class="community panel" aria-labelledby="community-title">
-        <div class="section-heading"><div><h2 id="community-title">Mūsų ritmai</h2><p class="hint">Paspausk vardą ir išskleisk septynias įrašų vietas.</p></div><button type="button" id="refresh-users" class="action">Atnaujinti sąrašą</button></div>
+        <div class="section-heading"><h2 id="community-title">Mūsų ritmai</h2></div>
         <p class="hint">Įrašai matomi visiems prisijungusiems. Keisti ir trinti gali tik savo.</p>
         <div id="users"></div>
         <button type="button" id="more-users" class="action" hidden>Rodyti daugiau vartotojų</button>
