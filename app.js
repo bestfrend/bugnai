@@ -106,7 +106,9 @@ function nextFreeSlot(member) {
 
 function createRhythm() {
   if (recording || busy) return;
-  const slot = nextFreeSlot(members.get(me.id));
+  const member = members.get(me.id);
+  if (!member?.loaded) return;
+  const slot = nextFreeSlot(member);
   if (slot === null) {
     status('Pasiektas 50 ritmų limitas. Gali perrašyti arba ištrinti vieną iš savo ritmų.');
     return;
@@ -114,22 +116,28 @@ function createRhythm() {
   startRecording(slot);
 }
 
+function updateCreateControl() {
+  const member = members.get(me?.id);
+  const count = member?.performances.size || 0;
+  $('create-rhythm').disabled = !member?.loaded || !!recording || busy || count >= MAX_RHYTHMS;
+  $('rhythm-count').textContent = member?.loaded ? `${count} / ${MAX_RHYTHMS} ritmų` : '';
+}
+
+function formatRhythmDate(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('lt-LT', {
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(date);
+  return ['year', 'month', 'day'].map(type => parts.find(part => part.type === type).value).join('.');
+}
+
 function renderSlots(member) {
   if (!member.loaded) return;
   const previousScroll = member.slots.querySelector('.rhythm-list')?.scrollTop || 0;
   member.slots.replaceChildren();
   const own = member.profile.id === me.id;
-  if (own) {
-    const tools = document.createElement('div');
-    tools.className = 'library-tools';
-    const create = action('Sukurti ritmą', createRhythm, 'primary create-rhythm');
-    create.disabled = !!recording || busy || member.performances.size >= MAX_RHYTHMS;
-    const count = document.createElement('span');
-    count.className = 'hint rhythm-count';
-    count.textContent = `${member.performances.size} / ${MAX_RHYTHMS} ritmų`;
-    tools.append(create, count);
-    member.slots.append(tools);
-  }
+  if (own) updateCreateControl();
   if (!member.performances.size) {
     const empty = document.createElement('p');
     empty.className = 'empty-library hint';
@@ -170,7 +178,20 @@ function renderSlots(member) {
       play.dataset.slot = slot;
       markPlayButton(play, member.profile.id, slot);
       play.disabled = !!recording || busy;
-      heading.append(play);
+      const meta = document.createElement('div');
+      meta.className = 'play-meta';
+      meta.append(play);
+      const dateValue = saved.created_at || saved.updated_at;
+      const dateLabel = formatRhythmDate(dateValue);
+      if (dateLabel) {
+        const date = document.createElement('time');
+        date.className = 'rhythm-date';
+        date.dateTime = new Date(dateValue).toISOString();
+        date.textContent = dateLabel;
+        date.title = saved.created_at ? 'Sukurta' : 'Paskutinis žinomas atnaujinimas';
+        meta.append(date);
+      }
+      heading.append(meta);
     }
     heading.append(title, info);
     if (own) {
@@ -237,6 +258,7 @@ async function finishRename(event) {
 }
 
 function refreshControls() {
+  updateCreateControl();
   for (const member of members.values()) renderSlots(member);
   $('more-users').disabled = usersLoading || busy || !!recording;
   $('upload-avatar').disabled = busy || !!recording;
@@ -652,6 +674,7 @@ $('login-form').addEventListener('submit', async event => {
   }
 });
 $('finish-recording').addEventListener('click', finishRecording);
+$('create-rhythm').addEventListener('click', createRhythm);
 $('retry-recording').addEventListener('click', persistRecording);
 $('preview-recording').addEventListener('click', previewRecording);
 $('commit-recording').addEventListener('click', persistRecording);

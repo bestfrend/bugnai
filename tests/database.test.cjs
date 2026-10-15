@@ -127,3 +127,23 @@ test('rhythm titles are editable only by their owner and migration preserves exi
   assert.deepEqual((await db.query('select events from performances where owner_id=$1 and slot=1',[alice])).rows[0].events,before);
   assert.equal((await db.query('select title from performances where owner_id=$1 and slot=1',[alice])).rows[0].title,'Mano ritmas');
 });
+test('creation dates are backfilled from known timestamps and immutable after creation',async()=>{
+  await db.exec('reset role');
+  const old=(await db.query('select updated_at from performances where owner_id=$1 and slot=1',[alice])).rows[0].updated_at;
+  // Reproduce the deployed schema that only knew updated_at.
+  await db.exec(`create or replace function public.stamp_performance()
+    returns trigger language plpgsql set search_path = '' as $$
+    begin new.updated_at := now(); return new; end; $$;
+    alter table public.performances drop column created_at;`);
+  await db.exec(readFileSync('supabase/creation-date.sql','utf8'));
+  await db.exec(readFileSync('supabase/creation-date.sql','utf8'));
+  await user(alice);
+  assert.deepEqual((await db.query('select created_at from performances where owner_id=$1 and slot=1',[alice])).rows[0].created_at,old);
+  assert.deepEqual((await db.query('select updated_at from performances where owner_id=$1 and slot=1',[alice])).rows[0].updated_at,old,'migration does not change the last modification timestamp');
+  await db.query("update performances set title='Kitas vardas', created_at='2000-01-01' where owner_id=$1 and slot=1",[alice]);
+  assert.deepEqual((await db.query('select created_at from performances where owner_id=$1 and slot=1',[alice])).rows[0].created_at,old);
+  await user(bob);
+  await db.query("insert into performances(owner_id,slot,events,duration_ms,created_at) values($1,2,$2,250,'2000-01-01')",[bob,notes]);
+  const created=(await db.query('select created_at from performances where owner_id=$1 and slot=2',[bob])).rows[0].created_at;
+  assert.notEqual(new Date(created).getUTCFullYear(),2000,'the database stamps new records itself');
+});

@@ -23,7 +23,7 @@ async function wait(check) {
 async function scenario(browser,mobile){
   const context=await browser.newContext(mobile?{...devices['Pixel 7']} : {});
   const profiles=[{id:other,nickname:'Kitas <img src=x>',created_at:new Date().toISOString()}];
-  const recordings=new Map([[other+':1',{slot:1,events:[{key:'w',time:0},{key:'k',time:50}],duration_ms:50,updated_at:new Date().toISOString()}]]);
+  const recordings=new Map([[other+':1',{slot:1,events:[{key:'w',time:0},{key:'k',time:50}],duration_ms:50,created_at:'2026-10-15T09:00:00Z',updated_at:new Date().toISOString()}]]);
   let signups=0,refreshes=0,saves=0,failSave=false,profileReads=0;
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
@@ -52,7 +52,7 @@ async function scenario(browser,mobile){
         if(failSave)return reply({code:'temporary_error'},503);
         const item=req.postDataJSON();assert.equal(item.owner_id,own);
         if(recordings.has(own+':'+item.slot))return reply({code:'23505'},409);
-        const saved={...item,updated_at:new Date().toISOString()};recordings.set(own+':'+item.slot,saved);saves++;
+        const saved={...item,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};recordings.set(own+':'+item.slot,saved);saves++;
         return reply([saved],201);
       }
       const owner=url.searchParams.get('owner_id')?.slice(3);
@@ -98,12 +98,21 @@ async function scenario(browser,mobile){
   await page.locator('#login-button').click();
   const mine=page.locator(`[data-owner="${own}"]`);
   const theirs=page.locator(`[data-owner="${other}"]`);
-  await wait(()=>mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).isEnabled());
+  await wait(()=>page.locator('#create-rhythm').isEnabled());
   assert.equal(signups,1);
   assert.equal(await mine.locator('.slot').count(),0);
+  assert.equal(await page.locator('.user-card .create-rhythm').count(),0);
+  assert((await page.locator('#create-rhythm').boundingBox()).y<(await page.locator('.kit').boundingBox()).y,'creation is available above the drum kit');
   await theirs.locator('summary').click();
   await wait(async()=>await theirs.locator('.slot').count()===1);
   assert.equal(await theirs.locator('.primary,.danger').count(),0);
+  const displayedDate=theirs.locator('.rhythm-date');
+  assert.equal(await displayedDate.textContent(),'2026.10.15');
+  assert.equal(await displayedDate.getAttribute('datetime'),'2026-10-15T09:00:00.000Z');
+  const dateRect=await displayedDate.boundingBox();
+  const playRect=await theirs.locator('.play-rhythm').boundingBox();
+  assert(dateRect.y>=playRect.y+playRect.height,'the tiny date appears below the play button');
+  assert.equal(await displayedDate.evaluate(e=>getComputedStyle(e).fontSize),'9px');
   assert.equal(await theirs.locator('img').count(),0,'nicknames must be rendered as text');
   assert.equal(await theirs.locator('.member-name').textContent(),'Kitas <img src=x>');
   assert.equal(await page.locator('#refresh-users').count(),0);
@@ -135,7 +144,7 @@ async function scenario(browser,mobile){
   assert.equal(profiles.find(p=>p.id===own).avatar_data,avatar,'invalid uploads must leave the old avatar intact');
   const ownSlot=n=>mine.locator(`.slot[data-slot="${n}"]`);
   const strike=async key=>{if(mobile)await page.locator('.'+key+'.drum').tap();else await page.locator('.'+key+'.drum').click();};
-  await mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).click();
+  await page.locator('#create-rhythm').click();
   assert.equal(await page.evaluate(()=>scrollY),0,'creating a rhythm moves the page to the top');
   assert.equal(await mine.locator('.slot').count(),0,'unsaved attempts must not create cards');
   await strike('w');
@@ -147,6 +156,7 @@ async function scenario(browser,mobile){
   await wait(()=>saves===1);
   await wait(()=>page.locator('#recording-bar').isHidden());
   const first=recordings.get(own+':1');
+  const originalCreation=first.created_at;
   assert.deepEqual(first.events.map(e=>e.key),['w','a']);
   assert.equal(first.events[0].time,0);
   assert.equal(first.duration_ms,first.events.at(-1).time);
@@ -170,6 +180,7 @@ async function scenario(browser,mobile){
   await page.locator('#save-title').click();
   await wait(()=>page.locator('#rename-dialog').isHidden());
   assert.equal(recordings.get(own+':1').title,'Pirmas ritmas');
+  assert.equal(recordings.get(own+':1').created_at,originalCreation);
   const playBox=await ownSlot(1).locator('.play-rhythm').boundingBox();
   const titleBox=await ownSlot(1).locator('h3').boundingBox();
   assert(playBox.x+playBox.width<=titleBox.x,'play control precedes the title');
@@ -189,7 +200,7 @@ async function scenario(browser,mobile){
   assert(await summaryNode.evaluate(e=>e.isConnected && e===document.activeElement));
   assert.equal(await page.locator('[data-owner="33333333-3333-4333-8333-333333333333"]').count(),1);
   // The 2-minute limit starts on the first note, not when the slot is armed.
-  await mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).click();
+  await page.locator('#create-rhythm').click();
   await page.clock.fastForward(130000);
   assert.equal(saves,1);
   assert(await page.locator('#recording-title').textContent().then(text=>text.includes('Laukiama pirmo smūgio')));
@@ -258,6 +269,7 @@ async function scenario(browser,mobile){
   await wait(()=>saves===3);
   await wait(()=>page.locator('#recording-bar').isHidden());
   assert.equal(recordings.get(own+':1').events[0].key,'j');
+  assert.equal(recordings.get(own+':1').created_at,originalCreation,'overwriting preserves creation date');
   // Discard a replacement by reloading; identity and previous saved data survive.
   const replacement=JSON.stringify(recordings.get(own+':1'));
   await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
@@ -270,7 +282,7 @@ async function scenario(browser,mobile){
   assert.equal(saves,3);
   assert.equal(JSON.stringify(recordings.get(own+':1')),replacement);
   // Empty attempts do not create database records.
-  await mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).click();
+  await page.locator('#create-rhythm').click();
   await page.locator('#finish-recording').click();
   assert.equal(saves,3);
   // Own deletion is available; another person's recording remains intact.
@@ -327,7 +339,7 @@ async function scenario(browser,mobile){
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   if(mobile){await fs.mkdir(path.join(root,'test-results'),{recursive:true});await page.screenshot({path:path.join(root,'test-results/mobile-library.png'),fullPage:true});}
   // Creating a rhythm must not overwrite a slot taken by another tab mid-recording.
-  await mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).click();
+  await page.locator('#create-rhythm').click();
   await strike('k');
   recordings.set(own+':2',{slot:2,title:'Kitas langas',events:[{key:'s',time:0}],duration_ms:0,updated_at:new Date().toISOString()});
   await page.locator('#finish-recording').click();
@@ -340,7 +352,7 @@ async function scenario(browser,mobile){
   for(let slot=2;slot<=50;slot++)recordings.set(own+':'+slot,{slot,title:'Ritmas '+slot,events:[{key:'w',time:0}],duration_ms:0,updated_at:new Date().toISOString()});
   await page.clock.fastForward(30000);
   await wait(async()=>await mine.locator('.slot').count()===50);
-  assert(await mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).isDisabled());
+  assert(await page.locator('#create-rhythm').isDisabled());
   const list=mine.locator('.rhythm-list');
   assert(await list.evaluate(e=>e.scrollHeight>e.clientHeight));
   assert.equal(await list.evaluate(e=>getComputedStyle(e).scrollbarWidth),'thin');
@@ -351,9 +363,9 @@ async function scenario(browser,mobile){
   await wait(async()=>await ownSlot(1).locator('h3').textContent()==='Pavadinimas atnaujintas kitur');
   assert.equal(await list.evaluate(e=>e.scrollTop),scroll,'polling preserves library scroll position');
   await ownSlot(50).getByRole('button',{name:'Ištrinti',exact:true}).click();
-  await wait(()=>mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).isEnabled());
+  await wait(()=>page.locator('#create-rhythm').isEnabled());
   assert.equal(await mine.locator('.slot').count(),49);
-  await mine.getByRole('button',{name:'Sukurti ritmą',exact:true}).click();
+  await page.locator('#create-rhythm').click();
   assert.equal(await mine.locator('.slot').count(),49);
   await strike('l');
   await page.locator('#finish-recording').click();

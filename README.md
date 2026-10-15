@@ -38,7 +38,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 - Prisijungimo sesija išsaugoma `localStorage` ir automatiškai atnaujinama.
   Išvalius naršyklės duomenis, prieigos prie senos anoniminės paskyros galima netekti.
 - Prisijungę vartotojai mato visus profilius, o išskleidę profilį — tik išsaugotus ritmus.
-  Savo grupėje mygtukas „Sukurti ritmą“ pradeda naują bandymą; kortelė atsiranda
+  Viršuje, šalia savo profilio, mygtukas „Sukurti ritmą“ pradeda naują bandymą; kortelė atsiranda
   tik sėkmingai išsaugojus. Vienam vartotojui leidžiama iki 50 ritmų.
   Sąrašas papildomas po 50 vartotojų ir atnaujinamas kas 30 sekundžių. Atvertos grupės
   išlieka atvertos, vykstantis įrašymas nenutraukiamas. Sugrįžus į naršyklės kortelę,
@@ -113,3 +113,15 @@ Jau veikiančiame projekte Supabase **SQL Editor** paleiskite
 įrašų vietų ribą ir prideda pavadinimą, išsaugodamas ankstesnius įrašus.
 Esami ritmai be pavadinimo rodomi kaip „Ritmas 1“, „Ritmas 2“ ir t. t.
 Naujame projekte pakanka viso atnaujinto `supabase/schema.sql`.
+
+### Ritmo data
+
+Po atkūrimo mygtuku rodoma maža data formatu `2026.10.15`, vartotojo naršyklės
+laiko juostoje. Jau veikiančiame projekte Supabase SQL Editor paleiskite
+[supabase/creation-date.sql](supabase/creation-date.sql). Naujiems ritmams bazė pati
+priskiria `created_at` ir išlaiko ją pervadinant ar perrašant įrašą.
+
+Senų ritmų tikra sukūrimo data anksčiau nebuvo saugoma, todėl migracija panaudoja
+paskutinę žinomą `updated_at` datą, nekeisdama įrašų ar jų atnaujinimo laiko.
+Iki migracijos programa rodo turimą atnaujinimo datą su tai paaiškinančiu tooltip.
+Naujam projektui pakanka viso `supabase/schema.sql`.
