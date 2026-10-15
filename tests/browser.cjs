@@ -208,7 +208,9 @@ async function scenario(browser,mobile){
   assert.equal(dialogs.length,dialogsBeforeOverwrite,'overwrite starts without a popup');
   assert.equal(await page.evaluate(()=>scrollY),0,'overwrite moves the page to the top');
   await strike('d');
+  const beforeReview=await page.evaluate(()=>({height:document.getElementById('recording-bar').getBoundingClientRect().height,kit:document.querySelector('.kit').getBoundingClientRect().top,scroll:scrollY}));
   await page.locator('#finish-recording').click();
+  assert.deepEqual(await page.evaluate(()=>({height:document.getElementById('recording-bar').getBoundingClientRect().height,kit:document.querySelector('.kit').getBoundingClientRect().top,scroll:scrollY})),beforeReview,'review controls must not resize the box or move the drums');
   assert(await page.locator('#commit-recording').isVisible());
   assert.equal(JSON.stringify(recordings.get(own+':1')),original,'finishing an overwrite must not save it');
   assert.equal(saves,2);
@@ -340,6 +342,25 @@ async function scenario(browser,mobile){
   await wait(async()=>await mine.locator('.slot').count()===50);
   assert.equal(recordings.get(own+':50').events[0].key,'l');
   assert.equal(await ownSlot(51).count(),0);
+  // Long names and narrow phones must also keep the recording/review geometry stable.
+  await ownSlot(1).locator('h3').focus();
+  await page.keyboard.press('Enter');
+  await page.locator('#rhythm-title-input').fill('Ilgas ritmo pavadinimas '.repeat(3).slice(0,60).trim());
+  await page.locator('#save-title').click();
+  await wait(()=>page.locator('#rename-dialog').isHidden());
+  for(const width of (mobile?[320,393]:[768,1280])) {
+    await page.setViewportSize({width,height:900});
+    await ownSlot(1).getByRole('button',{name:'Perrašyti',exact:true}).click();
+    await strike('w');
+    const geometry=()=>page.evaluate(()=>({height:document.getElementById('recording-bar').getBoundingClientRect().height,kit:document.querySelector('.kit').getBoundingClientRect().top,scroll:scrollY}));
+    const before=await geometry();
+    await page.locator('#finish-recording').click();
+    assert.deepEqual(await geometry(),before,`no layout shift during review at ${width}px`);
+    for(const id of ['preview-recording','commit-recording','cancel-recording']) {
+      assert(await page.locator('#'+id).evaluate(e=>e.scrollHeight<=e.clientHeight),'button labels fit their reserved cells');
+    }
+    await page.locator('#cancel-recording').click();
+  }
   console.log('PASS',mobile?'mobile touch':'desktop mouse','login/refresh, saved-only cards, create/play/overwrite/delete/rename, read-only others, 2-minute auto-save, retry/discard, avatars and 30-second polling');
   await context.close();
 }

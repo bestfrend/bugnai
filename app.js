@@ -413,7 +413,8 @@ function startRecording(slot) {
   recording = { slot, title: saved ? rhythmTitle(saved) : 'Ritmas ' + slot, replace: !!saved, stage: 'armed', started: null, events: [] };
   updateRecordBar();
   refreshControls();
-  status('Grok būgnais. Dviejų minučių laikas prasidės nuo pirmo smūgio.');
+  status(saved ? 'Senas ritmas pasikeis tik paspaudus „Atnaujinti ritmą“.'
+    : 'Grok būgnais. Dviejų minučių laikas prasidės nuo pirmo smūgio.');
   window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 }
 
@@ -449,7 +450,7 @@ async function finishRecording() {
     recording.stage = 'review';
     updateRecordBar();
     refreshControls();
-    status('Perklausyk bandymą. Senasis ritmas liks, kol pasirinksi „Atnaujinti ritmą“.');
+    status('Senas ritmas pasikeis tik paspaudus „Atnaujinti ritmą“.');
     return;
   }
   await persistRecording();

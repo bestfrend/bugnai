@@ -225,3 +225,15 @@ footer { padding: 24px 0 32px; }
 .nickname-control { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; touch-action: manipulation; }
 .nickname-control:focus-visible { outline: 2px solid #dbedf3; outline-offset: 4px; border-radius: 4px; }
 @media (max-width: 600px) { .slot { grid-template-columns: minmax(0, 1fr); } }
+
+/* Reserve the same space for recording and review controls. */
+#recording-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; height: 40px; line-height: 20px; overflow: hidden; overflow-wrap: anywhere; }
+.recording-bar .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "main secondary cancel"; grid-template-rows: 56px; gap: 8px; }
+#finish-recording, #preview-recording { grid-area: main; }
+#commit-recording, #retry-recording { grid-area: secondary; }
+#cancel-recording { grid-area: cancel; }
+.recording-bar .action { height: 100%; min-height: 0; min-width: 0; padding: 6px; line-height: 1.2; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .recording-bar .actions { grid-template-rows: 64px; }
+  .recording-bar .action { font-size: 12px; }
+}
