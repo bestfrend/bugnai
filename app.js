@@ -1,5 +1,5 @@
 import * as db from './database.js';
-import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit } from './index.js';
+import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit, releasePianoKeys } from './index.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TIME = 120000;
@@ -466,7 +466,7 @@ function updateRecordBar() {
   $('commit-recording').hidden = stage !== 'review';
   $('retry-recording').hidden = stage !== 'failed';
   $('restart-recording').disabled = stage === 'saving';
-  const elapsed = ['review', 'failed', 'saving'].includes(stage) ? (recording.events.at(-1)?.time || 0)
+  const elapsed = ['review', 'failed', 'saving'].includes(stage) ? (Math.max(0, ...recording.events.map(note => note.time + (note.length || 0))))
     : recording.started === null ? 0 : Math.min(MAX_TIME, performance.now() - recording.started);
   $('recording-clock').textContent = `${duration(elapsed)} / 120 s`;
 }
@@ -481,7 +481,7 @@ function startRecording(slot) {
   updateRecordBar();
   refreshControls();
   status(saved ? 'Senas ritmas pasikeis tik paspaudus „Atnaujinti ritmą“.'
-    : 'Grok būgnais. Dviejų minučių laikas prasidės nuo pirmo smūgio.');
+    : 'Grok. Dviejų minučių laikas prasidės nuo pirmos natos.');
   window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 }
 
@@ -501,13 +501,21 @@ window.addEventListener('drumhit', event => {
     return;
   }
   recording.events.push({ key: event.detail.key, time,
-    ...(recording.kit === DEFAULT_KIT ? {} : { velocity: event.detail.velocity }) });
+    ...(recording.kit === DEFAULT_KIT ? {} : { velocity: event.detail.velocity }),
+    ...(recording.kit === 'salamander-v1' ? { length: 0 } : {}) });
   updateRecordBar();
   if (recording.events.length >= MAX_NOTES) finishRecording();
 });
 
+window.addEventListener('pianorelease', event => {
+  if (!recording || recording.kit !== 'salamander-v1' || recording.stage !== 'recording') return;
+  const note = recording.events.findLast(note => note.key === event.detail.key);
+  if (note) note.length = Math.max(0, Math.min(MAX_TIME - note.time, Math.round(performance.now() - recording.started) - note.time));
+});
+
 async function finishRecording() {
   if (!recording || ['saving', 'review', 'failed'].includes(recording.stage)) return;
+  releasePianoKeys();
   clearRecordTimers();
   if (!recording.events.length) {
     cancelRecording();
@@ -559,7 +567,7 @@ function repeatRecording() {
   updateRecordBar();
   refreshControls();
   status(replace ? 'Senas ritmas pasikeis tik paspaudus „Atnaujinti ritmą“.'
-    : 'Grok būgnais. Dviejų minučių laikas prasidės nuo pirmo smūgio.');
+    : 'Grok. Dviejų minučių laikas prasidės nuo pirmos natos.');
 }
 
 function cancelRecording() {
@@ -630,14 +638,14 @@ async function playSequence(saved, owner, slot, label, draft = null) {
     const started = performance.now();
     playback = { owner, slot };
     updatePlaybackButtons();
-    const endsAt = started + Math.max(...saved.events.map(note => note.time + soundDuration(note.key, kit, note.velocity || 127))) + 8;
+    const endsAt = started + Math.max(...saved.events.map(note => note.time + soundDuration(note.key, kit, note.velocity || 127, note.length))) + 8;
     $('playback-title').textContent = label;
     $('playback-bar').hidden = false;
     const tick = () => {
       const elapsed = performance.now() - started;
       while (index < saved.events.length && saved.events[index].time <= elapsed) {
         const note = saved.events[index++];
-        hitDrum(note.key, false, note.velocity || 127, kit);
+        hitDrum(note.key, false, note.velocity || 127, kit, note.length);
       }
       if (index === saved.events.length) {
         clearInterval(playback.timer);

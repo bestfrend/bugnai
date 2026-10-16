@@ -157,3 +157,33 @@ Garsų kilmė, CC0 licencija, šaltinio commit, SHA-256 ir paruošimas aprašyti
 Paruošti failai saugomi saugykloje, todėl naudojantis svetaine nereikia jokio CDN,
 FFmpeg ar SFZ grotuvo. Keisdami patį rinkinį ateityje naudokite naują versijos ID,
 kad senų įrašų skambesys nepasikeistų.
+
+### Pianinas telefonui: Salamander · Alexander Holm
+
+`piano.html` turi 13 klavišų (C4–C5), įskaitant juodus pustonius. Visa oktava telpa
+320 px telefono ekrane. Vienu metu galima liesti kelis klavišus; kompiuteryje
+naudojami A W S E D F T G Y H U J K. Pointer capture užtikrina atleidimą ir pirštą
+pakėlus už klavišo ribų; atšauktas lietimas, prarastas lango fokusas ir paslėptas
+puslapis taip pat atleidžia natas. Stiprumo slankiklis keičia garsumą, ne laikymo
+trukmę. Laikymas valdo natos trukmę, atleidimas turi 180 ms slopimo gaubtinę.
+
+Autorius **Alexander Holm**, **Salamander Grand Piano**, licencija **CC BY 3.0**.
+Autorius, šaltinis, licencija ir pritaikymo aprašymas matomi puslapyje. Penki
+nepakeisti MP3 iš prisegtos Tone.js audio saugyklos versijos sudaro apie 0,4 MB;
+tarpinės natos atkuriamos keičiant aukštį iki dviejų pustonių. Tai vienas dinamikos
+sluoksnis, be pedalų ir pilno SFZ rezonansų modelio. Ilgai laikoma nata natūraliai
+nutyla pasibaigus mėginiui. Kilmė ir SHA-256: `sounds/salamander-v1/sources.json`;
+originalus autoriaus pranešimas: `sounds/salamander-v1/README`;
+naudojimas ir pakeitimai: `sounds/salamander-v1/ATTRIBUTION.md`.
+
+Esamame Supabase projekte SQL Editor paleiskite **`supabase/piano.sql`**. Migracija
+prideda `salamander-v1` ir pianino natų `{key,time,velocity,length}` validavimą,
+išlaikydama senus būgnų įrašus ir savininko teises. Trukmė baigiasi paskutinės natos
+atleidimu, ne paskutinės natos pradžia; akordų atleidimai gali persidengti. Iki
+migracijos pianino išsaugojimas rodo konkretų SQL failą ir išlaiko bandymą
+pakartotiniam išsaugojimui. Naujam projektui pakanka viso `schema.sql`.
+
+Visų trijų instrumentų prisijungimas ir 50 įrašų limitas bendri. Pianino įrašas
+atkuriamas pianinu ir būgnų puslapyje. `python3 scripts/build-studio.py` generuoja
+abu papildomus puslapius iš bendro `index.html`; GitHub Actions tai atlieka prieš
+publikuodamas ir visiems trims puslapiams suteikia tą pačią versiją.

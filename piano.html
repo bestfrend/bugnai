@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="lt" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#283149">
+  <title>Salamander pianinas · Alexander Holm</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css?family=Arvo" rel="stylesheet">
+</head>
+<body data-kit="salamander-v1" class="piano-kit">
+  <header>
+    <nav class="kit-tabs" aria-label="Instrumentai">
+      <a href="index.html" data-kit-link="classic-v1">Klasikiniai būgnai</a>
+      <a href="studio.html" data-kit-link="virtuosity-v1">Virtuosity būgnai</a>
+      <a href="piano.html" data-kit-link="salamander-v1" aria-current="page">Pianinas · Salamander</a>
+    </nav>
+    <h1 id="title">Salamander pianinas</h1>
+  </header>
+  <main>
+    <p id="status" class="status" role="status" aria-live="polite">Jungiamasi…</p>
+    <section id="login" class="panel login-panel" aria-labelledby="login-title">
+      <h2 id="login-title">Tavo ritmas. Tavo kūryba.</h2>
+      <p>Įvesk slapyvardį, grok ir klausyk kitų sukurtų ritmų.</p>
+      <form id="login-form">
+        <label for="nickname">Tavo slapyvardis</label>
+        <div class="login-fields">
+          <input id="nickname" name="nickname" autocomplete="nickname" maxlength="24" required placeholder="Kaip tave vadinti?">
+          <button type="submit" class="action primary" id="login-button">Pradėti groti</button>
+        </div>
+      </form>
+      <p class="hint">Be slaptažodžio. Ši naršyklė prisimins tave; išvalius jos duomenis prieigos prie savo įrašų galima netekti.</p>
+    </section>
+
+    <div id="workspace" hidden>
+      <div class="welcome">
+        <div class="profile-heading">
+          <button type="button" id="upload-avatar" class="avatar avatar-upload" aria-label="Įkelti arba pakeisti profilio nuotrauką" title="Įkelti arba pakeisti nuotrauką"><span id="my-avatar" class="avatar" aria-hidden="true"></span></button>
+          <div class="profile-name"><button type="button" id="welcome-name" class="nickname-control" aria-expanded="false" aria-controls="remove-avatar" title="Dukart paspausk, kad tvarkytum nuotrauką"></button><button type="button" id="remove-avatar" class="avatar-remove" hidden aria-label="Pašalinti profilio nuotrauką">Pašalinti nuotrauką</button></div>
+        </div>
+        <div class="library-tools">
+          <button id="create-rhythm" type="button" class="action primary create-rhythm" disabled>Sukurti ritmą</button>
+          <span id="rhythm-count" class="hint rhythm-count"></span>
+        </div>
+        <input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+      </div>
+      <section id="recording-bar" class="recording-bar" hidden aria-label="Įrašymo valdymas">
+        <div><strong id="recording-title"></strong><span id="recording-clock" class="recording-clock"></span></div>
+        <div class="actions">
+          <button id="finish-recording" class="action primary" data-icon="stop" type="button">Baigti ir išsaugoti</button>
+          <button id="preview-recording" class="action play-rhythm" type="button" aria-pressed="false" hidden>Perklausyti bandymą</button>
+          <button id="commit-recording" class="action primary" type="button" hidden>Atnaujinti ritmą</button>
+          <button id="retry-recording" class="action primary" type="button" hidden>Išsaugoti dar kartą</button>
+          <button id="restart-recording" class="action" type="button">Pakartoti bandymą</button>
+        </div>
+      </section>
+      <section class="kit" aria-label="Pianinas">
+<p class="piano-author">Salamander Grand Piano · Alexander Holm</p>
+        <p class="hint">Paliesk klavišus ir grok akordus. Klaviatūra: A W S E D F T G Y H U J K.</p>
+        <p id="audio-status" class="hint" role="status">Įkeliami pianino garsai…</p>
+        <div id="strength-control" class="strength-control">
+          <label for="strike-strength">Garso stiprumas</label>
+          <input id="strike-strength" type="range" min="20" max="127" value="96" step="1">
+          <output id="strength-output" for="strike-strength">76 %</output>
+        </div>
+        <div class="set piano-keyboard" aria-label="Pianino klavišai C4–C5"><button type="button" class="piano-key white-key" data-key="c4" data-shortcut="a" style="--position:0" aria-label="Do, C4, klavišas A"><span>Do</span><small>A</small></button>
+<button type="button" class="piano-key black-key" data-key="cs4" data-shortcut="w" style="--position:1" aria-label="Do♯, CS4, klavišas W"><span>Do♯</span><small>W</small></button>
+<button type="button" class="piano-key white-key" data-key="d4" data-shortcut="s" style="--position:1" aria-label="Re, D4, klavišas S"><span>Re</span><small>S</small></button>
+<button type="button" class="piano-key black-key" data-key="ds4" data-shortcut="e" style="--position:2" aria-label="Re♯, DS4, klavišas E"><span>Re♯</span><small>E</small></button>
+<button type="button" class="piano-key white-key" data-key="e4" data-shortcut="d" style="--position:2" aria-label="Mi, E4, klavišas D"><span>Mi</span><small>D</small></button>
+<button type="button" class="piano-key white-key" data-key="f4" data-shortcut="f" style="--position:3" aria-label="Fa, F4, klavišas F"><span>Fa</span><small>F</small></button>
+<button type="button" class="piano-key black-key" data-key="fs4" data-shortcut="t" style="--position:4" aria-label="Fa♯, FS4, klavišas T"><span>Fa♯</span><small>T</small></button>
+<button type="button" class="piano-key white-key" data-key="g4" data-shortcut="g" style="--position:4" aria-label="Sol, G4, klavišas G"><span>Sol</span><small>G</small></button>
+<button type="button" class="piano-key black-key" data-key="gs4" data-shortcut="y" style="--position:5" aria-label="Sol♯, GS4, klavišas Y"><span>Sol♯</span><small>Y</small></button>
+<button type="button" class="piano-key white-key" data-key="a4" data-shortcut="h" style="--position:5" aria-label="La, A4, klavišas H"><span>La</span><small>H</small></button>
+<button type="button" class="piano-key black-key" data-key="as4" data-shortcut="u" style="--position:6" aria-label="La♯, AS4, klavišas U"><span>La♯</span><small>U</small></button>
+<button type="button" class="piano-key white-key" data-key="b4" data-shortcut="j" style="--position:6" aria-label="Si, B4, klavišas J"><span>Si</span><small>J</small></button>
+<button type="button" class="piano-key white-key" data-key="c5" data-shortcut="k" style="--position:7" aria-label="Do, C5, klavišas K"><span>Do</span><small>K</small></button></div>
+      </section>
+      <div id="playback-bar" class="playback-bar" hidden>
+        <span id="playback-title"></span>
+        <button id="stop-playback" type="button" class="action">Stabdyti atkūrimą</button>
+      </div>
+      <section class="community panel" aria-labelledby="community-title">
+        <div class="section-heading"><h2 id="community-title">Mūsų ritmai</h2></div>
+        <p class="hint">Kitų įrašus galite tik paklausyti.</p>
+        <div id="users"></div>
+        <button type="button" id="more-users" class="action" hidden>Rodyti daugiau vartotojų</button>
+      </section>
+    </div>
+    <noscript>Šiai programai reikia įjungti JavaScript.</noscript>
+  </main>
+  <dialog id="rename-dialog" aria-labelledby="rename-heading">
+    <form id="rename-form">
+      <h2 id="rename-heading">Ritmo pavadinimas</h2>
+      <label for="rhythm-title-input">Pavadinimas</label>
+      <input id="rhythm-title-input" class="text-input" maxlength="60" required autocomplete="off">
+      <p id="rename-error" role="alert"></p>
+      <div class="actions">
+        <button id="save-title" type="submit" class="action primary">Išsaugoti pavadinimą</button>
+        <button id="cancel-title" type="button" class="action">Atšaukti</button>
+      </div>
+    </form>
+  </dialog>
+  <footer>
+    <div>Kurta su ❤️ Londone</div>
+    <div class="sound-credit piano-credit">Salamander Grand Piano · <strong>Alexander Holm</strong><br><a href="https://github.com/tonejs/audio/tree/efd8296360f9526e379bfbe5c1698ff54d6a1d34/salamander" target="_blank" rel="noopener">Garsų šaltinis</a> · <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="license noopener">CC BY 3.0</a><br><span>Atrinkti mėginiai, natų aukščio keitimas ir atleidimo gaubtinė.</span></div>
+    <div class="version">Versija <span id="app-version">1.01</span></div>
+  </footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

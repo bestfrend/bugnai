@@ -22,10 +22,11 @@ async function wait(check) {
 }
 async function scenario(browser,mobile,kit='classic-v1'){
   const studio=kit==='virtuosity-v1';
+  const piano=kit==='salamander-v1';
   const context=await browser.newContext(mobile?{...devices['Pixel 7']} : {});
   const profiles=[{id:other,nickname:'Kitas <img src=x>',created_at:new Date().toISOString()}];
   const recordings=new Map([[other+':1',{slot:1,events:[{key:'w',time:0},{key:'k',time:50}],duration_ms:50,created_at:'2026-10-15T09:00:00Z',updated_at:new Date().toISOString()}]]);
-  let signups=0,refreshes=0,saves=0,failSave=false,profileReads=0,missingKitSchema=true;
+  let signups=0,refreshes=0,saves=0,failSave=false,profileReads=0,missingKitSchema=!piano,missingPianoSchema=piano;
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',async route=>{
@@ -53,6 +54,7 @@ async function scenario(browser,mobile,kit='classic-v1'){
         if(failSave)return reply({code:'temporary_error'},503);
         const item=req.postDataJSON();assert.equal(item.owner_id,own);
         if(missingKitSchema && item.kit)return reply({code:'PGRST204',message:"Could not find the 'kit' column"},400);
+        if(missingPianoSchema && item.kit==='salamander-v1')return reply({code:'23514',message:'violates check constraint performances_kit_check'},400);
         if(recordings.has(own+':'+item.slot))return reply({code:'23505'},409);
         const saved={...item,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};recordings.set(own+':'+item.slot,saved);saves++;
         return reply([saved],201);
@@ -86,7 +88,7 @@ async function scenario(browser,mobile,kit='classic-v1'){
     const start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function(...args) {
       window.audioHits.push(performance.now());
-      window.audioDetails.push({duration:this.buffer.duration,gain:this.testGain?.gain.value});
+      window.audioDetails.push({duration:this.buffer.duration,gain:this.testGain?.gain.value,rate:this.playbackRate.value});
       return start.apply(this, args);
     };
     const play = HTMLMediaElement.prototype.play;
@@ -100,7 +102,7 @@ async function scenario(browser,mobile,kit='classic-v1'){
   page.on('dialog',dialog=>{dialogs.push(dialog.message());dialog.accept();});
   await page.clock.install();
   const base=`http://127.0.0.1:${server.address().port}`;
-  await page.goto(base+(studio?'/studio.html':'/index.html'));
+  await page.goto(base+(piano?'/piano.html':studio?'/studio.html':'/index.html'));
   await wait(()=>page.locator('#audio-status').isHidden());
   assert.equal(await page.locator('.kit-tabs [aria-current="page"]').getAttribute('data-kit-link'),kit);
   assert(await page.locator('#workspace').isHidden());
@@ -110,11 +112,147 @@ async function scenario(browser,mobile,kit='classic-v1'){
   const mine=page.locator(`[data-owner="${own}"]`);
   const theirs=page.locator(`[data-owner="${other}"]`);
   await wait(()=>page.locator('#create-rhythm').isEnabled());
-  assert.equal(await page.locator('#strength-control').isVisible(),studio);
+  assert.equal(await page.locator('#strength-control').isVisible(),studio||piano);
   assert.equal(signups,1);
   assert.equal(await mine.locator('.slot').count(),0);
   assert.equal(await page.locator('.user-card .create-rhythm').count(),0);
   assert((await page.locator('#create-rhythm').boundingBox()).y<(await page.locator('.kit').boundingBox()).y,'creation is available above the drum kit');
+  if(piano) {
+    assert.equal(await page.locator('.piano-key').count(),13);
+    assert.equal(await page.locator('.black-key').count(),5);
+    assert((await page.locator('.piano-credit').innerText()).includes('Alexander Holm'));
+    assert.equal(await page.locator('.piano-credit [rel*="license"]').getAttribute('href'),'https://creativecommons.org/licenses/by/3.0/');
+    for(const width of [320,393,768,1280]) {
+      await page.setViewportSize({width,height:850});
+      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      const rect=await page.locator('.piano-keyboard').boundingBox();
+      assert(rect.x>=0 && rect.x+rect.width<=width);
+      assert((await page.locator('.white-key').first().boundingBox()).width>=30);
+    }
+    await page.setViewportSize({width:mobile?393:1280,height:850});
+    await page.locator('#create-rhythm').click();
+    await page.locator('.piano-keyboard').scrollIntoViewIfNeeded();
+    if(mobile) {
+      const client=await context.newCDPSession(page);
+      const points=await Promise.all(['c4','e4','g4'].map(async(key,i)=>{
+        const r=await page.locator(`[data-key="${key}"]`).boundingBox();
+        return {x:r.x+r.width/2,y:r.y+r.height-30,id:i+1};
+      }));
+      await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:points});
+      assert.equal(await page.locator('.piano-key.pressed').count(),3);
+      await page.clock.runFor(450);
+      await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      await client.detach();
+    } else {
+      await page.keyboard.down('a');
+      await page.keyboard.down('e');
+      await page.clock.runFor(250);
+      await page.keyboard.up('e');
+      await page.clock.runFor(350);
+      await page.keyboard.up('a');
+    }
+    assert.equal(await page.locator('.piano-key.pressed').count(),0);
+    await page.clock.runFor(1200);
+    await page.locator('#finish-recording').click();
+    await wait(()=>page.locator('#retry-recording').isVisible());
+    assert((await page.locator('#status').innerText()).includes('piano.sql'));
+    assert.equal(saves,0);
+    missingPianoSchema=false;
+    await page.locator('#retry-recording').click();
+    await wait(()=>saves===1);
+    await wait(()=>page.locator('#recording-bar').isHidden());
+    const saved=recordings.get(own+':1');
+    assert.equal(saved.kit,kit);
+    assert.equal(saved.events.length,mobile?3:2);
+    assert(saved.events.every(note=>note.length>=200 && note.length<1000));
+    assert.equal(saved.duration_ms,Math.max(...saved.events.map(n=>n.time+n.length)));
+    assert(saved.duration_ms<1000,'silence after release does not lengthen piano recording');
+    if(!mobile)assert(saved.events[0].length>saved.events[1].length+200,'held keys keep independent lengths');
+    const slot=mine.locator('.slot[data-slot="1"]');
+    await slot.locator('.play-rhythm').click();
+    await wait(()=>slot.locator('.play-rhythm').getAttribute('aria-pressed').then(v=>v==='true'));
+    await page.clock.runFor(saved.duration_ms+300);
+    assert.equal(await slot.locator('.play-rhythm').getAttribute('aria-pressed'),'false');
+    // Piano playback works on pages without any piano keys, retaining pitch/length.
+    await page.locator('[data-kit-link="classic-v1"]').click();
+    await wait(()=>page.locator('#audio-status').isHidden());
+    await wait(()=>page.locator(`[data-owner="${own}"] .slot`).count().then(n=>n===1));
+    const crossSlot=page.locator(`[data-owner="${own}"] .slot`);
+    await crossSlot.locator('.play-rhythm').click();
+    await wait(()=>page.evaluate(()=>window.audioDetails.length>0));
+    const rates=await page.evaluate(()=>window.audioDetails.map(d=>d.rate));
+    assert.equal(rates.length,saved.events.length);
+    assert(Math.abs(rates[1]-(mobile?2**(1/12):1))<0.0001,'chromatic pitches survive cross-page playback');
+    await page.clock.runFor(saved.duration_ms+300);
+    await page.locator('[data-kit-link="salamander-v1"]').click();
+    await wait(()=>page.locator('#audio-status').isHidden());
+    await wait(()=>page.locator('#create-rhythm').isEnabled());
+    assert.equal(signups,1);
+    // Finishing while a physical key is down closes and saves that held note.
+    await page.locator('#create-rhythm').click();
+    await page.keyboard.down('k');
+    await page.clock.runFor(350);
+    await page.locator('#finish-recording').click();
+    await page.keyboard.up('k');
+    await wait(()=>saves===2);
+    assert(recordings.get(own+':2').events[0].length>=350);
+    // Blur/pointer cancellation release visual state and voice without a stuck key.
+    await page.keyboard.down('a');
+    await page.evaluate(()=>window.dispatchEvent(new Event('blur')));
+    assert.equal(await page.locator('.piano-key.pressed').count(),0);
+    await page.keyboard.up('a');
+    const key=page.locator('[data-key="cs4"]');
+    const box=await key.boundingBox();
+    await page.mouse.move(box.x+box.width/2,box.y+20);
+    await page.mouse.down();
+    await key.dispatchEvent('pointercancel',{pointerId:1});
+    await page.mouse.up();
+    assert.equal(await page.locator('.piano-key.pressed').count(),0);
+    // Overwrite keeps the original until the replacement is explicitly confirmed.
+    const original=JSON.stringify(recordings.get(own+':1').events);
+    const firstSlot=mine.locator('.slot[data-slot="1"]');
+    await firstSlot.getByRole('button',{name:'Perrašyti',exact:true}).click();
+    await page.keyboard.down('a');
+    await page.clock.runFor(250);
+    await page.keyboard.up('a');
+    await page.locator('#finish-recording').click();
+    assert.equal(JSON.stringify(recordings.get(own+':1').events),original);
+    await page.locator('#restart-recording').click();
+    await page.keyboard.down('d');
+    await page.clock.runFor(300);
+    await page.keyboard.up('d');
+    await page.locator('#finish-recording').click();
+    await page.locator('#preview-recording').click();
+    await page.clock.runFor(600);
+    assert.equal(JSON.stringify(recordings.get(own+':1').events),original);
+    await page.locator('#commit-recording').click();
+    await wait(()=>saves===3);
+    assert.equal(recordings.get(own+':1').events[0].key,'e4');
+    // The two-minute boundary closes held notes and saves exactly once.
+    await wait(()=>page.locator('#create-rhythm').isEnabled());
+    await page.locator('#create-rhythm').click();
+    await page.keyboard.down('a');
+    await page.clock.runFor(120200);
+    await wait(()=>saves===4);
+    await page.keyboard.up('a');
+    assert.equal(recordings.get(own+':3').duration_ms,120000);
+    assert.equal(recordings.get(own+':3').events[0].length,120000);
+    await wait(()=>page.locator('#create-rhythm').isEnabled());
+    // Navigating away discards an unfinished attempt rather than saving it.
+    await page.locator('#create-rhythm').click();
+    await page.keyboard.down('h');
+    await page.clock.runFor(200);
+    await page.goto(base+'/piano.html');
+    await wait(()=>page.locator('#audio-status').isHidden());
+    await wait(()=>page.locator('#create-rhythm').isEnabled());
+    assert.equal(saves,4);
+    assert.equal(recordings.has(own+':4'),false);
+    if(mobile)await page.screenshot({path:'test-results/mobile-piano.png',fullPage:true});
+    assert.deepEqual(errors,[]);
+    console.log('PASS piano',mobile?'mobile multitouch':'desktop keyboard','chords, hold/release, save/retry, playback, cross-page pitch, responsive keyboard, attribution, cancellation, overwrite review and two-minute/discard limits');
+    await context.close();
+    return;
+  }
   await theirs.locator('summary').click();
   await wait(async()=>await theirs.locator('.slot').count()===1);
   assert.equal(await theirs.locator('.primary,.danger').count(),0);
@@ -464,7 +602,7 @@ async function scenario(browser,mobile,kit='classic-v1'){
  let browser;
  try {
   browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
-  for(const kit of ['classic-v1','virtuosity-v1']) {
+  for(const kit of ['classic-v1','virtuosity-v1','salamander-v1']) {
     await scenario(browser,false,kit);
     await scenario(browser,true,kit);
   }

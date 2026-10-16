@@ -38,7 +38,7 @@ jobs:
         run: |
           mkdir -p _site
           python3 scripts/build-studio.py
-          cp index.html studio.html index.js kits.js app.js database.js supabase-config.js styles.css _site/
+          cp index.html studio.html piano.html index.js kits.js app.js database.js supabase-config.js styles.css _site/
           cp -R images sounds _site/
           python3 - <<'PY'
           import os
@@ -48,7 +48,7 @@ jobs:
           # Re-running an existing workflow preserves that release's version.
           version = f"1.{int(os.environ['GITHUB_RUN_NUMBER']):02d}"
           marker = '<span id="app-version">1.01</span>'
-          for name in ['index.html', 'studio.html']:
+          for name in ['index.html', 'studio.html', 'piano.html']:
               page = Path('_site') / name
               html = page.read_text()
               if html.count(marker) != 1:

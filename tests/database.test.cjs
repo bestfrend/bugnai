@@ -167,3 +167,30 @@ test('versioned kits and optional integer velocities preserve legacy recordings'
   assert.equal(saved.events[1].velocity,96);
   assert.equal((await db.query("update performances set kit='classic-v1' where owner_id=$1 returning *",[bob])).rows.length,0);
 });
+test('piano migration preserves drums, validates held chords and keeps owner permissions',async()=>{
+  await db.exec('reset role');
+  const before=(await db.query('select events from performances where owner_id=$1 and slot=3',[bob])).rows[0].events;
+  const migration=readFileSync('supabase/piano.sql','utf8');
+  await db.exec(migration);
+  await db.exec(migration);
+  assert.deepEqual((await db.query('select events from performances where owner_id=$1 and slot=3',[bob])).rows[0].events,before);
+  await user(bob);
+  const chord=[{key:'c4',time:0,velocity:96,length:900},{key:'cs4',time:100,velocity:70,length:200},{key:'c5',time:200,velocity:127,length:300}];
+  const save=(events,duration=900,kit='salamander-v1')=>db.query('insert into performances(owner_id,slot,events,duration_ms,kit) values($1,4,$2,$3,$4)',[bob,JSON.stringify(events),duration,kit]);
+  const invalid=[
+    [chord,500], [chord,900,'classic-v1'], [JSON.parse(notes),250,'salamander-v1'],
+    [[{...chord[0],length:-1}]], [[{...chord[0],length:1.5}]], [[{...chord[0],length:120001}]],
+    [[{...chord[0],key:'c9'}]], [[{...chord[0],velocity:128}]],
+    [[{key:'c4',time:0,velocity:96}]], [[{...chord[0],extra:true}]],
+    [[chord[0],{key:'w',time:100,velocity:96}]], [[{key:'w',time:0,length:900}]]
+  ];
+  for(const args of invalid)await assert.rejects(save(...args),{code:'23514'});
+  await save(chord);
+  await user(alice);
+  const saved=(await db.query('select * from performances where owner_id=$1 and slot=4',[bob])).rows[0];
+  assert.deepEqual(saved.events,chord);
+  assert.equal(saved.duration_ms,900,'a chord lasts until its final key release');
+  assert.equal((await db.query('delete from performances where owner_id=$1 and slot=4 returning *',[bob])).rows.length,0);
+  await user(bob);
+  await db.query("update performances set title='Pianino akordas' where owner_id=$1 and slot=4",[bob]);
+});

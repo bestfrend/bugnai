@@ -14,6 +14,9 @@ declare
   note jsonb;
   note_time numeric;
   previous_time numeric := -1;
+  note_end numeric := 0;
+  piano boolean;
+  is_piano boolean;
 begin
   if notes is null or duration is null or duration < 0 or duration > 120000
      or jsonb_typeof(notes) <> 'array' then return false; end if;
@@ -22,9 +25,12 @@ begin
     if jsonb_typeof(note) <> 'object' then return false; end if;
     if jsonb_typeof(note->'key') is distinct from 'string'
        or jsonb_typeof(note->'time') is distinct from 'number' then return false; end if;
-    if note->>'key' not in ('w','a','s','d','j','k','l') then return false; end if;
-    if (select count(*) from jsonb_object_keys(note)) not in (2, 3)
-       or (note - 'key' - 'time' - 'velocity') <> '{}'::jsonb then return false; end if;
+    is_piano := note->>'key' in ('c4','cs4','d4','ds4','e4','f4','fs4','g4','gs4','a4','as4','b4','c5');
+    if piano is null then piano := is_piano; end if;
+    if piano <> is_piano then return false; end if;
+    if not is_piano and note->>'key' not in ('w','a','s','d','j','k','l') then return false; end if;
+    if (select count(*) from jsonb_object_keys(note)) not in (2, 3, 4)
+       or (note - 'key' - 'time' - 'velocity' - 'length') <> '{}'::jsonb then return false; end if;
     if note ? 'velocity' then
       if jsonb_typeof(note->'velocity') is distinct from 'number' then return false; end if;
       note_time := (note->>'velocity')::numeric;
@@ -34,9 +40,19 @@ begin
     if note_time <> trunc(note_time) or note_time < 0 or note_time > 120000
        or note_time < previous_time then return false; end if;
     if previous_time = -1 and note_time <> 0 then return false; end if;
+    if is_piano then
+      if jsonb_typeof(note->'length') is distinct from 'number'
+         or jsonb_typeof(note->'velocity') is distinct from 'number' then return false; end if;
+      if (note->>'length')::numeric <> trunc((note->>'length')::numeric)
+         or (note->>'length')::numeric < 0
+         or note_time + (note->>'length')::numeric > 120000 then return false; end if;
+      note_end := greatest(note_end, note_time + (note->>'length')::numeric);
+    elsif note ? 'length' then return false;
+    else note_end := note_time;
+    end if;
     previous_time := note_time;
   end loop;
-  return previous_time = duration;
+  return note_end = duration;
 end;
 $$;
 
@@ -125,7 +141,13 @@ begin
 end;
 $$;
 
-alter table public.performances add column if not exists kit text not null default 'classic-v1'
-  check (kit in ('classic-v1', 'virtuosity-v1'));
+alter table public.performances add column if not exists kit text not null default 'classic-v1';
+alter table public.performances drop constraint if exists performances_kit_check;
+alter table public.performances add constraint performances_kit_check
+  check (kit in ('classic-v1', 'virtuosity-v1', 'salamander-v1'));
+alter table public.performances drop constraint if exists performances_piano_check;
+alter table public.performances add constraint performances_piano_check check (
+  (kit = 'salamander-v1') = (events->0->>'key' in ('c4','cs4','d4','ds4','e4','f4','fs4','g4','gs4','a4','as4','b4','c5'))
+);
 
 commit;

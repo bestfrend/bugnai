@@ -58,8 +58,10 @@ async function request(path, options = {}, token) {
       message = 'Duomenų bazė dar neparuošta. Reikia paleisti projekto schema.sql Supabase SQL Editor.';
     } else if (data?.code === 'PGRST204' || data?.code === '42703') {
       message = /kit/i.test(data?.message || '')
-        ? 'Antram būgnų rinkiniui Supabase SQL Editor paleisk drum-kits.sql.'
+        ? (options.body?.includes('salamander-v1') ? 'Pianino įrašams Supabase SQL Editor paleisk piano.sql.' : 'Antram būgnų rinkiniui Supabase SQL Editor paleisk drum-kits.sql.')
         : 'Duomenų bazę reikia atnaujinti pagal naujausią Supabase SQL papildymą.';
+    } else if (data?.code === '23514' && options.body?.includes('salamander-v1') && /valid_performance|kit|piano/i.test(data?.message || '')) {
+      message = 'Pianino įrašams Supabase SQL Editor paleisk piano.sql.';
     } else if (data?.code === '23505') {
       message = 'Šią vietą jau užėmė įrašas kitame lange. Ankstesnis ritmas nepakeistas.';
     } else if (data?.code === 'anonymous_provider_disabled') {
@@ -164,7 +166,7 @@ export async function savePerformance(slot, events, title, replace = false, kit 
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
       ...(replace ? {} : { owner_id: user.id, slot }),
-      events, duration_ms: events.at(-1).time, title, kit
+      events, duration_ms: Math.max(...events.map(note => note.time + (note.length || 0))), title, kit
     })
   };
   let result;
