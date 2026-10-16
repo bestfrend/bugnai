@@ -146,6 +146,40 @@ export function listProfiles(offset = 0) {
   return rest('profiles?select=id,nickname,created_at,avatar_data&order=nickname.asc,id.asc&limit=50&offset=' + offset);
 }
 
+export function touchPresence() {
+  if (!currentUser()) return Promise.resolve();
+  return rest('rpc/touch_member_presence', { method: 'POST', body: '{}' });
+}
+
+export function startMemberSession(details) {
+  return rest('rpc/start_member_session', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_device_type: details.deviceType,
+      p_os_name: details.osName,
+      p_browser_name: details.browserName,
+      p_approx_location: details.approxLocation || null
+    })
+  });
+}
+
+export function pendingLocationRequest() {
+  return rest('rpc/member_pending_location_request', { method: 'POST', body: '{}' });
+}
+
+export function respondLocationRequest(requestId, decision, position = null) {
+  return rest('rpc/member_respond_location_request', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_request_id: requestId,
+      p_decision: decision,
+      p_latitude: position?.coords.latitude ?? null,
+      p_longitude: position?.coords.longitude ?? null,
+      p_accuracy_m: position?.coords.accuracy ?? null
+    })
+  });
+}
+
 export function saveAvatar(avatar) {
   return rest('profiles?id=eq.' + currentUser().id, {
     method: 'PATCH',

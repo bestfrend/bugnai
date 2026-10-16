@@ -29,6 +29,7 @@ async function scenario(browser,mobile,kit='classic-v1'){
   let signups=0,refreshes=0,saves=0,failSave=false,profileReads=0,missingKitSchema=!piano,missingPianoSchema=piano;
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
+  await context.route('https://ipwho.is/**',route=>route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify({success:true,city:'Vilnius',region:'Vilniaus apskritis',country:'Lietuva'})}));
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',async route=>{
     const req=route.request(),url=new URL(req.url()),method=req.method();
     const headers={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS','content-type':'application/json'};
@@ -37,6 +38,14 @@ async function scenario(browser,mobile,kit='classic-v1'){
     if(url.pathname==='/auth/v1/signup'){signups++;return reply(session());}
     if(url.pathname==='/auth/v1/token'){refreshes++;return reply(session());}
     assert.equal(req.headers().authorization,'Bearer test-access');
+    if(url.pathname==='/rest/v1/rpc/touch_member_presence')return reply(null);
+    if(url.pathname==='/rest/v1/rpc/start_member_session'){
+      assert(['Telefonas','Planšetė','Kompiuteris'].includes(req.postDataJSON().p_device_type));
+      assert.equal(req.postDataJSON().p_approx_location,'Vilnius, Vilniaus apskritis, Lietuva');
+      return reply(null);
+    }
+    if(url.pathname==='/rest/v1/rpc/member_pending_location_request')return reply([]);
+    if(url.pathname==='/rest/v1/rpc/member_respond_location_request')return reply(null);
     if(url.pathname==='/rest/v1/profiles'){
       if(method==='POST'){profiles.push(req.postDataJSON());return reply(null,201);}
       const id=url.searchParams.get('id')?.slice(3);
@@ -597,6 +606,45 @@ async function scenario(browser,mobile,kit='classic-v1'){
   console.log('PASS',kit,mobile?'mobile touch':'desktop mouse','login/refresh, save/play/overwrite/rename, legacy compatibility, kit/velocity, review/repeat, layout, polling and avatars');
   await context.close();
 }
+async function adminScenario(browser){
+  const context=await browser.newContext();
+  const page=await context.newPage();
+  const now=Date.now();
+  const rows=[
+    {id:own,nickname:'Ritmas',created_at:new Date(now-86400000).toISOString(),last_seen_at:new Date(now-10000).toISOString(),rhythm_count:3,device_type:'Kompiuteris',os_name:'Windows',browser_name:'Chrome',approx_location:'Vilnius, Lietuva'},
+    {id:other,nickname:'Kitas <b>',created_at:new Date(now-172800000).toISOString(),last_seen_at:new Date(now-300000).toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Kaunas, Lietuva'}
+  ];
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',route=>{
+    const path=new URL(route.request().url()).pathname;
+    assert.equal(route.request().postDataJSON().p_code,'test-admin-code-123');
+    if(path==='/rest/v1/rpc/admin_request_location'){
+      assert.equal(route.request().postDataJSON().p_member_id,own);
+      return route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify('44444444-4444-4444-8444-444444444444')});
+    }
+    assert.equal(path,'/rest/v1/rpc/admin_list_members');
+    return route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify(rows)});
+  });
+  const base=`http://127.0.0.1:${server.address().port}/admin.html`;
+  await page.goto(base);
+  assert(await page.locator('#admin-login').isVisible());
+  assert(await page.locator('#admin-panel').isHidden());
+  await page.locator('#admin-code').fill('test-admin-code-123');
+  await page.locator('#admin-login-form').evaluate(form=>form.requestSubmit());
+  await wait(async()=>await page.locator('#member-rows tr').count()===2);
+  assert.match(await page.locator('#admin-summary').textContent(),/Prisijungę: 1/);
+  await page.locator('#status-filter').selectOption('online');
+  assert.equal(await page.locator('#member-rows tr').count(),1);
+  assert.equal(await page.locator('#member-rows td:first-child strong').textContent(),'Ritmas');
+  assert.match(await page.locator('#member-rows').textContent(),/Kompiuteris/);
+  await page.getByRole('button',{name:'Prašyti vietos'}).click();
+  await wait(async()=>/prašymas išsiųstas/i.test(await page.locator('#admin-status').textContent()));
+  assert.equal(await page.locator('#member-rows b').count(),0,'member names are rendered as text');
+  assert.deepEqual(errors,[]);
+  console.log('PASS admin code entry, member status and filters');
+  await context.close();
+}
 (async()=>{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  let browser;
@@ -606,5 +654,6 @@ async function scenario(browser,mobile,kit='classic-v1'){
     await scenario(browser,false,kit);
     await scenario(browser,true,kit);
   }
+  await adminScenario(browser);
  }finally{if(browser)await browser.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1});

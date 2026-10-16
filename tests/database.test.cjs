@@ -194,3 +194,31 @@ test('piano migration preserves drums, validates held chords and keeps owner per
   await user(bob);
   await db.query("update performances set title='Pianino akordas' where owner_id=$1 and slot=4",[bob]);
 });
+test('private device data and consent-based location requests are admin-only',async()=>{
+  await db.exec(`reset role;
+    create schema if not exists extensions;
+    create or replace function extensions.crypt(value text, salt text) returns text language sql immutable as $$ select value $$;`);
+  const migration=readFileSync('supabase/member-insights.sql','utf8')
+    .replace('create extension if not exists pgcrypto with schema extensions;','');
+  await db.exec(migration);
+  await db.exec(migration);
+  await db.query("insert into admin_secrets values(true,'test-admin-code')");
+  await user(alice);
+  await db.query("select start_member_session('Telefonas','Android','Chrome','Vilnius, Lietuva')");
+  await assert.rejects(db.query('select * from member_presence'),{code:'42501'});
+  await db.exec('reset role; set role anon');
+  await assert.rejects(db.query("select * from admin_list_members('blogas')"),{code:'42501'});
+  const members=(await db.query("select * from admin_list_members('test-admin-code')")).rows;
+  assert.equal(members.find(member=>member.id===alice).device_type,'Telefonas');
+  const request=(await db.query("select admin_request_location('test-admin-code',$1) as id",[alice])).rows[0].id;
+  await user(bob);
+  assert.equal((await db.query('select * from member_pending_location_request()')).rows.length,0);
+  await assert.rejects(db.query("select member_respond_location_request($1,'approved',54.68,25.28,10)",[request]),{code:'P0002'});
+  await user(alice);
+  assert.equal((await db.query('select * from member_pending_location_request()')).rows[0].id,request);
+  await db.query("select member_respond_location_request($1,'approved',54.68,25.28,10)",[request]);
+  await db.exec('reset role; set role anon');
+  const updated=(await db.query("select * from admin_list_members('test-admin-code') where id=$1",[alice])).rows[0];
+  assert.equal(updated.location_status,'approved');
+  assert.equal(updated.exact_latitude,54.68);
+});
