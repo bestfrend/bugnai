@@ -147,8 +147,9 @@ main { color: #dbedf3; }
 .welcome { justify-content: space-between; text-align: left; margin-bottom: 24px; }
 .badge { font-size: 12px; color: #c8d4ed; border: 1px solid #54617d; border-radius: 20px; padding: 6px 12px; }
 .set { margin: 24px auto 40px; }
-.recording-bar { position: sticky; top: 8px; z-index: 2; padding: 16px; border: 1px solid #f079aa; border-radius: 16px; background: #35263e; text-align: left; box-shadow: 0 8px 30px #1118; }
-.recording-bar .actions { margin-top: 10px; }
+.recording-bar { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 16px; background: #101727d9; text-align: left; }
+.recording-card { width: min(560px, 100%); padding: 22px; border: 1px solid #f079aa; border-radius: 18px; background: #35263e; box-shadow: 0 18px 50px #05070dbb; }
+.recording-bar .actions { margin-top: 16px; }
 .recording-clock { display: block; margin-top: 6px; color: #efb9cf; font-size: 13px; font-variant-numeric: tabular-nums; }
 .section-heading { justify-content: space-between; }
 .section-heading h2, .section-heading p { margin: 0 0 8px; }
@@ -228,10 +229,10 @@ footer { padding: 24px 0 32px; }
 
 /* Reserve the same space for recording and review controls. */
 #recording-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; height: 40px; line-height: 20px; overflow: hidden; overflow-wrap: anywhere; }
-.recording-bar .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "main secondary cancel"; grid-template-rows: 56px; gap: 8px; }
-#finish-recording, #preview-recording { grid-area: main; }
-#commit-recording, #retry-recording { grid-area: secondary; }
-#restart-recording { grid-area: cancel; }
+.recording-bar .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "save repeat exit"; grid-template-rows: 56px; gap: 8px; }
+#commit-recording, #retry-recording { grid-area: save; }
+#restart-recording { grid-area: repeat; }
+#cancel-recording { grid-area: exit; }
 .recording-bar .action { height: 100%; min-height: 0; min-width: 0; padding: 6px; line-height: 1.2; overflow-wrap: anywhere; }
 @media (max-width: 600px) {
   .recording-bar .actions { grid-template-rows: 64px; }
@@ -264,9 +265,6 @@ footer { padding: 24px 0 32px; }
 .kit-tabs a { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 42px; padding: 8px; border-radius: 11px; color: #c0cce2; text-decoration: none; font-size: 13px; font-weight: 600; }
 .kit-tabs a[aria-current="page"] { color: #fff; background: #485d80; box-shadow: 0 2px 8px #1115; }
 .kit-tabs a:focus-visible { outline: 3px solid #dbedf3; outline-offset: 2px; }
-.strength-control { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; color: #c9d6ed; font-size: 13px; }
-.strength-control input { width: min(180px, 45vw); height: 32px; accent-color: #6dc5ac; }
-.strength-control output { min-width: 42px; font-variant-numeric: tabular-nums; }
 .studio-kit .drum { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border-radius: 22px; vertical-align: top; background-size: cover; background-position: center; }
 .studio-kit .drum-key { font-size: 2.3rem; line-height: 1; }
 .studio-kit .drum-name { max-width: 100%; padding: 3px 4px; border-radius: 6px; font: 600 10px/1.2 system-ui, sans-serif; color: #f2f6ff; background: #172238dc; text-shadow: none; }
@@ -300,6 +298,22 @@ footer { padding: 24px 0 32px; }
 .piano-credit span { font-size: 9px; }
 .piano-credit a { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 400px) { .kit-tabs { gap: 2px; } .kit-tabs a { padding: 6px 3px; font-size: 11px; } .piano-keyboard { border-width: 3px; border-top-width: 10px; } .black-key { font-size: 8px; } }
+
+/* A rotated phone becomes a distraction-free instrument. */
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body { padding: 0; }
+  body > header, body > footer, main > #status,
+  #workspace > .welcome, #workspace > .playback-bar, #workspace > .community { display: none !important; }
+  main, #workspace, .kit { width: 100%; max-width: none; height: 100%; margin: 0; padding: 0; }
+  .kit > .hint, .kit > .sound-credit, .kit > .piano-author { display: none !important; }
+  .kit .set { width: 100%; height: 100%; margin: 0; }
+  .kit .set:not(.piano-keyboard) { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; }
+  .kit .set:not(.piano-keyboard) .drum { grid-column: span 2; width: 100%; height: 100%; margin: 0; border-width: 5px; border-radius: 14px; font-size: clamp(2rem, 12vh, 4rem); line-height: 1; }
+  .kit .set:not(.piano-keyboard) .drum:nth-child(5) { grid-column: 2 / span 2; }
+  .piano-keyboard { max-width: none; height: 100%; border-radius: 0; }
+  .recording-bar { width: 100%; height: 100%; }
+}
 
 /* Administration page. */
 .admin-page { min-height: 100vh; }

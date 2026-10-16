@@ -218,6 +218,33 @@ export async function savePerformance(slot, events, title, replace = false, kit 
   return result;
 }
 
+// Page closing does not leave enough time for the regular request/refresh flow.
+// Keepalive sends the unfinished take to the private first slot and overwrites
+// only that same user's previous emergency take.
+export function saveEmergencyPerformance(events, title = 'Ritmas 1', kit = 'classic-v1') {
+  session = readSession();
+  if (!session?.access_token || !events?.length) return Promise.resolve(false);
+  const body = JSON.stringify({
+    owner_id: session.user.id,
+    slot: 1,
+    events,
+    duration_ms: Math.max(...events.map(note => note.time + (note.length || 0))),
+    title,
+    kit
+  });
+  return fetch(SUPABASE_URL + '/rest/v1/performances?on_conflict=owner_id,slot', {
+    method: 'POST',
+    keepalive: true,
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: 'Bearer ' + session.access_token,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    },
+    body
+  }).then(response => response.ok).catch(() => false);
+}
+
 export async function renamePerformance(slot, title) {
   const result = await rest('performances?owner_id=eq.' + currentUser().id + '&slot=eq.' + slot, {
     method: 'PATCH', headers: { Prefer: 'return=representation' },

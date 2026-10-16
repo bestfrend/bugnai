@@ -7,7 +7,6 @@ page = page.replace('<title>Būgnai</title>', '<title>Virtuosity būgnai</title>
 page = page.replace('<body data-kit="classic-v1">', '<body data-kit="virtuosity-v1" class="studio-kit">')
 page = page.replace('data-kit-link="classic-v1" aria-current="page"', 'data-kit-link="classic-v1"')
 page = page.replace('data-kit-link="virtuosity-v1"', 'data-kit-link="virtuosity-v1" aria-current="page"')
-page = page.replace('id="strength-control" class="strength-control" hidden', 'id="strength-control" class="strength-control"')
 page = page.replace('class="sound-credit" hidden', 'class="sound-credit"')
 names = {'w':'Aukštas tomas', 'a':'Žemas tomas', 's':'Užd. hi-hat', 'd':'Ride lėkštė', 'j':'Mažasis būgnas', 'k':'Crash lėkštė', 'l':'Bosinis būgnas'}
 buttons = '\n'.join(f'          <button type="button" class="{key} drum" data-key="{key}" aria-label="{name}, {key.upper()}"><span class="drum-key">{key}</span><span class="drum-name">{name}</span></button>' for key,name in names.items())
@@ -25,8 +24,6 @@ page = page.replace('Būgnų 🥁 komplektas', 'Salamander pianinas')
 page = page.replace('aria-label="Būgnai"', 'aria-label="Pianinas"')
 page = page.replace('Paliesk būgnus arba grok klavišais W A S D J K L.', 'Paliesk klavišus ir grok akordus. Klaviatūra: A W S E D F T G Y H U J K.')
 page = page.replace('Įkeliami būgnų garsai…', 'Įkeliami pianino garsai…')
-page = page.replace('id="strength-control" class="strength-control" hidden', 'id="strength-control" class="strength-control"')
-page = page.replace('Smūgio stiprumas', 'Garso stiprumas')
 notes = [('c4','Do','a',0),('cs4','Do♯','w',1),('d4','Re','s',1),('ds4','Re♯','e',2),('e4','Mi','d',2),('f4','Fa','f',3),('fs4','Fa♯','t',4),('g4','Sol','g',4),('gs4','Sol♯','y',5),('a4','La','h',5),('as4','La♯','u',6),('b4','Si','j',6),('c5','Do','k',7)]
 buttons = '\n'.join(f'<button type="button" class="piano-key {"black-key" if "s" in note else "white-key"}" data-key="{note}" data-shortcut="{shortcut}" style="--position:{position}" aria-label="{name}, {note.upper()}, klavišas {shortcut.upper()}"><span>{name}</span><small>{shortcut.upper()}</small></button>' for note,name,shortcut,position in notes)
 page = re.sub(r'<div class="set">.*?</div>', '<div class="set piano-keyboard" aria-label="Pianino klavišai C4–C5">'+buttons+'</div>', page, count=1, flags=re.S)

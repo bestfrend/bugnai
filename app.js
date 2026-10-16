@@ -5,6 +5,7 @@ const $ = id => document.getElementById(id);
 const MAX_TIME = 120000;
 const MAX_NOTES = 6000;
 const MAX_RHYTHMS = 50;
+const EMERGENCY_DRAFT_KEY = 'bugnai.emergency-draft';
 const members = new Map();
 let me;
 let offset = 0;
@@ -89,7 +90,6 @@ function markPlayButton(button, owner, slot) {
 }
 
 function updatePlaybackButtons() {
-  markPlayButton($('preview-recording'), 'draft', recording?.slot);
   for (const member of members.values()) {
     for (const button of member.slots.querySelectorAll('.play-rhythm')) {
       markPlayButton(button, member.profile.id, Number(button.dataset.slot));
@@ -108,7 +108,7 @@ function nextFreeSlot(member) {
   return null;
 }
 
-function createRhythm() {
+function beginAutomaticRecording() {
   if (recording || busy) return;
   const member = members.get(me.id);
   if (!member?.loaded) return;
@@ -117,13 +117,12 @@ function createRhythm() {
     status('Pasiektas 50 ritmų limitas. Gali perrašyti arba ištrinti vieną iš savo ritmų.');
     return;
   }
-  startRecording(slot);
+  startRecording(slot, false);
 }
 
 function updateCreateControl() {
   const member = members.get(me?.id);
   const count = member?.performances.size || 0;
-  $('create-rhythm').disabled = !member?.loaded || !!recording || busy || count >= MAX_RHYTHMS;
   $('rhythm-count').textContent = member?.loaded ? `${count} / ${MAX_RHYTHMS} ritmų` : '';
 }
 
@@ -586,45 +585,53 @@ async function changeAvatar(file) {
 function clearRecordTimers() {
   if (!recording) return;
   clearTimeout(recording.limitTimer);
+  clearTimeout(recording.silenceTimer);
   clearInterval(recording.clockTimer);
 }
 
 function updateRecordBar() {
-  $('recording-bar').hidden = !recording;
+  const visible = recording && ['review', 'saving', 'failed'].includes(recording.stage);
+  $('recording-bar').hidden = !visible;
   if (!recording) return;
   const stage = recording.stage;
+  $('recording-bar').dataset.stage = stage;
   $('recording-title').textContent = `${recording.title} · ` + ({
     armed: 'Laukiama pirmo smūgio', recording: 'Įrašoma',
-    review: 'Perklausyk naują bandymą', saving: 'Išsaugoma…', failed: 'Nepavyko išsaugoti'
+    review: 'Pabaiga', saving: 'Išsaugoma…', failed: 'Nepavyko išsaugoti'
   })[stage];
-  $('finish-recording').hidden = ['review', 'failed'].includes(stage);
-  $('finish-recording').querySelector('.button-label').textContent = recording.replace ? 'Baigti' : 'Baigti ir išsaugoti';
-  $('finish-recording').disabled = stage === 'saving';
-  $('preview-recording').hidden = !['review', 'failed'].includes(stage);
   $('commit-recording').hidden = stage !== 'review';
+  $('commit-recording').querySelector('.button-label').textContent = recording.replace
+    ? `Atnaujinti ${recording.title}` : `Įrašyti į ${recording.title}`;
   $('retry-recording').hidden = stage !== 'failed';
-  $('restart-recording').disabled = stage === 'saving';
+  $('restart-recording').disabled = $('cancel-recording').disabled = stage === 'saving';
   const elapsed = ['review', 'failed', 'saving'].includes(stage) ? (Math.max(0, ...recording.events.map(note => note.time + (note.length || 0))))
     : recording.started === null ? 0 : Math.min(MAX_TIME, performance.now() - recording.started);
-  $('recording-clock').textContent = `${duration(elapsed)} / 120 s`;
+  $('recording-clock').textContent = duration(elapsed);
 }
 
-function startRecording(slot) {
+function startRecording(slot, scroll = true) {
   if (recording || busy) return;
   const saved = members.get(me.id)?.performances.get(slot);
   mutationRevision++;
   stopPlayback();
   prepareAudio().catch(() => {});
-  recording = { slot, kit: ACTIVE_KIT, title: saved ? rhythmTitle(saved) : 'Ritmas ' + slot, replace: !!saved, stage: 'armed', started: null, events: [] };
+  recording = { slot, kit: ACTIVE_KIT, title: saved ? rhythmTitle(saved) : 'Ritmas ' + slot, replace: !!saved, stage: 'armed', started: null, events: [], heldPiano: new Set() };
   updateRecordBar();
   refreshControls();
-  status(saved ? 'Senas ritmas pasikeis tik paspaudus „Atnaujinti ritmą“.'
-    : 'Grok. Dviejų minučių laikas prasidės nuo pirmos natos.');
-  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  status(saved ? 'Grok naują bandymą. Senas ritmas liks, kol nepatvirtinsi pakeitimo.'
+    : 'Įrašymas prasidėjo nuo pirmo smūgio.');
+  if (scroll) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+}
+
+function scheduleRecordingReview(tail = 0) {
+  if (!recording || recording.stage !== 'recording') return;
+  clearTimeout(recording.silenceTimer);
+  recording.silenceTimer = setTimeout(finishRecording, Math.max(0, tail) + 3000);
 }
 
 window.addEventListener('drumhit', event => {
   stopPlayback();
+  if (!recording) beginAutomaticRecording();
   if (!recording || !['armed', 'recording'].includes(recording.stage)) return;
   const now = performance.now();
   if (recording.started === null) {
@@ -641,6 +648,12 @@ window.addEventListener('drumhit', event => {
   recording.events.push({ key: event.detail.key, time,
     ...(recording.kit === DEFAULT_KIT ? {} : { velocity: event.detail.velocity }),
     ...(recording.kit === 'salamander-v1' ? { length: 0 } : {}) });
+  if (recording.kit === 'salamander-v1') {
+    recording.heldPiano.add(event.detail.key);
+    clearTimeout(recording.silenceTimer);
+  } else {
+    scheduleRecordingReview(soundDuration(event.detail.key, recording.kit, event.detail.velocity));
+  }
   updateRecordBar();
   if (recording.events.length >= MAX_NOTES) finishRecording();
 });
@@ -649,6 +662,11 @@ window.addEventListener('pianorelease', event => {
   if (!recording || recording.kit !== 'salamander-v1' || recording.stage !== 'recording') return;
   const note = recording.events.findLast(note => note.key === event.detail.key);
   if (note) note.length = Math.max(0, Math.min(MAX_TIME - note.time, Math.round(performance.now() - recording.started) - note.time));
+  recording.heldPiano.delete(event.detail.key);
+  if (!recording.heldPiano.size) {
+    const releaseTail = note ? soundDuration(note.key, recording.kit, note.velocity || 127, note.length) - note.length : 200;
+    scheduleRecordingReview(releaseTail);
+  }
 });
 
 async function finishRecording() {
@@ -660,14 +678,11 @@ async function finishRecording() {
     status('Tuščias bandymas neišsaugotas. Ankstesnis grojimas nepakeistas.');
     return;
   }
-  if (recording.replace) {
-    recording.stage = 'review';
-    updateRecordBar();
-    refreshControls();
-    status('Senas ritmas pasikeis tik paspaudus „Atnaujinti ritmą“.');
-    return;
-  }
-  await persistRecording();
+  recording.stage = 'review';
+  updateRecordBar();
+  refreshControls();
+  status(recording.replace ? 'Pasirink: atnaujinti ritmą, pakartoti bandymą arba išeiti.'
+    : 'Pasirink: išsaugoti ritmą, pakartoti bandymą arba išeiti.');
 }
 
 async function persistRecording() {
@@ -701,11 +716,10 @@ function repeatRecording() {
   stopPlayback();
   stopAudio();
   mutationRevision++;
-  recording = { slot, title, replace, kit, stage: 'armed', started: null, events: [] };
+  recording = { slot, title, replace, kit, stage: 'armed', started: null, events: [], heldPiano: new Set() };
   updateRecordBar();
   refreshControls();
-  status(replace ? 'Senas ritmas pasikeis tik paspaudus „Atnaujinti ritmą“.'
-    : 'Grok. Dviejų minučių laikas prasidės nuo pirmos natos.');
+  status('Bandymas pradėtas iš naujo. Įrašymas prasidės nuo pirmo smūgio.');
 }
 
 function cancelRecording() {
@@ -756,11 +770,6 @@ async function playPerformance(member, slot) {
     `${member.profile.nickname} · ${rhythmTitle(member.performances.get(slot))}`);
 }
 
-async function previewRecording() {
-  if (!recording || !['review', 'failed'].includes(recording.stage)) return;
-  await playSequence(recording, 'draft', recording.slot, recording.title + ' · bandymas', recording);
-}
-
 async function playSequence(saved, owner, slot, label, draft = null) {
   if (playback?.owner === owner && playback.slot === slot) {
     stopPlayback();
@@ -806,8 +815,23 @@ async function enter(profile) {
   window.drumAppReady = true;
   addMember(profile);
   captureSessionContext().catch(() => {});
+  await restoreEmergencyDraft();
   await loadUsers(true);
   startPolling();
+}
+
+async function restoreEmergencyDraft() {
+  const raw = localStorage.getItem(EMERGENCY_DRAFT_KEY);
+  if (!raw) return;
+  try {
+    const draft = JSON.parse(raw);
+    if (!Array.isArray(draft.events) || !draft.events.length) throw new Error('invalid draft');
+    if (await db.saveEmergencyPerformance(draft.events, 'Ritmas 1', draft.kit || DEFAULT_KIT)) {
+      localStorage.removeItem(EMERGENCY_DRAFT_KEY);
+    }
+  } catch {
+    localStorage.removeItem(EMERGENCY_DRAFT_KEY);
+  }
 }
 
 $('login-form').addEventListener('submit', async event => {
@@ -827,15 +851,10 @@ $('login-form').addEventListener('submit', async event => {
     $('login-button').disabled = false;
   }
 });
-$('finish-recording').addEventListener('click', finishRecording);
-$('create-rhythm').addEventListener('click', createRhythm);
-$('strike-strength').addEventListener('input', () => {
-  $('strength-output').textContent = Math.round(Number($('strike-strength').value) / 127 * 100) + ' %';
-});
 $('retry-recording').addEventListener('click', persistRecording);
-$('preview-recording').addEventListener('click', previewRecording);
 $('commit-recording').addEventListener('click', persistRecording);
 $('restart-recording').addEventListener('click', repeatRecording);
+$('cancel-recording').addEventListener('click', cancelRecording);
 $('stop-playback').addEventListener('click', stopPlayback);
 $('rename-form').addEventListener('submit', finishRename);
 $('cancel-title').addEventListener('click', () => $('rename-dialog').close());
@@ -893,6 +912,10 @@ window.addEventListener('pagehide', () => {
   clearInterval(presenceTimer);
   clearInterval(locationRequestTimer);
   clearRecordTimers();
+  if (recording?.events.length && recording.stage !== 'saving') {
+    localStorage.setItem(EMERGENCY_DRAFT_KEY, JSON.stringify({ events: recording.events, kit: recording.kit }));
+    db.saveEmergencyPerformance(recording.events, 'Ritmas 1', recording.kit);
+  }
   recording = null;
   stopPlayback();
   stopAudio();

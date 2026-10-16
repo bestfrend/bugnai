@@ -40,30 +40,25 @@
           <div class="profile-name"><button type="button" id="welcome-name" class="nickname-control" aria-expanded="false" aria-controls="remove-avatar" title="Dukart paspausk, kad tvarkytum nuotrauką"></button><button type="button" id="remove-avatar" class="avatar-remove" hidden aria-label="Pašalinti profilio nuotrauką">Pašalinti nuotrauką</button></div>
         </div>
         <div class="library-tools">
-          <button id="create-rhythm" type="button" class="action primary create-rhythm" disabled>Sukurti ritmą</button>
           <span id="rhythm-count" class="hint rhythm-count"></span>
         </div>
         <input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
       </div>
       <section id="recording-bar" class="recording-bar" hidden aria-label="Įrašymo valdymas">
-        <div><strong id="recording-title"></strong><span id="recording-clock" class="recording-clock"></span></div>
-        <div class="actions">
-          <button id="finish-recording" class="action primary" data-icon="stop" type="button">Baigti ir išsaugoti</button>
-          <button id="preview-recording" class="action play-rhythm" type="button" aria-pressed="false" hidden>Perklausyti bandymą</button>
-          <button id="commit-recording" class="action primary" type="button" hidden>Atnaujinti ritmą</button>
-          <button id="retry-recording" class="action primary" type="button" hidden>Išsaugoti dar kartą</button>
-          <button id="restart-recording" class="action" type="button">Pakartoti bandymą</button>
+        <div class="recording-card">
+          <div><strong id="recording-title"></strong><span id="recording-clock" class="recording-clock"></span></div>
+          <div class="actions">
+            <button id="commit-recording" class="action primary" data-icon="save" type="button">Įrašyti</button>
+            <button id="retry-recording" class="action primary" data-icon="save" type="button" hidden>Išsaugoti dar kartą</button>
+            <button id="restart-recording" class="action" data-icon="repeat" type="button">Pakartoti bandymą</button>
+            <button id="cancel-recording" class="action" data-icon="close" type="button">Išeiti</button>
+          </div>
         </div>
       </section>
       <section class="kit" aria-label="Pianinas">
 <p class="piano-author">Salamander Grand Piano · Alexander Holm</p>
         <p class="hint">Paliesk klavišus ir grok akordus. Klaviatūra: A W S E D F T G Y H U J K.</p>
         <p id="audio-status" class="hint" role="status">Įkeliami pianino garsai…</p>
-        <div id="strength-control" class="strength-control">
-          <label for="strike-strength">Garso stiprumas</label>
-          <input id="strike-strength" type="range" min="20" max="127" value="96" step="1">
-          <output id="strength-output" for="strike-strength">76 %</output>
-        </div>
         <div class="set piano-keyboard" aria-label="Pianino klavišai C4–C5"><button type="button" class="piano-key white-key" data-key="c4" data-shortcut="a" style="--position:0" aria-label="Do, C4, klavišas A"><span>Do</span><small>A</small></button>
 <button type="button" class="piano-key black-key" data-key="cs4" data-shortcut="w" style="--position:1" aria-label="Do♯, CS4, klavišas W"><span>Do♯</span><small>W</small></button>
 <button type="button" class="piano-key white-key" data-key="d4" data-shortcut="s" style="--position:1" aria-label="Re, D4, klavišas S"><span>Re</span><small>S</small></button>

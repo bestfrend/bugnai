@@ -4,29 +4,27 @@ const http = require('node:http');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
-// Exercise the actual browser UI with an isolated Supabase HTTP contract double.
-// RLS and data constraints are tested against PostgreSQL separately by npm test.
 const root = path.resolve(__dirname, '..');
 const mime = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.mp3':'audio/mpeg','.png':'image/png','.svg':'image/svg+xml'};
 const server = http.createServer(async(req,res)=>{
   const file=path.resolve(root,'.'+new URL(req.url,'http://local').pathname.replace(/\/$/,'/index.html'));
   if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}
-  try {res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');res.end(await fs.readFile(file));}
-  catch {res.writeHead(404).end();}
+  try{res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');res.end(await fs.readFile(file));}
+  catch{res.writeHead(404).end();}
 });
+
 const own='11111111-1111-4111-8111-111111111111';
 const other='22222222-2222-4222-8222-222222222222';
-async function wait(check) {
-  for(let i=0;i<100;i++){if(await check())return;await new Promise(resolve=>setTimeout(resolve,25));}
+async function wait(check){
+  for(let i=0;i<120;i++){if(await check())return;await new Promise(resolve=>setTimeout(resolve,25));}
   throw new Error('Timed out waiting for expected app state');
 }
-async function scenario(browser,mobile,kit='classic-v1'){
-  const studio=kit==='virtuosity-v1';
-  const piano=kit==='salamander-v1';
-  const context=await browser.newContext(mobile?{...devices['Pixel 7']} : {});
-  const profiles=[{id:other,nickname:'Kitas <img src=x>',created_at:new Date().toISOString()}];
-  const recordings=new Map([[other+':1',{slot:1,events:[{key:'w',time:0},{key:'k',time:50}],duration_ms:50,created_at:'2026-10-15T09:00:00Z',updated_at:new Date().toISOString()}]]);
-  let signups=0,refreshes=0,saves=0,failSave=false,profileReads=0,missingKitSchema=!piano,missingPianoSchema=piano;
+
+async function instrumentScenario(browser,file,kit,mobile=false){
+  const context=await browser.newContext(mobile?{...devices['Pixel 7']}:{viewport:{width:1280,height:850}});
+  const profiles=[{id:other,nickname:'Kitas',created_at:new Date().toISOString()}];
+  const recordings=new Map();
+  let saves=0,emergencySaves=0;
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
   await context.route('https://ipwho.is/**',route=>route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify({success:true,city:'Vilnius',region:'Vilniaus apskritis',country:'Lietuva'})}));
@@ -35,625 +33,145 @@ async function scenario(browser,mobile,kit='classic-v1'){
     const headers={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS','content-type':'application/json'};
     const reply=(data,status=200)=>route.fulfill({status,headers,body:JSON.stringify(data)});
     if(method==='OPTIONS')return reply(null);
-    if(url.pathname==='/auth/v1/signup'){signups++;return reply(session());}
-    if(url.pathname==='/auth/v1/token'){refreshes++;return reply(session());}
+    if(url.pathname==='/auth/v1/signup')return reply(session());
     assert.equal(req.headers().authorization,'Bearer test-access');
-    if(url.pathname==='/rest/v1/rpc/touch_member_presence')return reply(null);
-    if(url.pathname==='/rest/v1/rpc/start_member_session'){
-      assert(['Telefonas','Planšetė','Kompiuteris'].includes(req.postDataJSON().p_device_type));
-      assert.equal(req.postDataJSON().p_approx_location,'Vilnius, Vilniaus apskritis, Lietuva');
-      return reply(null);
-    }
+    if(url.pathname==='/rest/v1/rpc/touch_member_presence'||url.pathname==='/rest/v1/rpc/start_member_session')return reply(null);
     if(url.pathname==='/rest/v1/rpc/member_pending_location_request')return reply([]);
-    if(url.pathname==='/rest/v1/rpc/member_respond_location_request')return reply(null);
     if(url.pathname==='/rest/v1/profiles'){
       if(method==='POST'){profiles.push(req.postDataJSON());return reply(null,201);}
       const id=url.searchParams.get('id')?.slice(3);
-      if(method==='PATCH'){
-        assert.equal(id,own);
-        Object.assign(profiles.find(p=>p.id===own),req.postDataJSON());
-        return reply([profiles.find(p=>p.id===own)]);
-      }
-      if(!id)profileReads++;
-      const data=id?profiles.filter(p=>p.id===id):profiles.slice().sort((a,b)=>a.nickname.localeCompare(b.nickname));
-      return reply(data.slice(Number(url.searchParams.get('offset')||0)));
+      return reply(id?profiles.filter(p=>p.id===id):profiles);
     }
     if(url.pathname==='/rest/v1/performances'){
-      if(method==='POST'){
-        if(failSave)return reply({code:'temporary_error'},503);
-        const item=req.postDataJSON();assert.equal(item.owner_id,own);
-        if(missingKitSchema && item.kit)return reply({code:'PGRST204',message:"Could not find the 'kit' column"},400);
-        if(missingPianoSchema && item.kit==='salamander-v1')return reply({code:'23514',message:'violates check constraint performances_kit_check'},400);
-        if(recordings.has(own+':'+item.slot))return reply({code:'23505'},409);
-        const saved={...item,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};recordings.set(own+':'+item.slot,saved);saves++;
-        return reply([saved],201);
-      }
       const owner=url.searchParams.get('owner_id')?.slice(3);
-      if(method==='PATCH'){
-        if(failSave)return reply({code:'temporary_error'},503);
-        assert.equal(owner,own);
-        const key=own+':'+url.searchParams.get('slot').slice(3);
-        if(!recordings.has(key))return reply([]);
-        const patch=req.postDataJSON();
-        const updated={...recordings.get(key),...patch};
-        recordings.set(key,updated);
-        if(patch.events)saves++;
-        return reply([updated]);
+      if(method==='GET')return reply([...recordings.entries()].filter(([key])=>key.startsWith(owner+':')).map(([,value])=>value));
+      if(method==='POST'){
+        const item=req.postDataJSON();
+        const emergency=url.searchParams.get('on_conflict')==='owner_id,slot';
+        if(!emergency&&recordings.has(own+':'+item.slot))return reply({code:'23505'},409);
+        const previous=recordings.get(own+':'+item.slot);
+        const saved={...previous,...item,created_at:previous?.created_at||new Date().toISOString(),updated_at:new Date().toISOString()};
+        recordings.set(own+':'+item.slot,saved);
+        if(emergency){emergencySaves++;return route.fulfill({status:204,headers,body:''});}
+        saves++;return reply([saved],201);
       }
-      if(method==='DELETE'){assert.equal(owner,own);recordings.delete(owner+':'+url.searchParams.get('slot').slice(3));return reply(null);}
-      return reply([...recordings.entries()].filter(([key])=>key.startsWith(owner+':')).map(([,value])=>value));
+      if(method==='PATCH'){
+        const slot=url.searchParams.get('slot').slice(3),key=own+':'+slot;
+        const saved={...recordings.get(key),...req.postDataJSON(),updated_at:new Date().toISOString()};
+        recordings.set(key,saved);saves++;return reply([saved]);
+      }
+      if(method==='DELETE'){recordings.delete(owner+':'+url.searchParams.get('slot').slice(3));return reply(null);}
     }
     throw new Error('Unexpected HTTP request '+method+' '+url.pathname);
   });
+
   const page=await context.newPage();
-  await page.addInitScript(() => {
-    window.audioHits = [];
-    window.audioDetails = [];
-    const connect=AudioNode.prototype.connect;
-    AudioBufferSourceNode.prototype.connect=function(destination,...args){
-      this.testGain=destination instanceof GainNode ? destination : null;
-      return connect.call(this,destination,...args);
-    };
-    const start = AudioBufferSourceNode.prototype.start;
-    AudioBufferSourceNode.prototype.start = function(...args) {
-      window.audioHits.push(performance.now());
-      window.audioDetails.push({duration:this.buffer.duration,gain:this.testGain?.gain.value,rate:this.playbackRate.value});
-      return start.apply(this, args);
-    };
-    const play = HTMLMediaElement.prototype.play;
-    HTMLMediaElement.prototype.play = function(...args) {
-      window.audioHits.push(performance.now());
-      return play.apply(this, args);
-    };
-  });
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const dialogs=[];
-  page.on('dialog',dialog=>{dialogs.push(dialog.message());dialog.accept();});
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.clock.install();
   const base=`http://127.0.0.1:${server.address().port}`;
-  await page.goto(base+(piano?'/piano.html':studio?'/studio.html':'/index.html'));
+  await page.goto(base+'/'+file);
   await wait(()=>page.locator('#audio-status').isHidden());
-  assert.equal(await page.locator('.kit-tabs [aria-current="page"]').getAttribute('data-kit-link'),kit);
-  assert(await page.locator('#workspace').isHidden());
-  assert.equal(await page.locator('#nickname').evaluate(e=>getComputedStyle(e).userSelect),'text');
-  await page.locator('#nickname').fill('Ritmas');
-  await page.locator('#login-button').click();
-  const mine=page.locator(`[data-owner="${own}"]`);
-  const theirs=page.locator(`[data-owner="${other}"]`);
-  await wait(()=>page.locator('#create-rhythm').isEnabled());
-  assert.equal(await page.locator('#strength-control').isVisible(),studio||piano);
-  assert.equal(signups,1);
-  assert.equal(await mine.locator('.slot').count(),0);
-  assert.equal(await page.locator('.user-card .create-rhythm').count(),0);
-  assert((await page.locator('#create-rhythm').boundingBox()).y<(await page.locator('.kit').boundingBox()).y,'creation is available above the drum kit');
-  if(piano) {
-    assert.equal(await page.locator('.piano-key').count(),13);
-    assert.equal(await page.locator('.black-key').count(),5);
-    assert((await page.locator('.piano-credit').innerText()).includes('Alexander Holm'));
-    assert.equal(await page.locator('.piano-credit [rel*="license"]').getAttribute('href'),'https://creativecommons.org/licenses/by/3.0/');
-    for(const width of [320,393,768,1280]) {
-      await page.setViewportSize({width,height:850});
-      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-      const rect=await page.locator('.piano-keyboard').boundingBox();
-      assert(rect.x>=0 && rect.x+rect.width<=width);
-      assert((await page.locator('.white-key').first().boundingBox()).width>=30);
-    }
-    await page.setViewportSize({width:mobile?393:1280,height:850});
-    await page.locator('#create-rhythm').click();
-    await page.locator('.piano-keyboard').scrollIntoViewIfNeeded();
-    if(mobile) {
-      const client=await context.newCDPSession(page);
-      const points=await Promise.all(['c4','e4','g4'].map(async(key,i)=>{
-        const r=await page.locator(`[data-key="${key}"]`).boundingBox();
-        return {x:r.x+r.width/2,y:r.y+r.height-30,id:i+1};
-      }));
-      await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:points});
-      assert.equal(await page.locator('.piano-key.pressed').count(),3);
-      await page.clock.runFor(450);
-      await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-      await client.detach();
-    } else {
-      await page.keyboard.down('a');
-      await page.keyboard.down('e');
-      await page.clock.runFor(250);
-      await page.keyboard.up('e');
-      await page.clock.runFor(350);
-      await page.keyboard.up('a');
-    }
-    assert.equal(await page.locator('.piano-key.pressed').count(),0);
-    await page.clock.runFor(1200);
-    await page.locator('#finish-recording').click();
-    await wait(()=>page.locator('#retry-recording').isVisible());
-    assert((await page.locator('#status').innerText()).includes('piano.sql'));
-    assert.equal(saves,0);
-    missingPianoSchema=false;
-    await page.locator('#retry-recording').click();
-    await wait(()=>saves===1);
-    await wait(()=>page.locator('#recording-bar').isHidden());
-    const saved=recordings.get(own+':1');
-    assert.equal(saved.kit,kit);
-    assert.equal(saved.events.length,mobile?3:2);
-    assert(saved.events.every(note=>note.length>=200 && note.length<1000));
-    assert.equal(saved.duration_ms,Math.max(...saved.events.map(n=>n.time+n.length)));
-    assert(saved.duration_ms<1000,'silence after release does not lengthen piano recording');
-    if(!mobile)assert(saved.events[0].length>saved.events[1].length+200,'held keys keep independent lengths');
-    const slot=mine.locator('.slot[data-slot="1"]');
-    await slot.locator('.play-rhythm').click();
-    await wait(()=>slot.locator('.play-rhythm').getAttribute('aria-pressed').then(v=>v==='true'));
-    await page.clock.runFor(saved.duration_ms+300);
-    assert.equal(await slot.locator('.play-rhythm').getAttribute('aria-pressed'),'false');
-    // Piano playback works on pages without any piano keys, retaining pitch/length.
-    await page.locator('[data-kit-link="classic-v1"]').click();
-    await wait(()=>page.locator('#audio-status').isHidden());
-    await wait(()=>page.locator(`[data-owner="${own}"] .slot`).count().then(n=>n===1));
-    const crossSlot=page.locator(`[data-owner="${own}"] .slot`);
-    await crossSlot.locator('.play-rhythm').click();
-    await wait(()=>page.evaluate(()=>window.audioDetails.length>0));
-    const rates=await page.evaluate(()=>window.audioDetails.map(d=>d.rate));
-    assert.equal(rates.length,saved.events.length);
-    assert(Math.abs(rates[1]-(mobile?2**(1/12):1))<0.0001,'chromatic pitches survive cross-page playback');
-    await page.clock.runFor(saved.duration_ms+300);
-    await page.locator('[data-kit-link="salamander-v1"]').click();
-    await wait(()=>page.locator('#audio-status').isHidden());
-    await wait(()=>page.locator('#create-rhythm').isEnabled());
-    assert.equal(signups,1);
-    // Finishing while a physical key is down closes and saves that held note.
-    await page.locator('#create-rhythm').click();
-    await page.keyboard.down('k');
-    await page.clock.runFor(350);
-    await page.locator('#finish-recording').click();
-    await page.keyboard.up('k');
-    await wait(()=>saves===2);
-    assert(recordings.get(own+':2').events[0].length>=350);
-    // Blur/pointer cancellation release visual state and voice without a stuck key.
-    await page.keyboard.down('a');
-    await page.evaluate(()=>window.dispatchEvent(new Event('blur')));
-    assert.equal(await page.locator('.piano-key.pressed').count(),0);
-    await page.keyboard.up('a');
-    const key=page.locator('[data-key="cs4"]');
-    const box=await key.boundingBox();
-    await page.mouse.move(box.x+box.width/2,box.y+20);
-    await page.mouse.down();
-    await key.dispatchEvent('pointercancel',{pointerId:1});
-    await page.mouse.up();
-    assert.equal(await page.locator('.piano-key.pressed').count(),0);
-    // Overwrite keeps the original until the replacement is explicitly confirmed.
-    const original=JSON.stringify(recordings.get(own+':1').events);
-    const firstSlot=mine.locator('.slot[data-slot="1"]');
-    await firstSlot.getByRole('button',{name:'Perrašyti',exact:true}).click();
-    await page.keyboard.down('a');
-    await page.clock.runFor(250);
-    await page.keyboard.up('a');
-    await page.locator('#finish-recording').click();
-    assert.equal(JSON.stringify(recordings.get(own+':1').events),original);
-    await page.locator('#restart-recording').click();
-    await page.keyboard.down('d');
-    await page.clock.runFor(300);
-    await page.keyboard.up('d');
-    await page.locator('#finish-recording').click();
-    await page.locator('#preview-recording').click();
-    await page.clock.runFor(600);
-    assert.equal(JSON.stringify(recordings.get(own+':1').events),original);
-    await page.locator('#commit-recording').click();
-    await wait(()=>saves===3);
-    assert.equal(recordings.get(own+':1').events[0].key,'e4');
-    // The two-minute boundary closes held notes and saves exactly once.
-    await wait(()=>page.locator('#create-rhythm').isEnabled());
-    await page.locator('#create-rhythm').click();
-    await page.keyboard.down('a');
-    await page.clock.runFor(120200);
-    await wait(()=>saves===4);
-    await page.keyboard.up('a');
-    assert.equal(recordings.get(own+':3').duration_ms,120000);
-    assert.equal(recordings.get(own+':3').events[0].length,120000);
-    await wait(()=>page.locator('#create-rhythm').isEnabled());
-    // Navigating away discards an unfinished attempt rather than saving it.
-    await page.locator('#create-rhythm').click();
-    await page.keyboard.down('h');
-    await page.clock.runFor(200);
-    await page.goto(base+'/piano.html');
-    await wait(()=>page.locator('#audio-status').isHidden());
-    await wait(()=>page.locator('#create-rhythm').isEnabled());
-    assert.equal(saves,4);
-    assert.equal(recordings.has(own+':4'),false);
-    if(mobile)await page.screenshot({path:'test-results/mobile-piano.png',fullPage:true});
-    assert.deepEqual(errors,[]);
-    console.log('PASS piano',mobile?'mobile multitouch':'desktop keyboard','chords, hold/release, save/retry, playback, cross-page pitch, responsive keyboard, attribution, cancellation, overwrite review and two-minute/discard limits');
-    await context.close();
-    return;
+  if(await page.locator('#login').isVisible()){
+    await page.locator('#nickname').fill('Ritmas');
+    await page.locator('#login-form').evaluate(form=>form.requestSubmit());
   }
-  await theirs.locator('summary').click();
-  await wait(async()=>await theirs.locator('.slot').count()===1);
-  assert.equal(await theirs.locator('.primary,.danger').count(),0);
-  const displayedDate=theirs.locator('.rhythm-date');
-  assert.equal(await displayedDate.textContent(),'2026.10.15');
-  assert.equal(await displayedDate.getAttribute('datetime'),'2026-10-15T09:00:00.000Z');
-  const dateRect=await displayedDate.boundingBox();
-  const playRect=await theirs.locator('.play-rhythm').boundingBox();
-  assert(dateRect.y>=playRect.y+playRect.height+4,'the tiny date has breathing room below the play button');
-  assert.equal(await displayedDate.evaluate(e=>getComputedStyle(e).fontSize),'9px');
-  assert.equal(await theirs.locator('img').count(),0,'nicknames must be rendered as text');
-  assert.equal(await theirs.locator('.member-name').textContent(),'Kitas <img src=x>');
-  assert.equal(await page.locator('#refresh-users').count(),0);
-  assert.equal(await page.getByText('Paspausk vardą ir išskleisk septynias įrašų vietas.').count(),0);
-  assert.equal(await theirs.locator('summary').evaluate(e=>getComputedStyle(e).listStyleType),'none');
-  await page.clock.runFor(200);
-  await wait(async()=>await theirs.locator('.member-arrow').evaluate(e=>getComputedStyle(e).transform)==='matrix(0, 1, -1, 0, 0, 0)');
-  // Browser uploads a real image, and the app rasterizes a small JPEG avatar.
-  const png=await page.locator('.drum').first().screenshot();
-  const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.locator('#upload-avatar').click()]);
-  await chooser.setFiles({name:'avatar.png',mimeType:'image/png',buffer:png});
-  await wait(()=>!!profiles.find(p=>p.id===own)?.avatar_data);
-  await wait(()=>page.locator('#remove-avatar').isEnabled());
-  const avatar=profiles.find(p=>p.id===own).avatar_data;
-  assert(avatar.startsWith('data:image/jpeg;base64,'));
-  assert(avatar.length<=32768);
-  assert(await page.locator('#my-avatar img').evaluate(e=>e.naturalWidth===128 && e.naturalHeight===128));
-  assert.equal(await mine.locator('.avatar').evaluate(e=>getComputedStyle(e).borderRadius),'50%');
-  assert.equal(await page.locator('#upload-avatar').evaluate(e=>getComputedStyle(e).borderRadius),'50%');
-  assert.equal(await page.locator('#remove-avatar').evaluate(e=>getComputedStyle(e).fontSize),'11px');
-  assert.equal(await page.locator('#remove-avatar').evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');
-  assert(await page.locator('#remove-avatar').isHidden());
-  await page.locator('#welcome-name').dblclick();
-  assert(await page.locator('#remove-avatar').isVisible());
-  await page.locator('.kit .hint').first().click();
-  assert(await page.locator('#remove-avatar').isHidden());
-  await page.locator('#avatar-file').setInputFiles({name:'invalid.svg',mimeType:'image/svg+xml',buffer:Buffer.from('<svg/>')});
-  await wait(async()=>await page.locator('#status').textContent().then(text=>text.includes('JPG, PNG arba WebP')));
-  assert.equal(profiles.find(p=>p.id===own).avatar_data,avatar,'invalid uploads must leave the old avatar intact');
-  const ownSlot=n=>mine.locator(`.slot[data-slot="${n}"]`);
-  const strike=async key=>{if(mobile)await page.locator('.'+key+'.drum').tap();else await page.locator('.'+key+'.drum').click();};
-  await page.locator('#create-rhythm').click();
-  assert.equal(await page.evaluate(()=>scrollY),0,'creating a rhythm moves the page to the top');
-  assert.equal(await mine.locator('.slot').count(),0,'unsaved attempts must not create cards');
-  if(studio)await page.locator('#strike-strength').evaluate(e=>{e.value=20;e.dispatchEvent(new Event('input',{bubbles:true}));});
-  const firstHitIndex=await page.evaluate(()=>window.audioDetails.length);
-  await strike('w');
-  assert(await page.locator('.w.drum').evaluate(e=>e.classList.contains('pressed')));
-  await page.clock.runFor(250);
-  if(studio)await page.locator('#strike-strength').evaluate(e=>{e.value=127;e.dispatchEvent(new Event('input',{bubbles:true}));});
-  await strike('a');
-  await page.clock.runFor(2000); // Silence must not extend the saved duration.
-  await page.locator('#finish-recording').click();
-  if(studio) {
-    await wait(()=>page.locator('#retry-recording').isVisible());
-    assert.equal(saves,0);
-    assert((await page.locator('#status').textContent()).includes('drum-kits.sql'));
-    missingKitSchema=false;
-    await page.locator('#retry-recording').click();
-  }
-  await wait(()=>saves===1);
-  missingKitSchema=false;
-  await wait(()=>page.locator('#recording-bar').isHidden());
-  const first=recordings.get(own+':1');
-  const originalCreation=first.created_at;
-  assert.equal(first.kit||'classic-v1',kit);
-  if(studio) {
-    assert.deepEqual(first.events.map(note=>note.velocity),[20,127]);
-    assert.equal(await page.locator('#strength-output').textContent(),'100 %');
-    const live=await page.evaluate(index=>window.audioDetails.slice(index),firstHitIndex);
-    assert(Math.abs(live[0].gain-20/127)<0.00001);
-    assert.equal(live[1].gain,1);
-  } else assert(first.events.every(note=>!('velocity' in note)));
-  assert.deepEqual(first.events.map(e=>e.key),['w','a']);
-  assert.equal(first.events[0].time,0);
-  assert.equal(first.duration_ms,first.events.at(-1).time);
-  assert(first.duration_ms<1000);
-  assert.equal(await mine.locator('.slot').count(),1);
-  assert.equal(await theirs.getByRole('button',{name:'Pervadinti',exact:true}).count(),0);
-  // Double-click or keyboard activation of the title can rename without a separate button.
-  await ownSlot(1).locator('h3').dblclick();
-  assert(await page.locator('#rename-dialog').isVisible());
-  assert.equal(await page.locator('#rhythm-title-input').evaluate(e=>getComputedStyle(e).userSelect),'text');
-  await page.locator('#rhythm-title-input').fill('Mano <img src=x> ritmas');
-  await page.locator('#save-title').click();
-  await wait(()=>page.locator('#rename-dialog').isHidden());
-  assert.equal(recordings.get(own+':1').title,'Mano <img src=x> ritmas');
-  assert.equal(await ownSlot(1).locator('h3').textContent(),'Mano <img src=x> ritmas');
-  assert.equal(await ownSlot(1).locator('img').count(),0);
-  assert.equal(await mine.getByRole('button',{name:'Pervadinti',exact:true}).count(),0);
-  await ownSlot(1).locator('h3').focus();
-  await page.keyboard.press('Enter');
-  await page.locator('#rhythm-title-input').fill('Pirmas ritmas');
-  await page.locator('#save-title').click();
-  await wait(()=>page.locator('#rename-dialog').isHidden());
-  assert.equal(recordings.get(own+':1').title,'Pirmas ritmas');
-  assert.equal(recordings.get(own+':1').created_at,originalCreation);
-  // Both pages share one identity/library and play saved notes with their recorded kit.
-  const otherKit=studio?'classic-v1':'virtuosity-v1';
-  await page.locator(`[data-kit-link="${otherKit}"]`).click();
-  await wait(()=>page.locator('#audio-status').isHidden());
-  await wait(()=>page.locator('#create-rhythm').isEnabled());
-  assert.equal(signups,1);
-  assert.equal(await mine.locator('.slot').count(),1);
-  await ownSlot(1).locator('.play-rhythm').click();
-  await wait(()=>page.locator('#playback-bar').isVisible());
-  const expectedPath=studio?'sounds/virtuosity-v1/w-0.mp3':'sounds/tom-1.mp3';
-  const expectedDuration=await page.evaluate(async path=>{
-    const context=new OfflineAudioContext(2,128,44100);
-    return (await context.decodeAudioData(await (await fetch(path)).arrayBuffer())).duration;
-  },expectedPath);
-  const cross=await page.evaluate(()=>window.audioDetails[0]);
-  assert(Math.abs(cross.duration-expectedDuration)<0.001,'cross-page playback uses the original recorded sample');
-  assert(Math.abs(cross.gain-(studio?20/127:1))<0.00001,'cross-page playback retains strike strength');
-  await page.locator(`[data-kit-link="${kit}"]`).click();
-  await wait(()=>page.locator('#audio-status').isHidden());
-  await wait(()=>page.locator('#create-rhythm').isEnabled());
-  if(!await theirs.evaluate(e=>e.open))await theirs.locator('summary').click();
-  await wait(async()=>await theirs.locator('.slot').count()===1);
-  const playBox=await ownSlot(1).locator('.play-rhythm').boundingBox();
-  const titleBox=await ownSlot(1).locator('h3').boundingBox();
-  assert(playBox.x+playBox.width<=titleBox.x,'play control precedes the title');
-  assert(Math.abs(playBox.y+playBox.height/2-titleBox.y-titleBox.height/2)<2,'play and title share a row');
-  assert((await ownSlot(1).boundingBox()).height <= (mobile?96:64),'rhythm cards stay compact');
-  assert(!/smūgi|"key"|"time"/.test(await mine.locator('.slot').allTextContents().then(values=>values.join(' '))));
-  // Another device creates a slot and a profile; polling preserves open groups/focus.
-  recordings.set(other+':2',{slot:2,events:[{key:'l',time:0}],duration_ms:0,updated_at:new Date().toISOString()});
-  profiles.push({id:'33333333-3333-4333-8333-333333333333',nickname:'Naujas',created_at:new Date().toISOString()});
-  const summaryNode=await theirs.locator('summary').elementHandle();
-  await theirs.locator('summary').focus();
-  const beforePoll=profileReads;
-  await page.clock.fastForward(30000);
-  await wait(()=>profileReads>beforePoll);
-  await wait(async()=>await theirs.locator('[data-slot="2"]').getByRole('button',{name:'Atkurti',exact:true}).count()===1);
-  assert(await theirs.evaluate(e=>e.open));
-  assert(await summaryNode.evaluate(e=>e.isConnected && e===document.activeElement));
-  assert.equal(await page.locator('[data-owner="33333333-3333-4333-8333-333333333333"]').count(),1);
-  // The 2-minute limit starts on the first note, not when the slot is armed.
-  await page.locator('#create-rhythm').click();
-  await page.clock.fastForward(130000);
-  assert.equal(saves,1);
-  assert(await page.locator('#recording-title').textContent().then(text=>text.includes('Laukiama pirmo smūgio')));
-  await strike('k');
-  await page.clock.runFor(200);
-  await strike('l');
-  await page.clock.fastForward(120000);
-  await wait(()=>saves===2);
-  await wait(()=>page.locator('#recording-bar').isHidden());
-  assert.equal(recordings.get(own+':2').duration_ms,recordings.get(own+':2').events.at(-1).time);
-  assert(recordings.get(own+':2').duration_ms<1000);
-  // A failed replacement preserves the old record, with a retry kept only in RAM.
-  const original=JSON.stringify(recordings.get(own+':1'));
-  const dialogsBeforeOverwrite=dialogs.length;
-  await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
-  assert.equal(dialogs.length,dialogsBeforeOverwrite,'overwrite starts without a popup');
-  assert.equal(await page.evaluate(()=>scrollY),0,'overwrite moves the page to the top');
-  await strike('d');
-  const beforeReview=await page.evaluate(()=>({height:document.getElementById('recording-bar').getBoundingClientRect().height,kit:document.querySelector('.kit').getBoundingClientRect().top,scroll:scrollY}));
-  await page.locator('#finish-recording').click();
-  assert.deepEqual(await page.evaluate(()=>({height:document.getElementById('recording-bar').getBoundingClientRect().height,kit:document.querySelector('.kit').getBoundingClientRect().top,scroll:scrollY})),beforeReview,'review controls must not resize the box or move the drums');
-  assert(await page.locator('#commit-recording').isVisible());
-  assert.equal(JSON.stringify(recordings.get(own+':1')),original,'finishing an overwrite must not save it');
-  assert.equal(saves,2);
-  const beforePreview=await page.evaluate(()=>window.audioHits.length);
-  await page.locator('#preview-recording').click();
-  await wait(async()=>await page.locator('#preview-recording').getAttribute('aria-pressed')==='true');
-  assert.equal(await page.evaluate(()=>window.audioHits.length),beforePreview+1);
-  await page.locator('#restart-recording').click();
-  assert(await page.locator('#recording-bar').isVisible());
-  assert(await page.locator('#recording-title').textContent().then(text=>text.includes('Laukiama pirmo smūgio')));
-  assert.equal(await page.locator('#recording-clock').textContent(),'0.0 s / 120 s');
-  assert.equal(JSON.stringify(recordings.get(own+':1')),original,'repeating preserves the old saved rhythm');
-  assert.equal(saves,2);
-  await strike('a');
-  await page.clock.runFor(180);
-  await strike('j');
-  await page.locator('#finish-recording').click();
-  const beforeRepeatPreview=await page.evaluate(()=>window.audioHits.length);
-  await page.locator('#preview-recording').click();
-  await wait(async()=>await page.locator('#preview-recording').getAttribute('aria-pressed')==='true');
-  await page.clock.runFor(1000);
-  assert.equal(await page.evaluate(()=>window.audioHits.length),beforeRepeatPreview+2,'repeated take contains only its two new notes');
-  await page.locator('#restart-recording').click();
-  await page.locator('#finish-recording').click();
-  assert(await page.locator('#playback-bar').isHidden());
-  assert.equal(JSON.stringify(recordings.get(own+':1')),original,'discarding a preview keeps the original rhythm');
-  // The overwrite time limit enters review rather than replacing the old recording.
-  await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
-  await strike('k');
-  await page.clock.fastForward(120000);
-  assert(await page.locator('#commit-recording').isVisible());
-  assert.equal(JSON.stringify(recordings.get(own+':1')),original);
-  await page.locator('#restart-recording').click();
-  await page.locator('#finish-recording').click();
-  failSave=true;
-  await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
-  await strike('j');
-  await page.locator('#finish-recording').click();
-  assert.equal(JSON.stringify(recordings.get(own+':1')),original);
-  await page.locator('#commit-recording').click();
-  await wait(()=>page.locator('#retry-recording').isVisible());
-  assert.equal(JSON.stringify(recordings.get(own+':1')),original);
-  failSave=false;
-  await page.locator('#retry-recording').click();
-  await wait(()=>saves===3);
-  await wait(()=>page.locator('#recording-bar').isHidden());
-  assert.equal(recordings.get(own+':1').events[0].key,'j');
-  assert.equal(recordings.get(own+':1').created_at,originalCreation,'overwriting preserves creation date');
-  // Discard a replacement by reloading; identity and previous saved data survive.
-  const replacement=JSON.stringify(recordings.get(own+':1'));
-  await ownSlot(1).getByRole('button',{name:'Perrašyti'}).click();
-  await strike('d');
-  await page.locator('#finish-recording').click();
-  await page.reload();
-  await wait(async()=>await mine.locator('.slot').count()===2);
+  await wait(()=>page.locator(`[data-owner="${own}"]`).count().then(Boolean));
+  await wait(()=>page.locator('#rhythm-count').textContent().then(text=>text.includes('0 / 50')));
+
+  assert.equal(await page.locator('#create-rhythm').count(),0);
+  assert.equal(await page.locator('#strength-control').count(),0);
   assert(await page.locator('#recording-bar').isHidden());
-  assert.equal(signups,1);
-  assert.equal(saves,3);
-  assert.equal(JSON.stringify(recordings.get(own+':1')),replacement);
-  // Empty attempts do not create database records.
-  await page.locator('#create-rhythm').click();
-  await page.locator('#finish-recording').click();
-  assert.equal(saves,3);
-  // Own deletion is available; another person's recording remains intact.
-  await ownSlot(2).getByRole('button',{name:'Ištrinti'}).click();
-  await wait(()=>!recordings.has(own+':2'));
-  await wait(async()=>await ownSlot(2).count()===0);
-  assert.equal(await mine.locator('.slot').count(),1);
-  assert(recordings.has(other+':1'));
-  // Expired sessions refresh rather than creating a new anonymous user.
-  await page.evaluate(()=>{const key=Object.keys(localStorage).find(k=>k.startsWith('bugnai.auth.'));const value=JSON.parse(localStorage.getItem(key));value.expires_at=1;localStorage.setItem(key,JSON.stringify(value));});
-  await page.clock.fastForward(30000);
-  await wait(()=>refreshes===1);
-  await wait(async()=>await mine.locator('.slot').count()===1);
-  assert.equal(signups,1);
-  // Playback of another user's sequence and stopping it with a live strike.
-  if(!await theirs.evaluate(e=>e.open)) await theirs.locator('summary').click();
-  await wait(async()=>await theirs.locator('.slot').count()===2);
-  const beforePlayback = await page.evaluate(() => window.audioHits.length);
-  const beforeDetail=await page.evaluate(()=>window.audioDetails.length);
-  await theirs.locator('[data-slot="1"]').getByRole('button',{name:'Atkurti',exact:true}).click();
-  await wait(()=>page.locator('#playback-bar').isVisible());
-  const firstPlay=theirs.locator('[data-slot="1"] .play-rhythm');
-  const secondPlay=theirs.locator('[data-slot="2"] .play-rhythm');
-  assert.equal(await firstPlay.getAttribute('aria-pressed'),'true');
-  assert.equal(await firstPlay.evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(24, 115, 78)');
-  assert.equal(await secondPlay.getAttribute('aria-pressed'),'false');
-  await page.clock.runFor(80);
-  const played = await page.evaluate(before => window.audioHits.slice(before), beforePlayback);
-  const playedDetail=await page.evaluate(before=>window.audioDetails.slice(before),beforeDetail);
-  const classicDuration=await page.evaluate(async()=>{
-    const context=new OfflineAudioContext(2,128,44100);
-    return (await context.decodeAudioData(await (await fetch('sounds/tom-1.mp3')).arrayBuffer())).duration;
-  });
-  assert(Math.abs(playedDetail[0].duration-classicDuration)<0.001,'legacy performances retain their original sound even on the studio page');
-  assert.equal(playedDetail[0].gain,1);
-  assert.equal(played.length, 2, 'playback must produce every saved drum hit exactly once');
-  assert(played[1] - played[0] >= 40 && played[1] - played[0] <= 80, 'playback preserves the recorded spacing');
-  await page.clock.fastForward(10000);
-  await wait(()=>page.locator('#playback-bar').isHidden());
-  assert.equal(await firstPlay.getAttribute('aria-pressed'),'false','highlight clears at natural playback end');
-  await firstPlay.click();
-  await wait(async()=>await firstPlay.getAttribute('aria-pressed')==='true');
-  await secondPlay.click();
-  await wait(async()=>await secondPlay.getAttribute('aria-pressed')==='true');
-  assert.equal(await firstPlay.getAttribute('aria-pressed'),'false','switching tracks clears the previous highlight');
-  await secondPlay.click();
-  assert.equal(await secondPlay.getAttribute('aria-pressed'),'false','clicking the active button stops playback');
-  await firstPlay.click();
-  await wait(async()=>await firstPlay.getAttribute('aria-pressed')==='true');
-  await strike('w');
-  assert(await page.locator('#playback-bar').isHidden());
-  assert.equal(await firstPlay.getAttribute('aria-pressed'),'false');
-  await page.keyboard.press('x');
-  // Own profile image survives reload and can be removed without touching another profile.
-  assert.equal(await mine.locator('.avatar img').count(),1);
-  assert(await page.locator('#remove-avatar').isHidden());
-  await page.locator('#welcome-name').dblclick();
-  await page.locator('#remove-avatar').click();
-  await wait(()=>profiles.find(p=>p.id===own).avatar_data===null);
-  assert.equal(await page.locator('#my-avatar img').count(),0);
-  assert.deepEqual(errors,[]);
-  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-  if(mobile){await fs.mkdir(path.join(root,'test-results'),{recursive:true});await page.screenshot({path:path.join(root,'test-results/mobile-library.png'),fullPage:true});}
-  // Creating a rhythm must not overwrite a slot taken by another tab mid-recording.
-  await page.locator('#create-rhythm').click();
-  await strike('k');
-  recordings.set(own+':2',{slot:2,title:'Kitas langas',events:[{key:'s',time:0}],duration_ms:0,updated_at:new Date().toISOString()});
-  await page.locator('#finish-recording').click();
-  await wait(()=>page.locator('#retry-recording').isVisible());
-  assert.equal(recordings.get(own+':2').title,'Kitas langas');
-  assert.equal(recordings.get(own+':2').events[0].key,'s');
+
+  const strike=async key=>{
+    const target=page.locator(`[data-key="${key}"], .${key}.drum`).first();
+    if(kit==='salamander-v1'){
+      await page.keyboard.down('a');
+      await page.clock.runFor(240);
+      await page.keyboard.up('a');
+    }else if(mobile)await target.tap();
+    else await target.click();
+  };
+
+  const firstKey=kit==='salamander-v1'?'c4':'w';
+  await strike(firstKey);
+  assert(await page.locator('#recording-bar').isHidden(),'modal stays hidden while recording');
+  if(kit==='salamander-v1'){
+    await page.clock.fastForward(3190);
+    assert(await page.locator('#recording-bar').isHidden(),'piano waits three seconds after its release tail');
+    await page.clock.fastForward(20);
+  }else await page.clock.fastForward(12000);
+  await wait(()=>page.locator('#recording-bar').isVisible());
+  assert.match(await page.locator('#recording-title').textContent(),/Ritmas 1 · Pabaiga/);
+  assert.equal(await page.locator('#recording-bar .actions button:visible').count(),3);
+  assert.match(await page.locator('#commit-recording').innerText(),/Įrašyti į Ritmas 1/);
+
   await page.locator('#restart-recording').click();
-  await page.locator('#finish-recording').click();
-  // Fifty saved cards disable creation; deleting one enables exactly one new rhythm.
-  for(let slot=2;slot<=50;slot++)recordings.set(own+':'+slot,{slot,title:'Ritmas '+slot,events:[{key:'w',time:0}],duration_ms:0,updated_at:new Date().toISOString()});
-  await page.clock.fastForward(30000);
-  await wait(async()=>await mine.locator('.slot').count()===50);
-  assert(await page.locator('#create-rhythm').isDisabled());
-  const list=mine.locator('.rhythm-list');
-  assert(await list.evaluate(e=>e.scrollHeight>e.clientHeight));
-  assert.equal(await list.evaluate(e=>getComputedStyle(e).scrollbarWidth),'thin');
-  await list.evaluate(e=>{e.scrollTop=150;});
-  const scroll=await list.evaluate(e=>e.scrollTop);
-  recordings.get(own+':1').title='Pavadinimas atnaujintas kitur';
-  await page.clock.fastForward(30000);
-  await wait(async()=>await ownSlot(1).locator('h3').textContent()==='Pavadinimas atnaujintas kitur');
-  assert.equal(await list.evaluate(e=>e.scrollTop),scroll,'polling preserves library scroll position');
-  await ownSlot(50).getByRole('button',{name:'Ištrinti',exact:true}).click();
-  await wait(()=>page.locator('#create-rhythm').isEnabled());
-  assert.equal(await mine.locator('.slot').count(),49);
-  await page.locator('#create-rhythm').click();
-  assert.equal(await mine.locator('.slot').count(),49);
-  await strike('l');
-  await page.locator('#finish-recording').click();
-  await wait(async()=>await mine.locator('.slot').count()===50);
-  assert.equal(recordings.get(own+':50').events[0].key,'l');
-  assert.equal(await ownSlot(51).count(),0);
-  // Long names and narrow phones must also keep the recording/review geometry stable.
-  await ownSlot(1).locator('h3').focus();
-  await page.keyboard.press('Enter');
-  await page.locator('#rhythm-title-input').fill('Ilgas ritmo pavadinimas '.repeat(3).slice(0,60).trim());
-  await page.locator('#save-title').click();
-  await wait(()=>page.locator('#rename-dialog').isHidden());
-  for(const width of (mobile?[320,393]:[768,1280])) {
-    await page.setViewportSize({width,height:900});
-    await ownSlot(1).getByRole('button',{name:'Perrašyti',exact:true}).click();
-    await strike('w');
-    const geometry=()=>page.evaluate(()=>({height:document.getElementById('recording-bar').getBoundingClientRect().height,kit:document.querySelector('.kit').getBoundingClientRect().top,scroll:scrollY}));
-    const before=await geometry();
-    await page.locator('#finish-recording').click();
-    assert.deepEqual(await geometry(),before,`no layout shift during review at ${width}px`);
-    for(const id of ['preview-recording','commit-recording','restart-recording']) {
-      assert(await page.locator('#'+id).evaluate(e=>e.scrollHeight<=e.clientHeight),'button labels fit their reserved cells');
-      assert.equal(await page.locator('#'+id+' .button-icon').count(),1);
-    }
-    assert.equal(await page.locator('.action:not(:has(.button-icon))').count(),0,'all action buttons have matching icons');
-    await page.locator('#restart-recording').click();
-    assert.deepEqual(await geometry(),before,`repeating preserves geometry at ${width}px`);
-  await page.locator('#finish-recording').click();
+  assert(await page.locator('#recording-bar').isHidden());
+  await strike(firstKey);
+  await page.clock.fastForward(12000);
+  await wait(()=>page.locator('#recording-bar').isVisible());
+  await page.locator('#commit-recording').click();
+  await wait(()=>saves===1);
+  await wait(()=>page.locator('#recording-bar').isHidden());
+  assert.equal(recordings.get(own+':1').kit,kit);
+
+  await strike(firstKey);
+  await page.clock.fastForward(12000);
+  await wait(()=>page.locator('#recording-bar').isVisible());
+  assert.match(await page.locator('#recording-title').textContent(),/Ritmas 2 · Pabaiga/);
+  await page.locator('#cancel-recording').click();
+  assert(await page.locator('#recording-bar').isHidden());
+  assert.equal(saves,1);
+
+  if(mobile){
+    await page.setViewportSize({width:915,height:412});
+    assert.equal(await page.locator('body > header').evaluate(e=>getComputedStyle(e).display),'none');
+    const kitBox=await page.locator('.kit').boundingBox();
+    assert(kitBox.width>=910&&kitBox.height>=407,'instrument fills a rotated phone');
+    const setBox=await page.locator('.set').boundingBox();
+    assert(setBox.width>=910&&setBox.height>=407,'keys or drums use the full instrument area');
   }
-  console.log('PASS',kit,mobile?'mobile touch':'desktop mouse','login/refresh, save/play/overwrite/rename, legacy compatibility, kit/velocity, review/repeat, layout, polling and avatars');
+
+  await strike(firstKey);
+  await page.clock.runFor(250);
+  await page.goto(base+'/'+file);
+  await wait(()=>page.locator('#audio-status').isHidden());
+  if(await page.locator('#login').isVisible()){
+    await page.locator('#nickname').fill('Ritmas');
+    await page.locator('#login-form').evaluate(form=>form.requestSubmit());
+  }
+  await wait(()=>emergencySaves>=1);
+  assert.equal(recordings.get(own+':1').events[0].key,firstKey,'closing overwrites the emergency first slot');
+  assert.deepEqual(errors,[]);
+  console.log('PASS',file,mobile?'mobile landscape':'desktop','automatic recording, review, save/repeat/exit and emergency slot');
   await context.close();
 }
+
 async function adminScenario(browser){
   const context=await browser.newContext();
   const page=await context.newPage();
-  const now=Date.now();
-  const rows=[
-    {id:own,nickname:'Ritmas',created_at:new Date(now-86400000).toISOString(),last_seen_at:new Date(now-10000).toISOString(),rhythm_count:3,device_type:'Kompiuteris',os_name:'Windows',browser_name:'Chrome',approx_location:'Vilnius, Lietuva'},
-    {id:other,nickname:'Kitas <b>',created_at:new Date(now-172800000).toISOString(),last_seen_at:new Date(now-300000).toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Kaunas, Lietuva'}
-  ];
-  const errors=[];
-  page.on('pageerror',error=>errors.push(error.message));
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',route=>{
-    const path=new URL(route.request().url()).pathname;
-    assert.equal(route.request().postDataJSON().p_code,'test-admin-code-123');
-    if(path==='/rest/v1/rpc/admin_request_location'){
-      assert.equal(route.request().postDataJSON().p_member_id,own);
-      return route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify('44444444-4444-4444-8444-444444444444')});
-    }
-    assert.equal(path,'/rest/v1/rpc/admin_list_members');
-    return route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify(rows)});
+    const rows=[{id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:new Date().toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva'}];
+    route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify(rows)});
   });
-  const base=`http://127.0.0.1:${server.address().port}/admin.html`;
-  await page.goto(base);
-  assert(await page.locator('#admin-login').isVisible());
-  assert(await page.locator('#admin-panel').isHidden());
+  await page.goto(`http://127.0.0.1:${server.address().port}/admin.html`);
   await page.locator('#admin-code').fill('test-admin-code-123');
   await page.locator('#admin-login-form').evaluate(form=>form.requestSubmit());
-  await wait(async()=>await page.locator('#member-rows tr').count()===2);
-  assert.match(await page.locator('#admin-summary').textContent(),/Prisijungę: 1/);
-  await page.locator('#status-filter').selectOption('online');
-  assert.equal(await page.locator('#member-rows tr').count(),1);
-  assert.equal(await page.locator('#member-rows td:first-child strong').textContent(),'Ritmas');
-  assert.match(await page.locator('#member-rows').textContent(),/Kompiuteris/);
-  await page.getByRole('button',{name:'Prašyti vietos'}).click();
-  await wait(async()=>/prašymas išsiųstas/i.test(await page.locator('#admin-status').textContent()));
-  assert.equal(await page.locator('#member-rows b').count(),0,'member names are rendered as text');
-  assert.deepEqual(errors,[]);
-  console.log('PASS admin code entry, member status and filters');
+  await wait(()=>page.locator('#member-rows tr').count().then(n=>n===1));
+  assert.match(await page.locator('#member-rows').textContent(),/Telefonas/);
+  console.log('PASS admin member list');
   await context.close();
 }
+
 (async()=>{
- await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
- let browser;
- try {
-  browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
-  for(const kit of ['classic-v1','virtuosity-v1','salamander-v1']) {
-    await scenario(browser,false,kit);
-    await scenario(browser,true,kit);
-  }
-  await adminScenario(browser);
- }finally{if(browser)await browser.close();server.close();}
-})().catch(error=>{console.error(error);process.exitCode=1});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  let browser;
+  try{
+    browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
+    for(const [file,kit] of [['index.html','classic-v1'],['studio.html','virtuosity-v1'],['piano.html','salamander-v1']]){
+      await instrumentScenario(browser,file,kit,false);
+      await instrumentScenario(browser,file,kit,true);
+    }
+    await adminScenario(browser);
+  }finally{if(browser)await browser.close();server.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

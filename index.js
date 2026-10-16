@@ -84,7 +84,7 @@ function playBuffer(path, volume, rate = 1) {
 export function hitDrum(key, live = true, velocity, kit = ACTIVE_KIT, length) {
   const button = buttons.get(key);
   if ((live && !button) || !readyKits.has(kit) || !getKit(kit).sounds[key]) return;
-  if (velocity === undefined) velocity = kit === DEFAULT_KIT ? 127 : Number(document.getElementById('strike-strength')?.value || 96);
+  if (velocity === undefined) velocity = kit === DEFAULT_KIT ? 127 : 96;
   velocity = Math.max(1, Math.min(127, Math.round(velocity)));
   if (live) window.dispatchEvent(new CustomEvent('drumhit', { detail: { key, velocity } }));
   clearTimeout(animationTimers.get(key));
