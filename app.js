@@ -14,6 +14,10 @@ let playback = null;
 let playbackGeneration = 0;
 let usersLoading = false;
 let pollTimer;
+let presenceTimer;
+let locationRequestTimer;
+let activeLocationRequest;
+let locationResponseBusy = false;
 let mutationRevision = 0;
 let renamingSlot = null;
 let renamingBusy = false;
@@ -396,7 +400,141 @@ async function loadUsers(refresh = false, silent = false) {
 
 function startPolling() {
   clearInterval(pollTimer);
+  clearInterval(presenceTimer);
+  clearInterval(locationRequestTimer);
+  db.touchPresence().catch(() => {});
   pollTimer = setInterval(() => loadUsers(true, true), 30000);
+  presenceTimer = setInterval(() => db.touchPresence().catch(() => {}), 30000);
+  locationRequestTimer = setInterval(checkLocationRequest, 8000);
+  checkLocationRequest();
+}
+
+function clientDeviceInfo() {
+  const ua = navigator.userAgent;
+  const lower = ua.toLowerCase();
+  const ipad = /ipad/.test(lower) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const deviceType = ipad || /tablet/.test(lower) || (/android/.test(lower) && !/mobile/.test(lower))
+    ? 'Planšetė' : /mobile|iphone|ipod|android/.test(lower) ? 'Telefonas' : 'Kompiuteris';
+  let osName = 'Kita sistema';
+  if (/android/.test(lower)) osName = 'Android';
+  else if (ipad || /iphone|ipod/.test(lower)) osName = 'iOS';
+  else if (/windows/.test(lower)) osName = 'Windows';
+  else if (/mac os|macintosh/.test(lower)) osName = 'macOS';
+  else if (/linux/.test(lower)) osName = 'Linux';
+  let browserName = 'Kita naršyklė';
+  if (/edg\//.test(lower)) browserName = 'Edge';
+  else if (/opr\//.test(lower)) browserName = 'Opera';
+  else if (/samsungbrowser\//.test(lower)) browserName = 'Samsung Internet';
+  else if (/firefox\/|fxios\//.test(lower)) browserName = 'Firefox';
+  else if (/chrome\/|crios\//.test(lower)) browserName = 'Chrome';
+  else if (/safari\//.test(lower)) browserName = 'Safari';
+  return { deviceType, osName, browserName };
+}
+
+async function captureSessionContext() {
+  const details = clientDeviceInfo();
+  try {
+    const response = await fetch('https://ipwho.is/?fields=success,country,region,city', {
+      signal: AbortSignal.timeout(4000), referrerPolicy: 'no-referrer'
+    });
+    const place = await response.json();
+    if (response.ok && place.success !== false) {
+      details.approxLocation = [...new Set([place.city, place.region, place.country].filter(Boolean))].join(', ');
+    }
+  } catch {}
+  await db.startMemberSession(details);
+}
+
+function createLocationDialog() {
+  const dialog = document.createElement('dialog');
+  dialog.id = 'location-request-dialog';
+  dialog.setAttribute('aria-labelledby', 'location-request-title');
+  const title = document.createElement('h2');
+  title.id = 'location-request-title';
+  title.textContent = 'Vietos bendrinimo prašymas';
+  const explanation = document.createElement('p');
+  explanation.textContent = 'Administratorius prašo vieną kartą gauti dabartinę jūsų vietą. Patvirtinus naršyklė dar paprašys vietos leidimo. Nuolatinis sekimas nebus įjungtas.';
+  const message = document.createElement('p');
+  message.id = 'location-request-status';
+  message.className = 'hint';
+  message.setAttribute('role', 'status');
+  const controls = document.createElement('div');
+  controls.className = 'actions';
+  const share = document.createElement('button');
+  share.type = 'button';
+  share.className = 'action primary';
+  share.textContent = 'Bendrinti dabartinę vietą';
+  const decline = document.createElement('button');
+  decline.type = 'button';
+  decline.className = 'action';
+  decline.textContent = 'Atmesti';
+  controls.append(share, decline);
+  dialog.append(title, explanation, message, controls);
+  document.body.append(dialog);
+  decorateAction(share, 'check');
+  decorateAction(decline, 'close');
+  share.addEventListener('click', shareRequestedLocation);
+  decline.addEventListener('click', declineLocationRequest);
+  dialog.addEventListener('cancel', event => {
+    event.preventDefault();
+    declineLocationRequest();
+  });
+  return dialog;
+}
+
+async function checkLocationRequest() {
+  if (!me || document.hidden || activeLocationRequest || locationResponseBusy) return;
+  try {
+    const requests = await db.pendingLocationRequest();
+    if (!requests.length) return;
+    activeLocationRequest = requests[0];
+    $('location-request-status').textContent = '';
+    $('location-request-dialog').showModal();
+  } catch {}
+}
+
+function currentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('Ši naršyklė nepalaiko vietos nustatymo.'));
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true, timeout: 15000, maximumAge: 0
+    });
+  });
+}
+
+async function shareRequestedLocation() {
+  if (!activeLocationRequest || locationResponseBusy) return;
+  locationResponseBusy = true;
+  $('location-request-status').textContent = 'Nustatoma dabartinė vieta…';
+  try {
+    const position = await currentPosition();
+    await db.respondLocationRequest(activeLocationRequest.id, 'approved', position);
+    $('location-request-dialog').close();
+    activeLocationRequest = null;
+    status('Vieta perduota administratoriui vieną kartą.');
+  } catch (error) {
+    try { await db.respondLocationRequest(activeLocationRequest.id, 'error'); } catch {}
+    $('location-request-dialog').close();
+    activeLocationRequest = null;
+    status(error.message || 'Vietos nustatyti nepavyko.', true);
+  } finally {
+    locationResponseBusy = false;
+  }
+}
+
+async function declineLocationRequest() {
+  if (!activeLocationRequest || locationResponseBusy) return;
+  locationResponseBusy = true;
+  try {
+    await db.respondLocationRequest(activeLocationRequest.id, 'declined');
+    $('location-request-dialog').close();
+    activeLocationRequest = null;
+    status('Vietos bendrinimo prašymas atmestas.');
+  } catch (error) {
+    $('location-request-status').textContent = error.message;
+  } finally {
+    locationResponseBusy = false;
+  }
 }
 
 async function optimizeAvatar(file) {
@@ -659,6 +797,7 @@ async function enter(profile) {
   $('welcome-name').textContent = 'Labas, ' + profile.nickname + '!';
   window.drumAppReady = true;
   addMember(profile);
+  captureSessionContext().catch(() => {});
   await loadUsers(true);
   startPolling();
 }
@@ -729,7 +868,11 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape') hideAvatarRemoval();
 });
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && me && window.drumAppReady) loadUsers(true, true);
+  if (!document.hidden && me && window.drumAppReady) {
+    db.touchPresence().catch(() => {});
+    loadUsers(true, true);
+    checkLocationRequest();
+  }
 });
 window.addEventListener('pageshow', event => {
   if (event.persisted && me) {
@@ -739,6 +882,8 @@ window.addEventListener('pageshow', event => {
 });
 window.addEventListener('pagehide', () => {
   clearInterval(pollTimer);
+  clearInterval(presenceTimer);
+  clearInterval(locationRequestTimer);
   clearRecordTimers();
   recording = null;
   stopPlayback();
@@ -749,6 +894,8 @@ window.addEventListener('pagehide', () => {
 window.addEventListener('storage', event => {
   if (event.key?.startsWith('bugnai.auth.') && !event.newValue) {
     clearInterval(pollTimer);
+    clearInterval(presenceTimer);
+    clearInterval(locationRequestTimer);
     window.drumAppReady = false;
     cancelRecording();
     stopPlayback();
@@ -758,6 +905,7 @@ window.addEventListener('storage', event => {
   }
 });
 
+createLocationDialog();
 document.querySelectorAll('.action').forEach(button => decorateAction(button));
 decorateAction($('remove-avatar'), 'trash');
 

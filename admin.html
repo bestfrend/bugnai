@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="lt" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#283149">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Administravimas · Būgnai</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+  <header class="admin-header">
+    <a href="index.html" class="admin-back">← Grįžti į programą</a>
+    <h1>Administravimas</h1>
+  </header>
+  <main class="admin-main">
+    <p id="admin-status" class="status" role="status" aria-live="polite"></p>
+    <section id="admin-login" class="panel login-panel" aria-labelledby="admin-login-title">
+      <h2 id="admin-login-title">Administratoriaus kodas</h2>
+      <p class="hint">Kodas niekur neišsaugomas naršyklėje.</p>
+      <form id="admin-login-form" class="admin-login-form">
+        <label for="admin-code">Prieigos kodas</label>
+        <input id="admin-code" class="text-input" type="password" autocomplete="current-password" minlength="4" required>
+        <button id="admin-login-button" class="action primary" type="submit">Atidaryti panelę</button>
+      </form>
+    </section>
+
+    <section id="admin-panel" hidden aria-labelledby="members-title">
+      <div class="admin-toolbar">
+        <div>
+          <h2 id="members-title">Nariai</h2>
+          <p id="admin-summary" class="hint"></p>
+        </div>
+        <div class="actions">
+          <button id="admin-refresh" class="action" type="button">Atnaujinti</button>
+          <button id="admin-logout" class="action danger" type="button">Atsijungti</button>
+        </div>
+      </div>
+      <div class="admin-filters panel">
+        <label for="member-search">Paieška</label>
+        <input id="member-search" class="text-input" type="search" placeholder="Vardas arba ID" autocomplete="off">
+        <label for="status-filter">Būsena</label>
+        <select id="status-filter" class="text-input">
+          <option value="all">Visi nariai</option>
+          <option value="online">Prisijungę</option>
+          <option value="offline">Atsijungę</option>
+        </select>
+      </div>
+      <div class="admin-table-wrap panel">
+        <table class="admin-table">
+          <thead><tr><th>Narys</th><th>Būsena</th><th>Prisijungimo laikas</th><th>Įrenginys</th><th>Apytikslė vieta</th><th>Tiksli vieta</th><th>Ritmų</th><th>Registruotas</th><th>Veiksmas</th></tr></thead>
+          <tbody id="member-rows"></tbody>
+        </table>
+        <p id="members-empty" class="hint admin-empty" hidden>Narių pagal pasirinktą filtrą nėra.</p>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

@@ -31,6 +31,24 @@ Programai nereikia papildomo backend serverio ar build komandos. Paleiskite:
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
+## Administratoriaus panelė
+
+Administravimo panelė atveriama adresu `admin.html`. Administratorius įveda privatų
+kodą, kuris nėra įrašytas į naršyklės failus. Supabase saugo tik jo `bcrypt` maišą,
+be viešos skaitymo teisės.
+
+Panelėje rodomi visi nariai, jų ritmų skaičius ir būsena. Programa atnaujina nario
+aktyvumo laiką kas 30 sekundžių; jei atnaujinimo nebuvo 75 sekundes, panelė jį rodo
+kaip atsijungusį. Aktyvumo laikas saugomas privačioje lentelėje ir paprastiems
+nariams negrąžinamas. Panelė pati atsinaujina kas 15 sekundžių.
+
+Įrenginio rūšiai, operacinei sistemai, naršyklei, sesijos pradžiai, apytikslei IP
+vietai ir vartotojo patvirtinamoms vienkartinėms tikslioms koordinatėms pridėti
+„Supabase SQL Editor“ vieną kartą paleiskite visą
+[supabase/member-insights.sql](supabase/member-insights.sql). Apytikslei vietai
+naudojama `ipwho.is` HTTPS paslauga; IP adresas programos duomenų bazėje nesaugomas.
+Kiekvienas tikslios vietos prašymas ir atsakymas saugomas atskira istorijos eilute.
+
 ### Įrašymo taisyklės
 
 - Vardas yra viešas slapyvardis, ne slaptažodis. Tapatybę suteikia Supabase Auth.
