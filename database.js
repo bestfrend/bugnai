@@ -61,7 +61,7 @@ async function request(path, options = {}, token) {
         ? (options.body?.includes('salamander-v1') ? 'Pianino įrašams Supabase SQL Editor paleisk piano.sql.' : 'Antram būgnų rinkiniui Supabase SQL Editor paleisk drum-kits.sql.')
         : 'Duomenų bazę reikia atnaujinti pagal naujausią Supabase SQL papildymą.';
     } else if (data?.code === '23514' && options.body?.includes('salamander-v1') && /valid_performance|kit|piano/i.test(data?.message || '')) {
-      message = 'Pianino įrašams Supabase SQL Editor paleisk piano.sql.';
+      message = 'Papildomoms pianino oktavoms Supabase SQL Editor paleisk piano-octaves.sql.';
     } else if (data?.code === '23505') {
       message = 'Šią vietą jau užėmė įrašas kitame lange. Ankstesnis ritmas nepakeistas.';
     } else if (data?.code === 'anonymous_provider_disabled') {

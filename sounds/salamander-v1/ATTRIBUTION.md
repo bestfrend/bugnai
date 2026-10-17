@@ -8,9 +8,10 @@ Legal terms: https://creativecommons.org/licenses/by/3.0/legalcode
 Source distribution: https://github.com/tonejs/audio/tree/efd8296360f9526e379bfbe5c1698ff54d6a1d34/salamander
 Original author/license notice is included verbatim in `README`.
 
-This application uses five unchanged MP3 samples, C4, D#4, F#4, A4 and C5.
-Changes in the application: selection of one octave C4–C5, real-time pitch
-transposition by at most two semitones, volume and 180 ms note-release envelope.
+This application uses 21 unchanged MP3 samples: C, D# , F# and A for octaves 2–6,
+plus C7. Changes in the application: selection of one visible octave from C2–C7,
+real-time pitch transposition by at most two semitones, volume and 180 ms
+note-release envelope.
 This is one sampled dynamic level; the volume slider does not switch velocity
 layers. No pedal, hammer noise or resonance samples are included. Long held
 notes naturally decay to silence when the source sample ends.

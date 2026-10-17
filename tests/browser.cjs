@@ -85,6 +85,28 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.equal(await page.locator('#strength-control').count(),0);
   assert(await page.locator('#recording-bar').isHidden());
 
+  if(kit==='salamander-v1'){
+    assert.equal(await page.locator('.piano-key').count(),13);
+    assert.equal(await page.locator('.black-key').count(),5);
+    await page.locator('[data-octave-shift="-1"]').click();
+    await page.locator('[data-octave-shift="-1"]').click();
+    assert.match(await page.locator('#piano-octave-label').innerText(),/C2–C3/);
+    assert.equal(await page.locator('.piano-key').first().getAttribute('data-key'),'c2');
+    assert(await page.locator('[data-octave-shift="-1"]').isDisabled());
+    for(let i=0;i<4;i++) await page.locator('[data-octave-shift="1"]').click();
+    assert.match(await page.locator('#piano-octave-label').innerText(),/C6–C7/);
+    assert.equal(await page.locator('.piano-key').last().getAttribute('data-key'),'c7');
+    assert(await page.locator('[data-octave-shift="1"]').isDisabled());
+    for(let i=0;i<2;i++) await page.locator('[data-octave-shift="-1"]').click();
+    assert.match(await page.locator('#piano-octave-label').innerText(),/C4–C5/);
+    await page.keyboard.down('a');
+    await page.clock.runFor(160);
+    await page.locator('[data-octave-shift="-1"]').click();
+    await page.keyboard.up('a');
+    assert.equal(await page.locator('.piano-key.pressed').count(),0,'changing octave releases a held note');
+    await page.locator('[data-octave-shift="1"]').click();
+  }
+
   const strike=async key=>{
     const target=page.locator(`[data-key="${key}"], .${key}.drum`).first();
     if(kit==='salamander-v1'){

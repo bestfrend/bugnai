@@ -1,5 +1,21 @@
 export const DEFAULT_KIT = 'classic-v1';
 export let ACTIVE_KIT = document.body.dataset.kit || DEFAULT_KIT;
+export const PIANO_OCTAVES = [2, 3, 4, 5, 6];
+export const PIANO_SEMITONES = ['c', 'cs', 'd', 'ds', 'e', 'f', 'fs', 'g', 'gs', 'a', 'as', 'b'];
+export function pianoKeys(octave) {
+  if (!PIANO_OCTAVES.includes(octave)) throw new Error('Nežinomas pianino aukštis.');
+  return [...PIANO_SEMITONES.map(note => note + octave), 'c' + (octave + 1)];
+}
+const pianoAnchors = PIANO_OCTAVES.flatMap(octave => ['c', 'ds', 'fs', 'a'].map(note => note + octave)).concat('c7');
+function closestPianoSample(key) {
+  const index = pianoNoteIndex(key);
+  return pianoAnchors.reduce((best, sample) => Math.abs(pianoNoteIndex(sample) - index) < Math.abs(pianoNoteIndex(best) - index) ? sample : best);
+}
+function pianoNoteIndex(key) {
+  const match = /^([a-g]s?)(\d)$/.exec(key);
+  if (!match) return Number.NaN;
+  return Number(match[2]) * 12 + PIANO_SEMITONES.indexOf(match[1]);
+}
 export const KITS = {
   'classic-v1': {
     name: 'Klasikiniai',
@@ -8,10 +24,9 @@ export const KITS = {
   },
   'salamander-v1': {
     name: 'Salamander pianinas',
-    sounds: Object.fromEntries(['c4','cs4','d4','ds4','e4','f4','fs4','g4','gs4','a4','as4','b4','c5'].map((key,i)=> {
-      const sources = [[0,'C4'],[3,'Ds4'],[6,'Fs4'],[9,'A4'],[12,'C5']];
-      const [,file] = sources.reduce((best,item)=>Math.abs(item[0]-i)<Math.abs(best[0]-i)?item:best);
-      return [key,[`sounds/salamander-v1/${file}.mp3`]];
+    sounds: Object.fromEntries(PIANO_OCTAVES.flatMap(pianoKeys).map(key => {
+      const sample = closestPianoSample(key);
+      return [key, [`sounds/salamander-v1/${sample[0].toUpperCase()}${sample.slice(1)}.mp3`]];
     }))
   },
   'virtuosity-v1': {
@@ -32,12 +47,9 @@ export function samplePath(id, key, velocity = 127) {
   return paths[layer];
 }
 
-export const PIANO_KEYS = ['c4','cs4','d4','ds4','e4','f4','fs4','g4','gs4','a4','as4','b4','c5'];
 export function playbackRate(kit, key) {
   if (kit !== 'salamander-v1') return 1;
-  const index = PIANO_KEYS.indexOf(key);
-  const nearest = [0,3,6,9,12].reduce((best,n)=>Math.abs(n-index)<Math.abs(best-index)?n:best);
-  return 2 ** ((index-nearest)/12);
+  return 2 ** ((pianoNoteIndex(key) - pianoNoteIndex(closestPianoSample(key))) / 12);
 }
 
 export function setActiveKit(id) {

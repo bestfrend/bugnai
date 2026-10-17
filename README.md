@@ -178,23 +178,25 @@ kad senų įrašų skambesys nepasikeistų.
 
 ### Pianinas telefonui: Salamander · Alexander Holm
 
-`piano.html` turi 13 klavišų (C4–C5), įskaitant juodus pustonius. Visa oktava telpa
-320 px telefono ekrane. Vienu metu galima liesti kelis klavišus; kompiuteryje
-naudojami A W S E D F T G Y H U J K. Pointer capture užtikrina atleidimą ir pirštą
+`piano.html` turi 13 klavišų (vieną visą oktavą), įskaitant juodus pustonius. Visa
+oktava telpa 320 px telefono ekrane. Mygtukai „Žemiau“ ir „Aukščiau“ parenka vieną
+iš penkių padėčių nuo C2–C3 iki C6–C7; kiekvienas įrašas saugo tikrą natos aukštį.
+Vienu metu galima liesti kelis klavišus; kompiuteryje naudojami A W S E D F T G Y H U J K. Pointer capture užtikrina atleidimą ir pirštą
 pakėlus už klavišo ribų; atšauktas lietimas, prarastas lango fokusas ir paslėptas
 puslapis taip pat atleidžia natas. Stiprumo slankiklis keičia garsumą, ne laikymo
 trukmę. Laikymas valdo natos trukmę, atleidimas turi 180 ms slopimo gaubtinę.
 
 Autorius **Alexander Holm**, **Salamander Grand Piano**, licencija **CC BY 3.0**.
 Autorius, šaltinis, licencija ir pritaikymo aprašymas matomi puslapyje. Penki
-nepakeisti MP3 iš prisegtos Tone.js audio saugyklos versijos sudaro apie 0,4 MB;
+nepakeisti MP3 iš prisegtos Tone.js audio saugyklos versijos sudaro apie 1,4 MB;
 tarpinės natos atkuriamos keičiant aukštį iki dviejų pustonių. Tai vienas dinamikos
 sluoksnis, be pedalų ir pilno SFZ rezonansų modelio. Ilgai laikoma nata natūraliai
 nutyla pasibaigus mėginiui. Kilmė ir SHA-256: `sounds/salamander-v1/sources.json`;
 originalus autoriaus pranešimas: `sounds/salamander-v1/README`;
 naudojimas ir pakeitimai: `sounds/salamander-v1/ATTRIBUTION.md`.
 
-Esamame Supabase projekte SQL Editor paleiskite **`supabase/piano.sql`**. Migracija
+Esamame Supabase projekte po ankstesnio `piano.sql` SQL Editor paleiskite
+**`supabase/piano-octaves.sql`**. Migracija
 prideda `salamander-v1` ir pianino natų `{key,time,velocity,length}` validavimą,
 išlaikydama senus būgnų įrašus ir savininko teises. Trukmė baigiasi paskutinės natos
 atleidimu, ne paskutinės natos pradžia; akordų atleidimai gali persidengti. Iki

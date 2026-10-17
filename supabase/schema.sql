@@ -25,7 +25,7 @@ begin
     if jsonb_typeof(note) <> 'object' then return false; end if;
     if jsonb_typeof(note->'key') is distinct from 'string'
        or jsonb_typeof(note->'time') is distinct from 'number' then return false; end if;
-    is_piano := note->>'key' in ('c4','cs4','d4','ds4','e4','f4','fs4','g4','gs4','a4','as4','b4','c5');
+    is_piano := note->>'key' ~ '^((c|cs|d|ds|e|f|fs|g|gs|a|as|b)[2-6]|c7)$';
     if piano is null then piano := is_piano; end if;
     if piano <> is_piano then return false; end if;
     if not is_piano and note->>'key' not in ('w','a','s','d','j','k','l') then return false; end if;
@@ -147,7 +147,7 @@ alter table public.performances add constraint performances_kit_check
   check (kit in ('classic-v1', 'virtuosity-v1', 'salamander-v1'));
 alter table public.performances drop constraint if exists performances_piano_check;
 alter table public.performances add constraint performances_piano_check check (
-  (kit = 'salamander-v1') = (events->0->>'key' in ('c4','cs4','d4','ds4','e4','f4','fs4','g4','gs4','a4','as4','b4','c5'))
+  (kit = 'salamander-v1') = (events->0->>'key' ~ '^((c|cs|d|ds|e|f|fs|g|gs|a|as|b)[2-6]|c7)$')
 );
 
 commit;

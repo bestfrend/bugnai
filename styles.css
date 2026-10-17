@@ -285,6 +285,9 @@ footer { padding: 24px 0 32px; }
 .kit-tabs { max-width: 660px; }
 .piano-kit h1 { font-size: clamp(2rem, 7vw, 4rem); }
 .piano-author { color: #c4d4e8; font-size: 12px; letter-spacing: .03em; }
+.piano-octave-controls { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 12px auto 16px; font: 600 12px/1.2 system-ui, sans-serif; color: #c9d6ed; }
+.piano-octave-controls .action { min-height: 36px; padding: 7px 10px; font-size: 12px; }
+.piano-octave-controls output { min-width: 130px; font-variant-numeric: tabular-nums; }
 .piano-keyboard { position: relative; display: flex; width: 100%; max-width: 760px; height: clamp(190px, 36vw, 280px); padding: 0; border: 5px solid #151c2b; border-top-width: 12px; border-radius: 12px; background: #151c2b; box-shadow: 0 14px 25px #1115; touch-action: none; }
 .piano-key { touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; border-radius: 0 0 6px 6px; font-family: system-ui, sans-serif; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 5px; padding: 0 0 14px; font-size: 11px; font-weight: 600; }
 .piano-key small { font-size: 9px; opacity: .65; }
@@ -297,7 +300,7 @@ footer { padding: 24px 0 32px; }
 .piano-credit { max-width: 520px; margin: 14px auto; color: #b6c5dd; line-height: 1.8; }
 .piano-credit span { font-size: 9px; }
 .piano-credit a { text-decoration: underline; text-underline-offset: 3px; }
-@media (max-width: 400px) { .kit-tabs { gap: 2px; } .kit-tabs a { padding: 6px 3px; font-size: 11px; } .piano-keyboard { border-width: 3px; border-top-width: 10px; } .black-key { font-size: 8px; } }
+@media (max-width: 400px) { .kit-tabs { gap: 2px; } .kit-tabs a { padding: 6px 3px; font-size: 11px; } .piano-keyboard { border-width: 3px; border-top-width: 10px; } .black-key { font-size: 8px; } .piano-octave-controls { gap: 5px; } .piano-octave-controls .action { padding: 7px 6px; } .piano-octave-controls output { min-width: 110px; font-size: 11px; } }
 
 /* A rotated phone becomes a distraction-free instrument. */
 @media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {

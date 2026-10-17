@@ -17,8 +17,13 @@ def fetch(name):
     (DEST / name).write_bytes(data)
     return {'file': name, 'url': BASE + name, 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)}
 
+SAMPLES = [
+    *(f'{note}{octave}.mp3' for octave in range(2, 7) for note in ('C', 'Ds', 'Fs', 'A')),
+    'C7.mp3',
+]
+
 with ThreadPoolExecutor(max_workers=3) as pool:
-    files = list(pool.map(fetch, ['C4.mp3', 'Ds4.mp3', 'Fs4.mp3', 'A4.mp3', 'C5.mp3', 'README']))
+    files = list(pool.map(fetch, [*SAMPLES, 'README']))
 (DEST / 'sources.json').write_text(json.dumps({'commit': REVISION, 'author': 'Alexander Holm',
     'license': 'CC BY 3.0', 'files': files}, indent=2) + '\n')
 print('Downloaded and hashed', len(files), 'files')

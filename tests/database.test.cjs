@@ -194,6 +194,25 @@ test('piano migration preserves drums, validates held chords and keeps owner per
   await user(bob);
   await db.query("update performances set title='Pianino akordas' where owner_id=$1 and slot=4",[bob]);
 });
+test('piano octave migration accepts C2 through C7 and preserves the original octave',async()=>{
+  await db.exec('reset role');
+  const migration=readFileSync('supabase/piano-octaves.sql','utf8');
+  await db.exec(migration);
+  await db.exec(migration);
+  await user(bob);
+  const lowAndHigh=[{key:'c2',time:0,velocity:80,length:180},{key:'as6',time:220,velocity:100,length:180},{key:'c7',time:440,velocity:127,length:180}];
+  await db.query('insert into performances(owner_id,slot,events,duration_ms,kit) values($1,5,$2,620,$3)',[bob,JSON.stringify(lowAndHigh),'salamander-v1']);
+  const invalid=[
+    [{key:'b1',time:0,velocity:96,length:10}],
+    [{key:'cs7',time:0,velocity:96,length:10}],
+    [{key:'c8',time:0,velocity:96,length:10}],
+    [{key:'h4',time:0,velocity:96,length:10}]
+  ];
+  for(const events of invalid) await assert.rejects(db.query('insert into performances(owner_id,slot,events,duration_ms,kit) values($1,6,$2,10,$3)',[bob,JSON.stringify(events),'salamander-v1']),{code:'23514'});
+  await user(alice);
+  const saved=(await db.query('select events from performances where owner_id=$1 and slot=5',[bob])).rows[0].events;
+  assert.deepEqual(saved,lowAndHigh);
+});
 test('private device data and consent-based location requests are admin-only',async()=>{
   await db.exec(`reset role;
     create schema if not exists extensions;
