@@ -286,7 +286,8 @@ footer { padding: 24px 0 32px; }
 .piano-kit h1 { font-size: clamp(2rem, 7vw, 4rem); }
 .piano-author { color: #c4d4e8; font-size: 12px; letter-spacing: .03em; }
 .piano-octave-controls { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 12px auto 16px; font: 600 12px/1.2 system-ui, sans-serif; color: #c9d6ed; }
-.piano-octave-controls .action { min-height: 36px; padding: 7px 10px; font-size: 12px; }
+.piano-octave-controls .action { min-height: 36px; padding: 7px 10px; font-size: 12px; line-height: 1; white-space: nowrap; }
+.piano-octave-controls .button-icon { width: 15px; height: 15px; }
 .piano-octave-controls output { min-width: 130px; font-variant-numeric: tabular-nums; }
 .piano-keyboard { --white-width: 12.5%; --black-width: 7.5%; --half-black-width: 3.75%; position: relative; display: flex; width: 100%; max-width: 760px; height: clamp(190px, 36vw, 280px); padding: 0; border: 5px solid #151c2b; border-top-width: 12px; border-radius: 12px; background: #151c2b; box-shadow: 0 14px 25px #1115; touch-action: pan-y; }
 .piano-key { touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: pointer; border-radius: 0 0 6px 6px; font-family: system-ui, sans-serif; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 5px; padding: 0 0 14px; font-size: 11px; font-weight: 600; }

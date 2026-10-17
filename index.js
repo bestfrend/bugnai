@@ -227,7 +227,7 @@ function updatePianoOctave(octave) {
   document.getElementById('piano-octave-label').textContent = full ? 'Pilnas · C2–C7' : `${currentPianoOctave === 4 ? 'Vidurinė dalis' : currentPianoOctave < 4 ? 'Žemesni garsai' : 'Aukštesni garsai'} · C${currentPianoOctave}–C${currentPianoOctave + 1}`;
   document.querySelector('[data-octave-shift="-1"]').disabled = currentPianoOctave === PIANO_OCTAVES[0];
   const higher = document.querySelector('[data-octave-shift="1"]');
-  higher.textContent = currentPianoOctave >= PIANO_OCTAVES.at(-1) ? 'Pilnas →' : 'Aukščiau →';
+  higher.querySelector('.piano-button-label').textContent = currentPianoOctave >= PIANO_OCTAVES.at(-1) ? 'Pilnas' : 'Aukščiau';
   higher.setAttribute('aria-label', currentPianoOctave >= PIANO_OCTAVES.at(-1) ? 'Pilnas pianinas' : 'Aukštesni garsai');
   higher.disabled = full;
   bindInstrumentButtons();
