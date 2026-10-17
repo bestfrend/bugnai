@@ -178,16 +178,17 @@ kad senų įrašų skambesys nepasikeistų.
 
 ### Pianinas telefonui: Salamander · Alexander Holm
 
-`piano.html` turi 13 klavišų (vieną visą oktavą), įskaitant juodus pustonius. Visa
-oktava telpa 320 px telefono ekrane. Mygtukai „Žemiau“ ir „Aukščiau“ parenka vieną
-iš penkių padėčių nuo C2–C3 iki C6–C7; kiekvienas įrašas saugo tikrą natos aukštį.
-Vienu metu galima liesti kelis klavišus; kompiuteryje naudojami A W S E D F T G Y H U J K. Pointer capture užtikrina atleidimą ir pirštą
+`piano.html` turi penkias atskiras 13 klavišų oktavas nuo C2–C3 iki C6–C7.
+Po C6–C7 esantis „Pilnas“ režimas viename ekrane sutalpina visą turimą C2–C7
+diapazoną (61 natą), todėl telefone klavišai labai siauri. Kiekvienas įrašas saugo
+tikrą natos aukštį. Vienu metu galima liesti kelis klavišus; kompiuteryje naudojami
+A W S E D F T G Y H U J K, „Pilnas“ režime jie valdo vidurinę C4–C5 oktavą. Pointer capture užtikrina atleidimą ir pirštą
 pakėlus už klavišo ribų; atšauktas lietimas, prarastas lango fokusas ir paslėptas
 puslapis taip pat atleidžia natas. Stiprumo slankiklis keičia garsumą, ne laikymo
 trukmę. Laikymas valdo natos trukmę, atleidimas turi 180 ms slopimo gaubtinę.
 
 Autorius **Alexander Holm**, **Salamander Grand Piano**, licencija **CC BY 3.0**.
-Autorius, šaltinis, licencija ir pritaikymo aprašymas matomi puslapyje. Penki
+Autorius, šaltinis, licencija ir pritaikymo aprašymas matomi puslapyje. 21
 nepakeisti MP3 iš prisegtos Tone.js audio saugyklos versijos sudaro apie 1,4 MB;
 tarpinės natos atkuriamos keičiant aukštį iki dviejų pustonių. Tai vienas dinamikos
 sluoksnis, be pedalų ir pilno SFZ rezonansų modelio. Ilgai laikoma nata natūraliai

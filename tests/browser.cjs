@@ -96,8 +96,20 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     for(let i=0;i<4;i++) await page.locator('[data-octave-shift="1"]').click();
     assert.match(await page.locator('#piano-octave-label').innerText(),/C6–C7/);
     assert.equal(await page.locator('.piano-key').last().getAttribute('data-key'),'c7');
+    assert.match(await page.locator('[data-octave-shift="1"]').innerText(),/Pilnas/);
+    await page.locator('[data-octave-shift="1"]').click();
+    assert.match(await page.locator('#piano-octave-label').innerText(),/Pilnas · C2–C7/);
+    assert.equal(await page.locator('.piano-key').count(),61);
+    assert.equal(await page.locator('.black-key').count(),25);
+    assert.equal(await page.locator('.piano-key').first().getAttribute('data-key'),'c2');
+    assert.equal(await page.locator('.piano-key').last().getAttribute('data-key'),'c7');
     assert(await page.locator('[data-octave-shift="1"]').isDisabled());
-    for(let i=0;i<2;i++) await page.locator('[data-octave-shift="-1"]').click();
+    const [whiteBox,blackBox]=await Promise.all([page.locator('[data-key="c2"]').boundingBox(),page.locator('[data-key="cs2"]').boundingBox()]);
+    assert(blackBox.width<whiteBox.width&&blackBox.x>whiteBox.x,'full-range black keys align between white keys');
+    await page.keyboard.down('a');
+    assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'middle octave keyboard shortcuts still work in full view');
+    await page.keyboard.up('a');
+    for(let i=0;i<3;i++) await page.locator('[data-octave-shift="-1"]').click();
     assert.match(await page.locator('#piano-octave-label').innerText(),/C4–C5/);
     await page.keyboard.down('a');
     await page.clock.runFor(160);
@@ -286,6 +298,13 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     if(kit==='salamander-v1'){
       const [keyboard,black]=await Promise.all([page.locator('.piano-keyboard').boundingBox(),page.locator('.black-key').first().boundingBox()]);
       assert(black.height<=keyboard.height*.47,'black piano keys are shorter in landscape');
+      for(let i=0;i<3;i++) await page.locator('[data-octave-shift="1"]').click();
+      const fullBox=await page.locator('.piano-keyboard').boundingBox();
+      assert.equal(await page.locator('.piano-key').count(),61);
+      assert(fullBox.width>=910&&fullBox.height>=407,'the full piano fits the rotated phone');
+      await page.locator('[data-octave-shift="-1"]').click();
+      await page.locator('[data-octave-shift="-1"]').click();
+      await page.locator('[data-octave-shift="-1"]').click();
     }
   }
 
@@ -294,8 +313,11 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.goto(base+'/'+file);
   await wait(()=>page.locator('#audio-status').isHidden());
   if(await page.locator('#login').isVisible()){
-    await page.locator('#nickname').fill('Ritmas');
-    await page.locator('#login-form').evaluate(form=>form.requestSubmit());
+    await page.locator('#nickname').evaluate(input=>{
+      if(input.closest('#login').hidden)return;
+      input.value='Ritmas';
+      input.form.requestSubmit();
+    });
   }
   await wait(()=>emergencySaves>=1);
   assert.equal(recordings.get(own+':1').events[0].key,firstKey,'closing overwrites the emergency first slot');

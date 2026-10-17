@@ -13,6 +13,7 @@ const keyboardShortcuts = new Map();
 const loading = new Map();
 const readyKits = new Set();
 let currentPianoOctave = 4;
+const FULL_PIANO_VIEW = PIANO_OCTAVES.at(-1) + 1;
 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 let audioContext;
 try {
@@ -202,25 +203,33 @@ document.addEventListener('pointermove', event => {
 const pianoNames = { c: 'Do', cs: 'Do♯', d: 'Re', ds: 'Re♯', e: 'Mi', f: 'Fa', fs: 'Fa♯', g: 'Sol', gs: 'Sol♯', a: 'La', as: 'La♯', b: 'Si' };
 const pianoShortcuts = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k'];
 function pianoKeyboardMarkup(octave) {
-  return pianoKeys(octave).map((key, index) => {
+  const full = octave === FULL_PIANO_VIEW;
+  const keys = full ? [...PIANO_OCTAVES.flatMap(value => pianoKeys(value).slice(0, -1)), 'c7'] : pianoKeys(octave);
+  return keys.map((key, index) => {
     const note = key.replace(/\d/, '');
-    const shortcut = pianoShortcuts[index];
-    const position = ({ cs: 1, ds: 2, fs: 4, gs: 5, as: 6 })[note] ?? 0;
-    return `<button type="button" class="piano-key ${note.endsWith('s') ? 'black-key' : 'white-key'}" data-key="${key}" data-shortcut="${shortcut}" style="--position:${position}" aria-label="${pianoNames[note]}, ${key.toUpperCase()}, klavišas ${shortcut.toUpperCase()}"><span>${pianoNames[note]}</span><small>${shortcut.toUpperCase()}</small></button>`;
+    const shortcut = full ? pianoShortcuts[index - 24] : pianoShortcuts[index];
+    const position = (full ? (Number(key.at(-1)) - PIANO_OCTAVES[0]) * 7 : 0) + (({ cs: 1, ds: 2, fs: 4, gs: 5, as: 6 })[note] ?? 0);
+    const label = full ? (note === 'c' ? key.toUpperCase() : '') : pianoNames[note];
+    return `<button type="button" class="piano-key ${note.endsWith('s') ? 'black-key' : 'white-key'}" data-key="${key}"${shortcut ? ` data-shortcut="${shortcut}"` : ''} style="--position:${position}" aria-label="${pianoNames[note]}, ${key.toUpperCase()}${shortcut ? `, klavišas ${shortcut.toUpperCase()}` : ''}"><span>${label}</span>${!full && shortcut ? `<small>${shortcut.toUpperCase()}</small>` : ''}</button>`;
   }).join('');
 }
 function updatePianoOctave(octave) {
-  currentPianoOctave = Math.max(PIANO_OCTAVES[0], Math.min(PIANO_OCTAVES.at(-1), octave));
+  currentPianoOctave = Math.max(PIANO_OCTAVES[0], Math.min(FULL_PIANO_VIEW, octave));
   const keyboard = document.querySelector('.piano-keyboard');
   if (!keyboard) return;
   // A keyboard key can still be held while the octave button is clicked.
   // Finish that exact note before replacing the visible keys.
   releasePianoKeys();
+  const full = currentPianoOctave === FULL_PIANO_VIEW;
+  keyboard.classList.toggle('full-range', full);
   keyboard.innerHTML = pianoKeyboardMarkup(currentPianoOctave);
-  keyboard.setAttribute('aria-label', `Pianino klavišai C${currentPianoOctave}–C${currentPianoOctave + 1}`);
-  document.getElementById('piano-octave-label').textContent = `${currentPianoOctave === 4 ? 'Vidurinė dalis' : currentPianoOctave < 4 ? 'Žemesni garsai' : 'Aukštesni garsai'} · C${currentPianoOctave}–C${currentPianoOctave + 1}`;
+  keyboard.setAttribute('aria-label', full ? 'Pilnas pianinas C2–C7' : `Pianino klavišai C${currentPianoOctave}–C${currentPianoOctave + 1}`);
+  document.getElementById('piano-octave-label').textContent = full ? 'Pilnas · C2–C7' : `${currentPianoOctave === 4 ? 'Vidurinė dalis' : currentPianoOctave < 4 ? 'Žemesni garsai' : 'Aukštesni garsai'} · C${currentPianoOctave}–C${currentPianoOctave + 1}`;
   document.querySelector('[data-octave-shift="-1"]').disabled = currentPianoOctave === PIANO_OCTAVES[0];
-  document.querySelector('[data-octave-shift="1"]').disabled = currentPianoOctave === PIANO_OCTAVES.at(-1);
+  const higher = document.querySelector('[data-octave-shift="1"]');
+  higher.textContent = currentPianoOctave >= PIANO_OCTAVES.at(-1) ? 'Pilnas →' : 'Aukščiau →';
+  higher.setAttribute('aria-label', currentPianoOctave >= PIANO_OCTAVES.at(-1) ? 'Pilnas pianinas' : 'Aukštesni garsai');
+  higher.disabled = full;
   bindInstrumentButtons();
 }
 
