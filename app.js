@@ -856,7 +856,7 @@ $('login-form').addEventListener('submit', async event => {
   event.preventDefault();
   const nickname = $('nickname').value.trim();
   if (!nickname || nickname.length > 24) {
-    status('Įvesk slapyvardį nuo 1 iki 24 simbolių.', true);
+    status('Įvesk vardą nuo 1 iki 24 simbolių.', true);
     return;
   }
   $('login-button').disabled = true;

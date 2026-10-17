@@ -10,7 +10,7 @@
 </head>
 <body data-kit="virtuosity-v1" class="studio-kit">
   <header>
-    <div class="language-switch"><label for="language-select">Kalba</label><select id="language-select" aria-label="Kalba"><option value="lt">Lietuvių</option><option value="sv">Svenska</option></select></div>
+    <div class="language-switch"><label for="language-select">Language</label><select id="language-select" aria-label="Language"><option value="lt">🇱🇹 Lietuvių</option><option value="sv">🇸🇪 Svenska</option></select></div>
     <nav class="kit-tabs" aria-label="Instrumentai">
       <a href="piano.html" data-kit-link="salamander-v1">Pianinas · Salamander</a>
       <a href="index.html" data-kit-link="classic-v1">Klasikiniai būgnai</a>
@@ -21,17 +21,14 @@
   <main>
     <p id="status" class="status" role="status" aria-live="polite">Jungiamasi…</p>
     <section id="login" class="panel login-panel" aria-labelledby="login-title">
-      <h2 id="login-title">Tavo ritmas. Tavo kūryba.</h2>
-      <p>Įvesk slapyvardį, grok ir klausyk kitų sukurtų ritmų.</p>
+      <h2 id="login-title">Įvesk vardą</h2>
       <form id="login-form">
-        <label for="nickname">Tavo slapyvardis</label>
+        <label for="nickname">Vardas</label>
         <div class="login-fields">
-          <input id="nickname" name="nickname" autocomplete="nickname" maxlength="24" required placeholder="Kaip tave vadinti?">
+          <input id="nickname" name="nickname" autocomplete="nickname" maxlength="24" required placeholder="Įvesk vardą">
           <button type="submit" class="action primary" id="login-button">Pradėti groti</button>
         </div>
       </form>
-      <p class="hint">Be slaptažodžio. Ši naršyklė prisimins tave; išvalius jos duomenis prieigos prie savo įrašų galima netekti.</p>
-      <p class="hint">Prisijungus administratoriui privačiai rodoma įrenginio rūšis, sistema, naršyklė, prisijungimo laikas ir apytikslė vieta pagal IP. Tiksli vieta perduodama tik atskirai patvirtinus prašymą.</p>
     </section>
 
     <div id="workspace" hidden>

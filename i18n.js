@@ -1,16 +1,12 @@
 const STORAGE_KEY = 'bugnai.language';
 const swedish = {
-  'Kalba': 'Språk',
   'Instrumentai': 'Instrument', 'Pianinas · Salamander': 'Piano · Salamander',
   'Klasikiniai būgnai': 'Klassiska trummor', 'Virtuosity būgnai': 'Virtuosity-trummor',
   'Būgnų 🥁 komplektas': 'Trumset 🥁', 'Salamander pianinas': 'Salamanderpiano',
   'Būgnai': 'Trummor',
-  'Jungiamasi…': 'Ansluter…', 'Tavo ritmas. Tavo kūryba.': 'Din rytm. Din musik.',
-  'Įvesk slapyvardį, grok ir klausyk kitų sukurtų ritmų.': 'Välj ett smeknamn, spela och lyssna på andras inspelningar.',
-  'Tavo slapyvardis': 'Ditt smeknamn', 'Kaip tave vadinti?': 'Vad ska vi kalla dig?',
+  'Jungiamasi…': 'Ansluter…', 'Įvesk vardą': 'Ange ditt namn',
+  'Vardas': 'Namn',
   'Pradėti groti': 'Börja spela',
-  'Be slaptažodžio. Ši naršyklė prisimins tave; išvalius jos duomenis prieigos prie savo įrašų galima netekti.': 'Inget lösenord behövs. Den här webbläsaren kommer ihåg dig. Om du rensar webbläsarens data kan du förlora åtkomsten till dina inspelningar.',
-  'Prisijungus administratoriui privačiai rodoma įrenginio rūšis, sistema, naršyklė, prisijungimo laikas ir apytikslė vieta pagal IP. Tiksli vieta perduodama tik atskirai patvirtinus prašymą.': 'Administratören kan se enhetstyp, operativsystem, webbläsare, inloggningstid och ungefärlig plats utifrån IP-adressen. Din exakta plats delas bara om du godkänner en separat förfrågan.',
   'Įkelti arba pakeisti profilio nuotrauką': 'Ladda upp eller ändra profilbild',
   'Įkelti arba pakeisti nuotrauką': 'Ladda upp eller ändra bild',
   'Dukart paspausk, kad tvarkytum nuotrauką': 'Dubbeltryck för att hantera bilden',
@@ -78,7 +74,6 @@ const swedish = {
   'Bandymas atmestas. Ankstesni įrašai nepakeisti.': 'Försöket avbröts. Tidigare inspelningar är kvar.',
   'Ritmas ištrintas. Gali sukurti naują.': 'Inspelningen har tagits bort. Du kan skapa en ny.',
   'Nepavyko paleisti garso. Paliesk būgną ir bandyk atkurti dar kartą.': 'Det gick inte att spela upp ljudet. Tryck på en tangent eller trumma och försök igen.',
-  'Įvesk slapyvardį nuo 1 iki 24 simbolių.': 'Ange ett smeknamn på 1–24 tecken.',
   'Nebaigtas bandymas atmestas. Pasirinktas kitas instrumentas.': 'Det oavslutade försöket avbröts när du bytte instrument.',
   'Prisijungimas šiame įrenginyje pasikeitė. Perkrauk puslapį.': 'Inloggningen på den här enheten har ändrats. Ladda om sidan.',
   'Instrumento įkelti nepavyko. Patikrink internetą ir bandyk dar kartą.': 'Kunde inte ladda instrumentet. Kontrollera anslutningen och försök igen.',
@@ -116,11 +111,8 @@ const staticText = {
   '[data-kit-link="salamander-v1"]': 'Pianinas · Salamander',
   '[data-kit-link="classic-v1"]': 'Klasikiniai būgnai',
   '[data-kit-link="virtuosity-v1"]': 'Virtuosity būgnai',
-  '#login-title': 'Tavo ritmas. Tavo kūryba.',
-  '#login > p:not(.hint)': 'Įvesk slapyvardį, grok ir klausyk kitų sukurtų ritmų.',
-  '#login-form label': 'Tavo slapyvardis',
-  '#login > p.hint:nth-of-type(2)': 'Be slaptažodžio. Ši naršyklė prisimins tave; išvalius jos duomenis prieigos prie savo įrašų galima netekti.',
-  '#login > p.hint:last-of-type': 'Prisijungus administratoriui privačiai rodoma įrenginio rūšis, sistema, naršyklė, prisijungimo laikas ir apytikslė vieta pagal IP. Tiksli vieta perduodama tik atskirai patvirtinus prašymą.',
+  '#login-title': 'Įvesk vardą',
+  '#login-form label': 'Vardas',
   '#remove-avatar': 'Pašalinti nuotrauką',
   '.kit > .hint:not(#audio-status)': 'Paliesk būgnus arba grok klavišais W A S D J K L.',
   '#stop-playback': 'Stabdyti atkūrimą',
@@ -151,12 +143,12 @@ export function applyPageTranslations() {
   const select = document.getElementById('language-select');
   if (select) {
     select.value = language;
-    select.setAttribute('aria-label', t('Kalba'));
-    document.querySelector('label[for="language-select"]').textContent = t('Kalba');
+    select.setAttribute('aria-label', 'Language');
+    document.querySelector('label[for="language-select"]').textContent = 'Language';
   }
   document.querySelector('.kit-tabs')?.setAttribute('aria-label', t('Instrumentai'));
   const nickname = document.getElementById('nickname');
-  if (nickname) nickname.placeholder = t('Kaip tave vadinti?');
+  if (nickname) nickname.placeholder = t('Įvesk vardą');
   const upload = document.getElementById('upload-avatar');
   if (upload) {
     upload.title = t('Įkelti arba pakeisti nuotrauką');

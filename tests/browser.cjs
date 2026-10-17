@@ -97,8 +97,11 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>page.locator('#audio-status').isHidden());
   await page.locator('#language-select').selectOption('sv');
   assert.equal(await page.locator('html').getAttribute('lang'),'sv');
-  assert.equal(await page.locator('label[for="language-select"]').innerText(),'Språk');
-  assert.match(await page.locator('#login-title').innerText(),/Din rytm/);
+  assert.equal(await page.locator('label[for="language-select"]').innerText(),'Language');
+  assert.deepEqual(await page.locator('#language-select option').allTextContents(),['🇱🇹 Lietuvių','🇸🇪 Svenska']);
+  assert.equal(await page.locator('#login-title').innerText(),'Ange ditt namn');
+  assert.equal(await page.locator('#nickname').getAttribute('placeholder'),'Ange ditt namn');
+  assert.equal(await page.locator('#login p').count(),0,'login shows only the name form');
   assert.match(await page.locator('[data-kit-link="classic-v1"]').innerText(),/Klassiska trummor/);
   if(kit==='classic-v1'){
     assert.equal(await page.locator('.drum').first().getAttribute('aria-label'),'Tom 1, W');
