@@ -42,6 +42,7 @@ jobs:
           cp -R images sounds _site/
           python3 - <<'PY'
           import os
+          import re
           from pathlib import Path
 
           # The workflow run number increases for each push, even with several commits.
@@ -54,6 +55,14 @@ jobs:
               if html.count(marker) != 1:
                   raise SystemExit('Expected exactly one version marker')
               page.write_text(html.replace(marker, f'<span id="app-version">{version}</span>'))
+          admin = Path('_site/admin.html')
+          html = admin.read_text()
+          for asset in ['styles.css', 'admin.js']:
+              pattern = rf'="{re.escape(asset)}(?:\?v=[^"]*)?"'
+              html, count = re.subn(pattern, f'="{asset}?v={version}"', html)
+              if count != 1:
+                  raise SystemExit(f'Expected exactly one admin asset: {asset}')
+          admin.write_text(html)
           print(f'Publishing version {version}')
           PY
       - name: Configure Pages
