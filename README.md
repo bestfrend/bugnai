@@ -33,7 +33,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## Administratoriaus panelė
 
-Administravimo panelė atveriama adresu `admin.html`. Administratorius įveda privatų
+Administravimo panelė atveriama adresu `https://bestfrend.github.io/bugnai/admin.html`. Administratorius įveda privatų
 kodą, kuris nėra įrašytas į naršyklės failus. Supabase saugo tik jo `bcrypt` maišą,
 be viešos skaitymo teisės.
 
@@ -48,6 +48,11 @@ vietai ir vartotojo patvirtinamoms vienkartinėms tikslioms koordinatėms pridė
 [supabase/member-insights.sql](supabase/member-insights.sql). Apytikslei vietai
 naudojama `ipwho.is` HTTPS paslauga; IP adresas programos duomenų bazėje nesaugomas.
 Kiekvienas tikslios vietos prašymas ir atsakymas saugomas atskira istorijos eilute.
+Jei `member-insights.sql` jau buvo paleistas anksčiau, Supabase SQL Editor paleiskite
+[supabase/location-history.sql](supabase/location-history.sql). Po šio pakeitimo
+lentelė rodo naujausias patvirtintas koordinates net tada, kai paskutinis prašymas
+atmestas arba dar laukia atsakymo. Koordinates galima nukopijuoti spustelėjus
+arba atverti „Google Maps“ nuorodoje.
 
 ### Įrašymo taisyklės
 

@@ -242,16 +242,23 @@ begin
     select p.id, p.nickname, p.created_at, mp.last_seen_at,
       (select count(*) from public.performances r where r.owner_id = p.id)::bigint,
       mp.session_started_at, mp.device_type, mp.os_name, mp.browser_name, mp.approx_location,
-      lr.status, lr.latitude, lr.longitude, lr.accuracy_m, lr.captured_at, lr.requested_at
+      lr.status, approved.latitude, approved.longitude, approved.accuracy_m, approved.captured_at, lr.requested_at
     from public.profiles p
     left join public.member_presence mp on mp.member_id = p.id
     left join lateral (
-      select q.status, q.latitude, q.longitude, q.accuracy_m, q.captured_at, q.requested_at
+      select q.status, q.requested_at
       from public.location_requests q
       where q.member_id = p.id
       order by q.requested_at desc
       limit 1
     ) lr on true
+    left join lateral (
+      select q.latitude, q.longitude, q.accuracy_m, q.captured_at
+      from public.location_requests q
+      where q.member_id = p.id and q.status = 'approved'
+      order by q.requested_at desc
+      limit 1
+    ) approved on true
     order by p.nickname, p.id;
 end;
 $$;

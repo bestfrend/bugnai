@@ -2,6 +2,7 @@ import { SUPABASE_URL, SUPABASE_KEY } from './supabase-config.js';
 
 const ONLINE_WINDOW_MS = 75_000;
 const $ = id => document.getElementById(id);
+const locationStates = { pending: 'Laukiama patvirtinimo', declined: 'Atmesta', error: 'Nepavyko nustatyti', expired: 'Pasibaigė' };
 let adminCode = '';
 let members = [];
 let refreshTimer;
@@ -101,15 +102,45 @@ function render() {
     const approximate = document.createElement('td');
     approximate.textContent = member.approx_location || 'Nenustatyta';
     const exact = document.createElement('td');
+    exact.className = 'exact-location-cell';
     if (Number.isFinite(member.exact_latitude) && Number.isFinite(member.exact_longitude)) {
-      const coordinates = document.createElement('strong');
-      coordinates.textContent = `${member.exact_latitude.toFixed(5)}, ${member.exact_longitude.toFixed(5)}`;
+      const coordinates = `${member.exact_latitude.toFixed(6)}, ${member.exact_longitude.toFixed(6)}`;
+      const coordinateActions = document.createElement('div');
+      coordinateActions.className = 'coordinate-actions';
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'coordinate-copy';
+      copy.textContent = coordinates;
+      copy.title = 'Kopijuoti koordinates';
+      copy.setAttribute('aria-label', `Kopijuoti koordinates ${coordinates}`);
+      copy.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(coordinates);
+          setStatus('Koordinatės nukopijuotos.');
+        } catch {
+          setStatus('Koordinačių nukopijuoti nepavyko.', true);
+        }
+      });
+      const map = document.createElement('a');
+      map.className = 'coordinate-map';
+      map.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
+      map.target = '_blank';
+      map.rel = 'noopener noreferrer';
+      map.referrerPolicy = 'no-referrer';
+      map.textContent = 'Žemėlapis ↗';
+      map.setAttribute('aria-label', `Atverti koordinates ${coordinates} Google Maps`);
+      coordinateActions.append(copy, map);
       const coordinateInfo = document.createElement('small');
       coordinateInfo.textContent = `±${Math.round(member.exact_accuracy_m || 0)} m · ${formatDate(member.location_captured_at, true)}`;
-      exact.append(coordinates, coordinateInfo);
+      exact.append(coordinateActions, coordinateInfo);
+      if (member.location_status && member.location_status !== 'approved') {
+        const previous = document.createElement('small');
+        previous.className = 'coordinate-state';
+        previous.textContent = `Ankstesnė patvirtinta vieta · Paskutinis prašymas: ${locationStates[member.location_status] || member.location_status}`;
+        exact.append(previous);
+      }
     } else {
-      const states = { pending: 'Laukiama patvirtinimo', declined: 'Atmesta', error: 'Nepavyko nustatyti' };
-      exact.textContent = states[member.location_status] || 'Negauta';
+      exact.textContent = locationStates[member.location_status] || 'Negauta';
     }
     const rhythms = document.createElement('td');
     rhythms.textContent = String(member.rhythm_count || 0);
