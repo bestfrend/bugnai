@@ -8,6 +8,7 @@ const buffers = new Map();
 const fallbackSounds = new Map();
 const activeSources = new Set();
 const heldNotes = new Map();
+const pianoPointers = new Map();
 const keyboardShortcuts = new Map();
 const loading = new Map();
 const readyKits = new Set();
@@ -126,9 +127,11 @@ function releaseVoice(voice) {
 }
 
 function pressPiano(key, owner) {
-  if (!window.drumAppReady || heldNotes.has(key)) return;
+  if (!window.drumAppReady || heldNotes.has(key)) return false;
   const voice = hitDrum(key);
-  if (voice) heldNotes.set(key, { voice, owner });
+  if (!voice) return false;
+  heldNotes.set(key, { voice, owner });
+  return true;
 }
 function releasePiano(key, owner) {
   const held = heldNotes.get(key);
@@ -140,6 +143,14 @@ function releasePiano(key, owner) {
 }
 export function releasePianoKeys() {
   for (const key of heldNotes.keys()) releasePiano(key);
+  pianoPointers.clear();
+}
+
+function releasePianoPointer(pointerId) {
+  const key = pianoPointers.get(pointerId);
+  if (!key) return;
+  pianoPointers.delete(pointerId);
+  releasePiano(key, pointerId);
 }
 
 function bindInstrumentButtons() {
@@ -157,11 +168,12 @@ function bindInstrumentButtons() {
       event.preventDefault();
       if (ACTIVE_KIT === 'salamander-v1') {
         button.setPointerCapture(event.pointerId);
+        pianoPointers.set(event.pointerId, key);
         pressPiano(key, event.pointerId);
       } else hitDrum(key);
     });
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-      button.addEventListener(type, event => releasePiano(key, event.pointerId));
+      button.addEventListener(type, event => releasePianoPointer(event.pointerId));
     }
     button.addEventListener('click', event => {
       if (event.detail !== 0 || !window.drumAppReady) return;
@@ -172,6 +184,21 @@ function bindInstrumentButtons() {
     });
   }
 }
+
+document.addEventListener('pointermove', event => {
+  if (ACTIVE_KIT !== 'salamander-v1' || !pianoPointers.has(event.pointerId)) return;
+  const previousKey = pianoPointers.get(event.pointerId);
+  const nextKey = document.elementFromPoint(event.clientX, event.clientY)?.closest('.piano-key')?.dataset.key;
+  if (!nextKey) {
+    releasePianoPointer(event.pointerId);
+    return;
+  }
+  if (nextKey === previousKey) return;
+  event.preventDefault();
+  releasePiano(previousKey, event.pointerId);
+  pianoPointers.set(event.pointerId, nextKey);
+  pressPiano(nextKey, event.pointerId);
+}, { passive: false });
 
 const pianoNames = { c: 'Do', cs: 'Do♯', d: 'Re', ds: 'Re♯', e: 'Mi', f: 'Fa', fs: 'Fa♯', g: 'Sol', gs: 'Sol♯', a: 'La', as: 'La♯', b: 'Si' };
 const pianoShortcuts = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k'];

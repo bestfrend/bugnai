@@ -302,22 +302,6 @@ footer { padding: 24px 0 32px; }
 .piano-credit a { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 400px) { .kit-tabs { gap: 2px; } .kit-tabs a { padding: 6px 3px; font-size: 11px; } .piano-keyboard { border-width: 3px; border-top-width: 10px; } .black-key { font-size: 8px; } .piano-octave-controls { gap: 5px; } .piano-octave-controls .action { padding: 7px 6px; } .piano-octave-controls output { min-width: 110px; font-size: 11px; } }
 
-/* A rotated phone becomes a distraction-free instrument. */
-@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
-  html, body { width: 100%; height: 100%; overflow: hidden; }
-  body { padding: 0; }
-  body > header, body > footer, main > #status,
-  #workspace > .welcome, #workspace > .playback-bar, #workspace > .community { display: none !important; }
-  main, #workspace, .kit { width: 100%; max-width: none; height: 100%; margin: 0; padding: 0; }
-  .kit > .hint, .kit > .sound-credit, .kit > .piano-author { display: none !important; }
-  .kit .set { width: 100%; height: 100%; margin: 0; }
-  .kit .set:not(.piano-keyboard) { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; }
-  .kit .set:not(.piano-keyboard) .drum { grid-column: span 2; width: 100%; height: 100%; margin: 0; border-width: 5px; border-radius: 14px; font-size: clamp(2rem, 12vh, 4rem); line-height: 1; }
-  .kit .set:not(.piano-keyboard) .drum:nth-child(5) { grid-column: 2 / span 2; }
-  .piano-keyboard { max-width: none; height: 100%; border-radius: 0; }
-  .recording-bar { width: 100%; height: 100%; }
-}
-
 /* Administration page. */
 .admin-page { min-height: 100vh; }
 .admin-header { max-width: 1100px; margin: 0 auto; padding-top: 22px; text-align: left; }

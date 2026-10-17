@@ -105,6 +105,19 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     await page.keyboard.up('a');
     assert.equal(await page.locator('.piano-key.pressed').count(),0,'changing octave releases a held note');
     await page.locator('[data-octave-shift="1"]').click();
+    const keyCenter=async key=>{
+      const box=await page.locator(`[data-key="${key}"]`).boundingBox();
+      return {x:box.x+box.width/2,y:box.y+box.height*.72};
+    };
+    const [c4,e4,g4]=await Promise.all(['c4','e4','g4'].map(keyCenter));
+    const input=await context.newCDPSession(page);
+    await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...c4,id:1},{...g4,id:2}]});
+    assert.equal(await page.locator('.piano-key.pressed').count(),2,'two piano keys can be held together');
+    await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...e4,id:1},{...g4,id:2}]});
+    assert(await page.locator('[data-key="e4"]').evaluate(element=>element.classList.contains('pressed')),'sliding a finger changes its note');
+    assert(await page.locator('[data-key="g4"]').evaluate(element=>element.classList.contains('pressed')),'the other held note remains active');
+    await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    assert.equal(await page.locator('.piano-key.pressed').count(),0,'lifting fingers releases all piano keys');
   }
 
   const strike=async key=>{
@@ -259,11 +272,10 @@ async function instrumentScenario(browser,file,kit,mobile=false){
 
   if(mobile){
     await page.setViewportSize({width:915,height:412});
-    assert.equal(await page.locator('body > header').evaluate(e=>getComputedStyle(e).display),'none');
-    const kitBox=await page.locator('.kit').boundingBox();
-    assert(kitBox.width>=910&&kitBox.height>=407,'instrument fills a rotated phone');
-    const setBox=await page.locator('.set').boundingBox();
-    assert(setBox.width>=910&&setBox.height>=407,'keys or drums use the full instrument area');
+    const pageHeight=await page.evaluate(()=>document.documentElement.scrollHeight);
+    assert(pageHeight>412,'a rotated phone page has content below the fold');
+    await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+    assert(await page.evaluate(()=>window.scrollY>0),'a rotated phone page remains scrollable');
   }
 
   await strike(firstKey);
@@ -277,7 +289,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>emergencySaves>=1);
   assert.equal(recordings.get(own+':1').events[0].key,firstKey,'closing overwrites the emergency first slot');
   assert.deepEqual(errors,[]);
-  console.log('PASS',file,mobile?'mobile landscape':'desktop','automatic recording, save/repeat/exit, seamless tabs, draft discard, history, fetch failure/race and emergency slot');
+  console.log('PASS',file,mobile?'mobile landscape':'desktop','automatic recording, touch chords/glissando, scrolling, save/repeat/exit, seamless tabs, draft discard, history, fetch failure/race and emergency slot');
   await context.close();
 }
 
