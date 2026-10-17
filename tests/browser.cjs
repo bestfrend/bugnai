@@ -98,6 +98,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.equal(await page.locator('html').getAttribute('lang'),'lt','Lithuanian is the initial language');
   assert.equal(await page.locator('#language-select').inputValue(),'lt');
   assert(await page.locator('#status').isHidden(),'no connection message before entering a name');
+  assert(await page.locator('.kit-tabs').isHidden(),'instrument tabs wait until sign-in');
   await page.locator('#login-button').click();
   assert(await page.locator('#status').isHidden(),'empty name does not start connecting');
   assert.equal(sessionStarts,0,'empty name does not start a session');
@@ -109,12 +110,14 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.deepEqual(await page.locator('#language-select option').allTextContents(),['🇱🇹 Lietuvių','🇸🇪 Svenska']);
   assert.equal(await page.locator('#login-title').innerText(),'Ange ditt namn');
   assert.equal(await page.locator('#nickname').getAttribute('placeholder'),'Ange ditt namn');
+  assert((await page.locator('#login-form label').boundingBox()).width<=1,'name label is visually hidden');
+  assert.equal(await page.getByRole('textbox',{name:'Namn'}).count(),1,'name field remains accessible');
   assert.equal(await page.locator('#login p').count(),0,'login shows only the name form');
   await page.locator('#nickname').fill('   ');
   await page.locator('#login-form').evaluate(form=>form.requestSubmit());
   assert.match(await page.locator('#status').innerText(),/Ange ett namn/);
   assert.equal(sessionStarts,0,'whitespace name does not start a session');
-  assert.match(await page.locator('[data-kit-link="classic-v1"]').innerText(),/Klassiska trummor/);
+  assert.match(await page.locator('[data-kit-link="classic-v1"]').textContent(),/Klassiska trummor/);
   if(kit==='classic-v1'){
     assert.equal(await page.locator('.drum').first().getAttribute('aria-label'),'Tom 1, W');
   }else if(kit==='virtuosity-v1'){
@@ -130,6 +133,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     await page.locator('#login-form').evaluate(form=>form.requestSubmit());
   }
   await wait(()=>page.locator(`[data-owner="${own}"]`).count().then(Boolean));
+  assert(await page.locator('.kit-tabs').isVisible(),'instrument tabs appear after sign-in');
   await wait(()=>page.locator('#rhythm-count').textContent().then(text=>text.includes('0 / 50')));
 
   assert.equal(await page.locator('#create-rhythm').count(),0);

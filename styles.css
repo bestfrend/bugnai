@@ -136,6 +136,7 @@ main { color: #dbedf3; }
 .panel { padding: clamp(18px, 4vw, 32px); border: 1px solid #54617d; border-radius: 20px; background: #222b41; text-align: left; }
 .login-panel { max-width: 600px; margin: 40px auto; }
 .login-panel label { display: block; margin-bottom: 8px; font-weight: 600; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .login-fields, .actions, .section-heading, .welcome, .playback-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .login-fields input { flex: 1; min-width: 140px; width: 100%; padding: 14px; border: 1px solid #7e8caa; border-radius: 12px; background: #192136; color: #fff; font-size: 16px; user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 .action { min-height: 44px; padding: 10px 16px; border: 1px solid #7e8caa; border-radius: 12px; background: #303c57; color: #edf5ff; font-size: 14px; font-weight: 600; cursor: pointer; touch-action: manipulation; }

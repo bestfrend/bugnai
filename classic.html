@@ -11,7 +11,7 @@
 <body data-kit="classic-v1">
   <header>
     <div class="language-switch"><select id="language-select" aria-label="Language"><option value="lt">🇱🇹 Lietuvių</option><option value="sv">🇸🇪 Svenska</option></select></div>
-    <nav class="kit-tabs" aria-label="Instrumentai">
+    <nav class="kit-tabs" aria-label="Instrumentai" hidden>
       <a href="piano.html" data-kit-link="salamander-v1">Pianinas · Salamander</a>
       <a href="classic.html" data-kit-link="classic-v1" aria-current="page">Klasikiniai būgnai</a>
       <a href="studio.html" data-kit-link="virtuosity-v1">Virtuosity būgnai</a>
@@ -23,7 +23,7 @@
     <section id="login" class="panel login-panel" aria-labelledby="login-title">
       <h2 id="login-title">Įvesk vardą</h2>
       <form id="login-form">
-        <label for="nickname">Vardas</label>
+        <label for="nickname" class="sr-only">Vardas</label>
         <div class="login-fields">
           <input id="nickname" name="nickname" autocomplete="nickname" maxlength="24" required placeholder="Įvesk vardą">
           <button type="submit" class="action primary" id="login-button">Pradėti groti</button>

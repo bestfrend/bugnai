@@ -828,6 +828,7 @@ async function playSequence(saved, owner, slot, label, draft = null) {
 async function enter(profile) {
   me = profile;
   $('login').hidden = true;
+  document.querySelector('.kit-tabs').hidden = false;
   $('workspace').hidden = false;
   $('welcome-name').textContent = t('Labas') + ', ' + profile.nickname + '!';
   window.drumAppReady = true;
@@ -964,6 +965,7 @@ window.addEventListener('storage', event => {
     cancelRecording();
     stopPlayback();
     $('workspace').hidden = true;
+    document.querySelector('.kit-tabs').hidden = true;
     $('login').hidden = false;
     status('Prisijungimas šiame įrenginyje pasikeitė. Perkrauk puslapį.', true);
   }
