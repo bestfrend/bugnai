@@ -166,7 +166,7 @@ export function applyPageTranslations() {
     setText(button, button.dataset.i18nSource);
   }
   const status = document.getElementById('status');
-  if (status) status.textContent = t('source' in status.dataset ? status.dataset.source : 'Jungiamasi…');
+  if (status) status.textContent = t(status.dataset.source || '');
   document.getElementById('recording-bar')?.setAttribute('aria-label', t('Įrašymo valdymas'));
   document.getElementById('remove-avatar')?.setAttribute('aria-label', t('Pašalinti profilio nuotrauką'));
   const kitSection = document.querySelector('.kit');

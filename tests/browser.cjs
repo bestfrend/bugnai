@@ -93,8 +93,15 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.clock.install();
   const base=`http://127.0.0.1:${server.address().port}`;
-  await page.goto(base+'/'+file);
+  await page.goto(base+(file==='index.html'?'/':'/'+file));
   await wait(()=>page.locator('#audio-status').isHidden());
+  assert.equal(await page.locator('html').getAttribute('lang'),'lt','Lithuanian is the initial language');
+  assert.equal(await page.locator('#language-select').inputValue(),'lt');
+  assert(await page.locator('#status').isHidden(),'no connection message before entering a name');
+  await page.locator('#login-button').click();
+  assert(await page.locator('#status').isHidden(),'empty name does not start connecting');
+  assert.equal(sessionStarts,0,'empty name does not start a session');
+  if(file==='index.html')assert.equal(await page.locator('body').getAttribute('data-kit'),'salamander-v1','home page opens piano');
   await page.locator('#language-select').selectOption('sv');
   assert.equal(await page.locator('html').getAttribute('lang'),'sv');
   assert.equal(await page.locator('label[for="language-select"]').count(),0);
@@ -103,6 +110,10 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.equal(await page.locator('#login-title').innerText(),'Ange ditt namn');
   assert.equal(await page.locator('#nickname').getAttribute('placeholder'),'Ange ditt namn');
   assert.equal(await page.locator('#login p').count(),0,'login shows only the name form');
+  await page.locator('#nickname').fill('   ');
+  await page.locator('#login-form').evaluate(form=>form.requestSubmit());
+  assert.match(await page.locator('#status').innerText(),/Ange ett namn/);
+  assert.equal(sessionStarts,0,'whitespace name does not start a session');
   assert.match(await page.locator('[data-kit-link="classic-v1"]').innerText(),/Klassiska trummor/);
   if(kit==='classic-v1'){
     assert.equal(await page.locator('.drum').first().getAttribute('aria-label'),'Tom 1, W');
@@ -252,7 +263,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   const authBefore=authRequests,sessionsBefore=sessionStarts,loadsBefore=documentLoads;
   const originalFirst=JSON.stringify(recordings.get(own+':1'));
   const alternate=kit==='virtuosity-v1'?'classic-v1':'virtuosity-v1';
-  const alternateFile=alternate==='classic-v1'?'index.html':'studio.html';
+  const alternateFile=alternate==='classic-v1'?'classic.html':'studio.html';
   const choose=async id=>{
     await page.locator(`[data-kit-link="${id}"]`).click();
     await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===id));
@@ -299,7 +310,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert(await page.evaluate(()=>window.libraryNode===document.getElementById('users')));
     assert(await page.locator(`[data-owner="${other}"]`).evaluate(e=>e.open));
     assert.equal(await page.locator('.kit-tabs [aria-current]').getAttribute('data-kit-link'),next);
-    assert.equal(new URL(page.url()).pathname.split('/').at(-1),next==='salamander-v1'?'piano.html':next==='virtuosity-v1'?'studio.html':'index.html');
+    assert.equal(new URL(page.url()).pathname.split('/').at(-1),next==='salamander-v1'?'piano.html':next==='virtuosity-v1'?'studio.html':'classic.html');
   }
   await page.clock.fastForward(12000);
   assert(await page.locator('#recording-bar').isHidden(),'old silence timers are cleared');
@@ -412,7 +423,7 @@ async function adminScenario(browser){
   let browser;
   try{
     browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
-    for(const [file,kit] of [['index.html','classic-v1'],['studio.html','virtuosity-v1'],['piano.html','salamander-v1']]){
+    for(const [file,kit] of [['index.html','salamander-v1'],['classic.html','classic-v1'],['studio.html','virtuosity-v1'],['piano.html','salamander-v1']]){
       await instrumentScenario(browser,file,kit,false);
       await instrumentScenario(browser,file,kit,true);
     }

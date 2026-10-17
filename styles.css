@@ -165,6 +165,7 @@ main { color: #dbedf3; }
 .slot .action { padding: 8px 12px; font-size: 13px; }
 .playback-bar { justify-content: center; padding: 12px; margin-bottom: 24px; border: 1px solid #7e8caa; border-radius: 14px; }
 .status { min-height: 24px; line-height: 1.5; font-size: 14px; padding: 12px; }
+.status:empty { display: none; }
 .status.error { color: #ffb6c4; }
 footer { padding: 24px 0 32px; }
 .language-switch { display: flex; justify-content: flex-end; align-items: center; gap: 8px; max-width: 1100px; margin: 0 auto 8px; padding-top: 8px; color: #c8d4ed; font: 600 12px system-ui, sans-serif; }

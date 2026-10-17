@@ -89,5 +89,5 @@ document.addEventListener('click', event => {
 });
 window.addEventListener('popstate', () => {
   const id = [...destinations].find(([,url]) => url.pathname === location.pathname)?.[0];
-  navigate(id || 'classic-v1', false);
+  navigate(id || 'salamander-v1', false);
 });

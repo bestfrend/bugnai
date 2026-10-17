@@ -146,11 +146,12 @@ Naujam projektui pakanka viso `supabase/schema.sql`.
 
 ### Antras būgnų puslapis: Virtuosity
 
-Viršuje yra du tikri puslapiai: `index.html` (klasikiniai) ir `studio.html`
-(Virtuosity). Prisijungimas, vartotojų sąrašas ir iki 50 ritmų biblioteka bendri.
-`studio.html` generuojamas iš bendro `index.html` šablono su
-`python3 scripts/build-studio.py`; įrašymo logika ir stiliai abiem bendri.
-Pakeitus šabloną, prieš naršyklės testus sugeneruokite studijos puslapį iš naujo.
+Pradinis `index.html` atveria pianiną. Klasikiniai būgnai yra `classic.html`,
+o Virtuosity – `studio.html`. Prisijungimas, vartotojų sąrašas ir iki 50 ritmų
+biblioteka bendri. `index.html`, `piano.html` ir `studio.html` generuojami iš
+`classic.html` šablono su `python3 scripts/build-studio.py`; įrašymo logika ir
+stiliai visiems bendri. Pakeitus šabloną, prieš naršyklės testus sugeneruokite
+puslapius iš naujo.
 
 Esamame Supabase projekte **SQL Editor** paleiskite
 [supabase/drum-kits.sql](supabase/drum-kits.sql). Jis prideda versijuotą `kit` lauką
@@ -210,8 +211,8 @@ pakartotiniam išsaugojimui. Naujam projektui pakanka viso `schema.sql`.
 
 Visų trijų instrumentų prisijungimas ir 50 įrašų limitas bendri. Pianino įrašas
 atkuriamas pianinu ir būgnų puslapyje. `python3 scripts/build-studio.py` generuoja
-abu papildomus puslapius iš bendro `index.html`; GitHub Actions tai atlieka prieš
-publikuodamas ir visiems trims puslapiams suteikia tą pačią versiją.
+kitus tris puslapius iš bendro `classic.html`; GitHub Actions tai atlieka prieš
+publikuodamas ir visiems instrumentų puslapiams suteikia tą pačią versiją.
 
 ### Skirtukai be puslapio perkrovimo
 

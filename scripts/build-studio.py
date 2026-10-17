@@ -2,7 +2,7 @@
 import pathlib
 import re
 root = pathlib.Path(__file__).resolve().parents[1]
-page = (root / 'index.html').read_text(encoding='utf-8')
+page = (root / 'classic.html').read_text(encoding='utf-8')
 page = page.replace('<title>Būgnai</title>', '<title>Virtuosity būgnai</title>')
 page = page.replace('<body data-kit="classic-v1">', '<body data-kit="virtuosity-v1" class="studio-kit">')
 page = page.replace('data-kit-link="classic-v1" aria-current="page"', 'data-kit-link="classic-v1"')
@@ -15,7 +15,7 @@ if count != 1: raise SystemExit('Missing shared drum kit markup')
 (root / 'studio.html').write_text(page, encoding='utf-8')
 
 # Piano shares the complete login/library/recording UI with both drum pages.
-page = (root / 'index.html').read_text(encoding='utf-8')
+page = (root / 'classic.html').read_text(encoding='utf-8')
 page = page.replace('<title>Būgnai</title>', '<title>Salamander pianinas · Alexander Holm</title>')
 page = page.replace('<body data-kit="classic-v1">', '<body data-kit="salamander-v1" class="piano-kit">')
 page = page.replace('data-kit-link="classic-v1" aria-current="page"', 'data-kit-link="classic-v1"')
@@ -32,3 +32,5 @@ credit = '<div class="sound-credit piano-credit">Salamander Grand Piano · <stro
 page = re.sub(r'<div class="sound-credit" hidden>.*?</div>', credit, page)
 page = page.replace('<section class="kit" aria-label="Pianinas">', '<section class="kit" aria-label="Pianinas">\n<p class="piano-author">Salamander Grand Piano · Alexander Holm</p>')
 (root / 'piano.html').write_text(page, encoding='utf-8')
+# The site's default URL opens the piano; piano.html remains a stable tab URL.
+(root / 'index.html').write_text(page, encoding='utf-8')

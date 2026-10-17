@@ -4,22 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#283149">
-  <title>Būgnai</title>
+  <title>Salamander pianinas · Alexander Holm</title>
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css?family=Arvo" rel="stylesheet">
 </head>
-<body data-kit="classic-v1">
+<body data-kit="salamander-v1" class="piano-kit">
   <header>
     <div class="language-switch"><select id="language-select" aria-label="Language"><option value="lt">🇱🇹 Lietuvių</option><option value="sv">🇸🇪 Svenska</option></select></div>
     <nav class="kit-tabs" aria-label="Instrumentai">
-      <a href="piano.html" data-kit-link="salamander-v1">Pianinas · Salamander</a>
-      <a href="index.html" data-kit-link="classic-v1" aria-current="page">Klasikiniai būgnai</a>
+      <a href="piano.html" data-kit-link="salamander-v1" aria-current="page">Pianinas · Salamander</a>
+      <a href="classic.html" data-kit-link="classic-v1">Klasikiniai būgnai</a>
       <a href="studio.html" data-kit-link="virtuosity-v1">Virtuosity būgnai</a>
     </nav>
-    <h1 id="title">Būgnų 🥁 komplektas</h1>
+    <h1 id="title">Salamander pianinas</h1>
   </header>
   <main>
-    <p id="status" class="status" role="status" aria-live="polite">Jungiamasi…</p>
+    <p id="status" class="status" role="status" aria-live="polite" data-source=""></p>
     <section id="login" class="panel login-panel" aria-labelledby="login-title">
       <h2 id="login-title">Įvesk vardą</h2>
       <form id="login-form">
@@ -53,18 +53,22 @@
           </div>
         </div>
       </section>
-      <section class="kit" aria-label="Būgnai">
-        <p class="hint">Paliesk būgnus arba grok klavišais W A S D J K L.</p>
-        <p id="audio-status" class="hint" role="status">Įkeliami būgnų garsai…</p>
-        <div class="set">
-          <button type="button" class="w drum" aria-label="Pirmas tomas, W">w</button>
-          <button type="button" class="a drum" aria-label="Antras tomas, A">a</button>
-          <button type="button" class="s drum" aria-label="Trečias tomas, S">s</button>
-          <button type="button" class="d drum" aria-label="Ketvirtas tomas, D">d</button>
-          <button type="button" class="j drum" aria-label="Mažasis būgnas, J">j</button>
-          <button type="button" class="k drum" aria-label="Lėkštė, K">k</button>
-          <button type="button" class="l drum" aria-label="Bosinis būgnas, L">l</button>
-        </div>
+      <section class="kit" aria-label="Pianinas">
+<p class="piano-author">Salamander Grand Piano · Alexander Holm</p>
+                <p id="audio-status" class="hint" role="status">Įkeliami pianino garsai…</p>
+        <div class="piano-octave-controls" aria-label="Pianino aukščio pasirinkimas"><button type="button" class="action piano-octave-button" data-octave-shift="-1" aria-label="Žemesni garsai"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H4m7-7-7 7 7 7"/></svg><span class="piano-button-label">Žemiau</span></button><output id="piano-octave-label" aria-live="polite">Vidurinė dalis · C4–C5</output><button type="button" class="action piano-octave-button" data-octave-shift="1" aria-label="Aukštesni garsai"><span class="piano-button-label">Aukščiau</span><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-7-7 7 7-7 7"/></svg></button></div><div class="set piano-keyboard" aria-label="Pianino klavišai C4–C5"><button type="button" class="piano-key white-key" data-key="c4" data-shortcut="a" style="--position:0" aria-label="Do, C4, klavišas A"><span>Do</span><small>A</small></button>
+<button type="button" class="piano-key black-key" data-key="cs4" data-shortcut="w" style="--position:1" aria-label="Do♯, CS4, klavišas W"><span>Do♯</span><small>W</small></button>
+<button type="button" class="piano-key white-key" data-key="d4" data-shortcut="s" style="--position:1" aria-label="Re, D4, klavišas S"><span>Re</span><small>S</small></button>
+<button type="button" class="piano-key black-key" data-key="ds4" data-shortcut="e" style="--position:2" aria-label="Re♯, DS4, klavišas E"><span>Re♯</span><small>E</small></button>
+<button type="button" class="piano-key white-key" data-key="e4" data-shortcut="d" style="--position:2" aria-label="Mi, E4, klavišas D"><span>Mi</span><small>D</small></button>
+<button type="button" class="piano-key white-key" data-key="f4" data-shortcut="f" style="--position:3" aria-label="Fa, F4, klavišas F"><span>Fa</span><small>F</small></button>
+<button type="button" class="piano-key black-key" data-key="fs4" data-shortcut="t" style="--position:4" aria-label="Fa♯, FS4, klavišas T"><span>Fa♯</span><small>T</small></button>
+<button type="button" class="piano-key white-key" data-key="g4" data-shortcut="g" style="--position:4" aria-label="Sol, G4, klavišas G"><span>Sol</span><small>G</small></button>
+<button type="button" class="piano-key black-key" data-key="gs4" data-shortcut="y" style="--position:5" aria-label="Sol♯, GS4, klavišas Y"><span>Sol♯</span><small>Y</small></button>
+<button type="button" class="piano-key white-key" data-key="a4" data-shortcut="h" style="--position:5" aria-label="La, A4, klavišas H"><span>La</span><small>H</small></button>
+<button type="button" class="piano-key black-key" data-key="as4" data-shortcut="u" style="--position:6" aria-label="La♯, AS4, klavišas U"><span>La♯</span><small>U</small></button>
+<button type="button" class="piano-key white-key" data-key="b4" data-shortcut="j" style="--position:6" aria-label="Si, B4, klavišas J"><span>Si</span><small>J</small></button>
+<button type="button" class="piano-key white-key" data-key="c5" data-shortcut="k" style="--position:7" aria-label="Do, C5, klavišas K"><span>Do</span><small>K</small></button></div>
       </section>
       <div id="playback-bar" class="playback-bar" hidden>
         <span id="playback-title"></span>
@@ -93,7 +97,7 @@
   </dialog>
   <footer>
     <div>Kurta su ❤️ Londone</div>
-    <div class="sound-credit" hidden><a href="sounds/virtuosity-v1/LICENSE.txt" target="_blank" rel="noopener">Garsai: Virtuosity Drums · CC0</a></div>
+    <div class="sound-credit piano-credit">Salamander Grand Piano · <strong>Alexander Holm</strong><br><a href="https://github.com/tonejs/audio/tree/efd8296360f9526e379bfbe5c1698ff54d6a1d34/salamander" target="_blank" rel="noopener">Garsų šaltinis</a> · <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="license noopener">CC BY 3.0</a><br><span>Atrinkti mėginiai, natų aukščio keitimas ir atleidimo gaubtinė.</span></div>
     <div class="version">Versija <span id="app-version">1.01</span></div>
   </footer>
   <script type="module" src="app.js"></script>
