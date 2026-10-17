@@ -97,7 +97,8 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>page.locator('#audio-status').isHidden());
   await page.locator('#language-select').selectOption('sv');
   assert.equal(await page.locator('html').getAttribute('lang'),'sv');
-  assert.equal(await page.locator('label[for="language-select"]').innerText(),'Language');
+  assert.equal(await page.locator('label[for="language-select"]').count(),0);
+  assert.equal(await page.locator('#language-select').getAttribute('aria-label'),'Language');
   assert.deepEqual(await page.locator('#language-select option').allTextContents(),['🇱🇹 Lietuvių','🇸🇪 Svenska']);
   assert.equal(await page.locator('#login-title').innerText(),'Ange ditt namn');
   assert.equal(await page.locator('#nickname').getAttribute('placeholder'),'Ange ditt namn');

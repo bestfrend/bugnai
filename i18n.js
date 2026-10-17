@@ -144,7 +144,6 @@ export function applyPageTranslations() {
   if (select) {
     select.value = language;
     select.setAttribute('aria-label', 'Language');
-    document.querySelector('label[for="language-select"]').textContent = 'Language';
   }
   document.querySelector('.kit-tabs')?.setAttribute('aria-label', t('Instrumentai'));
   const nickname = document.getElementById('nickname');
