@@ -178,6 +178,10 @@ kad senų įrašų skambesys nepasikeistų.
 
 ### Pianinas telefonui: Salamander · Alexander Holm
 
+Puslapio viršuje galima pasirinkti lietuvių arba švedų kalbą. Pasirinkimas
+išsaugomas šioje naršyklėje ir lieka perjungiant instrumentus. Įrašų pavadinimai
+rodomi tokie, kokius juos įvedė vartotojai.
+
 `piano.html` turi penkias atskiras 13 klavišų oktavas nuo C2–C3 iki C6–C7.
 Po C6–C7 esantis „Pilnas“ režimas viename ekrane sutalpina visą turimą C2–C7
 diapazoną (61 natą), todėl telefone klavišai labai siauri. Kiekvienas įrašas saugo

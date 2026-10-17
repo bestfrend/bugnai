@@ -1,4 +1,5 @@
 import { ACTIVE_KIT, DEFAULT_KIT, PIANO_OCTAVES, getKit, pianoKeys, samplePath, playbackRate, setActiveKit } from './kits.js';
+import { t } from './i18n.js';
 export { ACTIVE_KIT, DEFAULT_KIT, getKit } from './kits.js';
 
 const buttons = new Map();
@@ -25,7 +26,7 @@ export function loadKit(id = ACTIVE_KIT) {
   const promise = Promise.all([...new Set(Object.values(getKit(id).sounds).flat())].map(async path => {
     if (buffers.has(path)) return;
     const response = await fetch(path, { signal: AbortSignal.timeout(20000) });
-    if (!response.ok) throw new Error('Nepavyko įkelti būgnų garsų.');
+    if (!response.ok) throw new Error(t('Nepavyko įkelti būgnų garsų.'));
     const data = await response.arrayBuffer();
     if (audioContext) buffers.set(path, await audioContext.decodeAudioData(data));
     else {
@@ -209,8 +210,8 @@ function pianoKeyboardMarkup(octave) {
     const note = key.replace(/\d/, '');
     const shortcut = full ? pianoShortcuts[index - 24] : pianoShortcuts[index];
     const position = (full ? (Number(key.at(-1)) - PIANO_OCTAVES[0]) * 7 : 0) + (({ cs: 1, ds: 2, fs: 4, gs: 5, as: 6 })[note] ?? 0);
-    const label = full ? (note === 'c' ? key.toUpperCase() : '') : pianoNames[note];
-    return `<button type="button" class="piano-key ${note.endsWith('s') ? 'black-key' : 'white-key'}" data-key="${key}"${shortcut ? ` data-shortcut="${shortcut}"` : ''} style="--position:${position}" aria-label="${pianoNames[note]}, ${key.toUpperCase()}${shortcut ? `, klavišas ${shortcut.toUpperCase()}` : ''}"><span>${label}</span>${!full && shortcut ? `<small>${shortcut.toUpperCase()}</small>` : ''}</button>`;
+    const label = full ? (note === 'c' ? key.toUpperCase() : '') : t(pianoNames[note]);
+    return `<button type="button" class="piano-key ${note.endsWith('s') ? 'black-key' : 'white-key'}" data-key="${key}"${shortcut ? ` data-shortcut="${shortcut}"` : ''} style="--position:${position}" aria-label="${t(pianoNames[note])}, ${key.toUpperCase()}${shortcut ? `, ${t('klavišas')} ${shortcut.toUpperCase()}` : ''}"><span>${label}</span>${!full && shortcut ? `<small>${shortcut.toUpperCase()}</small>` : ''}</button>`;
   }).join('');
 }
 function updatePianoOctave(octave) {
@@ -223,18 +224,24 @@ function updatePianoOctave(octave) {
   const full = currentPianoOctave === FULL_PIANO_VIEW;
   keyboard.classList.toggle('full-range', full);
   keyboard.innerHTML = pianoKeyboardMarkup(currentPianoOctave);
-  keyboard.setAttribute('aria-label', full ? 'Pilnas pianinas C2–C7' : `Pianino klavišai C${currentPianoOctave}–C${currentPianoOctave + 1}`);
-  document.getElementById('piano-octave-label').textContent = full ? 'Pilnas · C2–C7' : `${currentPianoOctave === 4 ? 'Vidurinė dalis' : currentPianoOctave < 4 ? 'Žemesni garsai' : 'Aukštesni garsai'} · C${currentPianoOctave}–C${currentPianoOctave + 1}`;
+  keyboard.setAttribute('aria-label', full ? `${t('Pilnas pianinas')} C2–C7` : `${t('Pianino klavišai')} C${currentPianoOctave}–C${currentPianoOctave + 1}`);
+  const octaveLabel = document.getElementById('piano-octave-label');
+  octaveLabel.dataset.source = full ? 'Pilnas' : currentPianoOctave === 4 ? 'Vidurinė dalis' : currentPianoOctave < 4 ? 'Žemesni garsai' : 'Aukštesni garsai';
+  octaveLabel.dataset.range = full ? 'C2–C7' : `C${currentPianoOctave}–C${currentPianoOctave + 1}`;
+  octaveLabel.textContent = `${t(octaveLabel.dataset.source)} · ${octaveLabel.dataset.range}`;
   document.querySelector('[data-octave-shift="-1"]').disabled = currentPianoOctave === PIANO_OCTAVES[0];
   const higher = document.querySelector('[data-octave-shift="1"]');
-  higher.querySelector('.piano-button-label').textContent = currentPianoOctave >= PIANO_OCTAVES.at(-1) ? 'Pilnas' : 'Aukščiau';
-  higher.setAttribute('aria-label', currentPianoOctave >= PIANO_OCTAVES.at(-1) ? 'Pilnas pianinas' : 'Aukštesni garsai');
+  const higherLabel = higher.querySelector('.piano-button-label');
+  higherLabel.dataset.source = currentPianoOctave >= PIANO_OCTAVES.at(-1) ? 'Pilnas' : 'Aukščiau';
+  higherLabel.textContent = t(higherLabel.dataset.source);
+  higher.setAttribute('aria-label', t(currentPianoOctave >= PIANO_OCTAVES.at(-1) ? 'Pilnas pianinas' : 'Aukštesni garsai'));
   higher.disabled = full;
   bindInstrumentButtons();
 }
 
 window.addEventListener('blur', releasePianoKeys);
 document.addEventListener('visibilitychange', () => { if (document.hidden) releasePianoKeys(); });
+window.addEventListener('languagechange', () => { if (ACTIVE_KIT === 'salamander-v1') updatePianoOctave(currentPianoOctave); });
 
 let instrumentGeneration = 0;
 export function suspendInstrument() {
@@ -250,7 +257,8 @@ export async function mountInstrument(id = ACTIVE_KIT) {
   const generation = instrumentGeneration;
   const message = document.getElementById('audio-status');
   message.hidden = false;
-  message.textContent = 'Įkeliami garsai…';
+  message.dataset.source = 'Įkeliami garsai…';
+  message.textContent = t('Įkeliami garsai…');
   try {
     await loadKit(id);
     if (generation !== instrumentGeneration) return;
@@ -258,7 +266,8 @@ export async function mountInstrument(id = ACTIVE_KIT) {
     message.hidden = true;
   } catch {
     if (generation !== instrumentGeneration) return;
-    message.textContent = 'Garsų įkelti nepavyko. Patikrink internetą ir dar kartą pasirink instrumentą.';
+    message.dataset.source = 'Garsų įkelti nepavyko. Patikrink internetą ir dar kartą pasirink instrumentą.';
+    message.textContent = t(message.dataset.source);
   }
 }
 mountInstrument();

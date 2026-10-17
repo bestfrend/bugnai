@@ -1,4 +1,5 @@
 import { ACTIVE_KIT, mountInstrument, suspendInstrument } from './index.js';
+import { t, applyPageTranslations } from './i18n.js';
 
 const links = [...document.querySelectorAll('[data-kit-link]')];
 const destinations = new Map(links.map(link => [link.dataset.kitLink, new URL(link.href)]));
@@ -43,7 +44,8 @@ async function navigate(id, push = true) {
   suspendInstrument();
   const message = document.querySelector('#audio-status');
   message.hidden = false;
-  message.textContent = 'Įkeliami garsai…';
+  message.dataset.source = 'Įkeliami garsai…';
+  message.textContent = t('Įkeliami garsai…');
   try {
     const page = await template(id);
     if (generation !== requestGeneration) return;
@@ -54,6 +56,7 @@ async function navigate(id, push = true) {
     document.title = page.title;
     document.body.className = page.className;
     document.body.dataset.kit = id;
+    applyPageTranslations();
     for (const link of links) {
       if (link.dataset.kitLink === id) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
@@ -68,7 +71,8 @@ async function navigate(id, push = true) {
     await mountInstrument(ACTIVE_KIT);
     if (generation !== requestGeneration) return;
     const status = document.querySelector('#status');
-    status.textContent = 'Instrumento įkelti nepavyko. Patikrink internetą ir bandyk dar kartą.';
+    status.dataset.source = 'Instrumento įkelti nepavyko. Patikrink internetą ir bandyk dar kartą.';
+    status.textContent = t('Instrumento įkelti nepavyko. Patikrink internetą ir bandyk dar kartą.');
     status.classList.add('error');
     // A failed Back/Forward navigation must still show the URL of the visible instrument.
     if (!push) history.replaceState(null, '', destinations.get(ACTIVE_KIT));

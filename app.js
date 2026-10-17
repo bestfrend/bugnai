@@ -1,6 +1,7 @@
 import './navigation.js';
 import * as db from './database.js';
 import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit, releasePianoKeys } from './index.js';
+import { t, setLanguage, applyPageTranslations, language } from './i18n.js';
 
 const $ = id => document.getElementById(id);
 const MAX_TIME = 120000;
@@ -49,9 +50,10 @@ const actionIcons = {
 
 function decorateAction(button, icon = button.dataset.icon || actionIcons[button.textContent.trim()]) {
   if (!icon || !iconPaths[icon]) return;
+  button.dataset.i18nSource = button.textContent.trim();
   const label = document.createElement('span');
   label.className = 'button-label';
-  label.textContent = button.textContent;
+  label.textContent = t(button.textContent.trim());
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('aria-hidden', 'true');
@@ -66,7 +68,8 @@ function decorateAction(button, icon = button.dataset.icon || actionIcons[button
 }
 
 function status(message = '', error = false) {
-  $('status').textContent = message;
+  $('status').dataset.source = message;
+  $('status').textContent = t(message);
   $('status').classList.toggle('error', error);
 }
 
@@ -99,7 +102,7 @@ function updatePlaybackButtons() {
 }
 
 function rhythmTitle(saved) {
-  return saved.title || 'Ritmas ' + saved.slot;
+  return saved.title || t('Ritmas') + ' ' + saved.slot;
 }
 
 function nextFreeSlot(member) {
@@ -124,7 +127,7 @@ function beginAutomaticRecording() {
 function updateCreateControl() {
   const member = members.get(me?.id);
   const count = member?.performances.size || 0;
-  $('rhythm-count').textContent = member?.loaded ? `${count} / ${MAX_RHYTHMS} ritmų` : '';
+  $('rhythm-count').textContent = member?.loaded ? `${count} / ${MAX_RHYTHMS} ${t('ritmų')}` : '';
 }
 
 function formatRhythmDate(value) {
@@ -145,14 +148,14 @@ function renderSlots(member) {
   if (!member.performances.size) {
     const empty = document.createElement('p');
     empty.className = 'empty-library hint';
-    empty.textContent = own ? 'Dar nėra išsaugotų ritmų.' : 'Dar nėra ritmų.';
+    empty.textContent = t(own ? 'Dar nėra išsaugotų ritmų.' : 'Dar nėra ritmų.');
     member.slots.append(empty);
   }
   const list = document.createElement('div');
   list.className = 'rhythm-list';
   list.tabIndex = 0;
   list.setAttribute('role', 'region');
-  list.setAttribute('aria-label', member.profile.nickname + ' ritmai');
+  list.setAttribute('aria-label', member.profile.nickname + ' ' + t('ritmai'));
   for (const [slot, saved] of [...member.performances].sort(([a], [b]) => a - b)) {
     const active = own && recording?.slot === slot;
     const card = document.createElement('article');
@@ -163,7 +166,7 @@ function renderSlots(member) {
     if (own) {
       title.tabIndex = 0;
       title.setAttribute('role', 'button');
-      title.setAttribute('aria-label', 'Pervadinti: ' + rhythmTitle(saved));
+      title.setAttribute('aria-label', t('Pervadinti') + ': ' + rhythmTitle(saved));
       title.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
@@ -172,10 +175,10 @@ function renderSlots(member) {
       });
     }
     const info = document.createElement('p');
-    info.textContent = active ? (recording.stage === 'review' ? 'Perklausa' : 'Bandymas') : duration(saved.duration_ms);
+    info.textContent = active ? t(recording.stage === 'review' ? 'Perklausa' : 'Bandymas') : duration(saved.duration_ms);
     const kitLabel = document.createElement('span');
     kitLabel.className = 'rhythm-kit';
-    kitLabel.textContent = getKit(active ? recording.kit : saved.kit || DEFAULT_KIT).name;
+    kitLabel.textContent = t(getKit(active ? recording.kit : saved.kit || DEFAULT_KIT).name);
     info.append(kitLabel);
     const heading = document.createElement('div');
     heading.className = 'slot-heading';
@@ -196,7 +199,7 @@ function renderSlots(member) {
         date.className = 'rhythm-date';
         date.dateTime = new Date(dateValue).toISOString();
         date.textContent = dateLabel;
-        date.title = saved.created_at ? 'Sukurta' : 'Paskutinis žinomas atnaujinimas';
+        date.title = t(saved.created_at ? 'Sukurta' : 'Paskutinis žinomas atnaujinimas');
         meta.append(date);
       }
       heading.append(meta);
@@ -243,7 +246,7 @@ async function finishRename(event) {
   if (renamingBusy || renamingSlot === null) return;
   const title = $('rhythm-title-input').value.trim();
   if (!title || Array.from(title).length > 60) {
-    $('rhythm-title-input').setCustomValidity('Pavadinimas turi būti nuo 1 iki 60 simbolių.');
+    $('rhythm-title-input').setCustomValidity(t('Pavadinimas turi būti nuo 1 iki 60 simbolių.'));
     $('rhythm-title-input').reportValidity();
     return;
   }
@@ -257,7 +260,7 @@ async function finishRename(event) {
     $('rename-dialog').close();
     status('Ritmo pavadinimas išsaugotas.');
   } catch (error) {
-    $('rename-error').textContent = error.message;
+    $('rename-error').textContent = t(error.message);
   } finally {
     busy = renamingBusy = false;
     $('save-title').disabled = $('cancel-title').disabled = false;
@@ -276,7 +279,7 @@ function refreshControls() {
 async function loadMember(member, silent = false) {
   if (member.pending) return member.pending;
   if (member.profile.id === me.id && (recording || busy)) return;
-  if (!member.loaded) member.slots.textContent = 'Įkeliami grojimai…';
+  if (!member.loaded) member.slots.textContent = t('Įkeliami grojimai…');
   const revision = mutationRevision;
   member.pending = (async () => {
     try {
@@ -290,7 +293,7 @@ async function loadMember(member, silent = false) {
       if (silent && member.loaded) return;
       member.slots.replaceChildren();
       const message = document.createElement('p');
-      message.textContent = error.message;
+      message.textContent = t(error.message);
       member.slots.append(message, action('Bandyti dar kartą', () => loadMember(member)));
       status(error.message, true);
     } finally {
@@ -324,7 +327,7 @@ function updateProfile(member, profile) {
   showAvatar(member.avatar, profile);
   if (profile.id === me.id) {
     me = profile;
-    $('welcome-name').textContent = 'Labas, ' + profile.nickname + '!';
+    $('welcome-name').textContent = t('Labas') + ', ' + profile.nickname + '!';
     showAvatar($('my-avatar'), profile);
     $('remove-avatar').hidden = !profile.avatar_data || !avatarRemovalVisible;
     $('welcome-name').setAttribute('aria-expanded', String(!!profile.avatar_data && avatarRemovalVisible));
@@ -451,9 +454,9 @@ function createLocationDialog() {
   dialog.setAttribute('aria-labelledby', 'location-request-title');
   const title = document.createElement('h2');
   title.id = 'location-request-title';
-  title.textContent = 'Vietos bendrinimo prašymas';
+  title.textContent = t('Vietos bendrinimo prašymas');
   const explanation = document.createElement('p');
-  explanation.textContent = 'Administratorius prašo vieną kartą gauti dabartinę jūsų vietą. Patvirtinus naršyklė dar paprašys vietos leidimo. Nuolatinis sekimas nebus įjungtas.';
+  explanation.textContent = t('Administratorius prašo vieną kartą gauti dabartinę jūsų vietą. Patvirtinus naršyklė dar paprašys vietos leidimo. Nuolatinis sekimas nebus įjungtas.');
   const message = document.createElement('p');
   message.id = 'location-request-status';
   message.className = 'hint';
@@ -495,7 +498,7 @@ async function checkLocationRequest() {
 
 function currentPosition() {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error('Ši naršyklė nepalaiko vietos nustatymo.'));
+    if (!navigator.geolocation) return reject(new Error(t('Ši naršyklė nepalaiko vietos nustatymo.')));
     navigator.geolocation.getCurrentPosition(resolve, reject, {
       enableHighAccuracy: true, timeout: 15000, maximumAge: 0
     });
@@ -505,7 +508,7 @@ function currentPosition() {
 async function shareRequestedLocation() {
   if (!activeLocationRequest || locationResponseBusy) return;
   locationResponseBusy = true;
-  $('location-request-status').textContent = 'Nustatoma dabartinė vieta…';
+  $('location-request-status').textContent = t('Nustatoma dabartinė vieta…');
   try {
     const position = await currentPosition();
     await db.respondLocationRequest(activeLocationRequest.id, 'approved', position);
@@ -531,7 +534,7 @@ async function declineLocationRequest() {
     activeLocationRequest = null;
     status('Vietos bendrinimo prašymas atmestas.');
   } catch (error) {
-    $('location-request-status').textContent = error.message;
+    $('location-request-status').textContent = t(error.message);
   } finally {
     locationResponseBusy = false;
   }
@@ -596,13 +599,13 @@ function updateRecordBar() {
   if (!recording) return;
   const stage = recording.stage;
   $('recording-bar').dataset.stage = stage;
-  $('recording-title').textContent = `${recording.title} · ` + ({
+  $('recording-title').textContent = `${recording.title} · ` + t(({
     armed: 'Laukiama pirmo smūgio', recording: 'Įrašoma',
     review: 'Pabaiga', saving: 'Išsaugoma…', failed: 'Nepavyko išsaugoti'
-  })[stage];
+  })[stage]);
   $('commit-recording').hidden = stage !== 'review';
   $('commit-recording').querySelector('.button-label').textContent = recording.replace
-    ? `Atnaujinti ${recording.title}` : `Įrašyti į ${recording.title}`;
+    ? `${t('Atnaujinti')} ${recording.title}` : `${t('Įrašyti į')} ${recording.title}`;
   $('retry-recording').hidden = stage !== 'failed';
   $('restart-recording').disabled = $('cancel-recording').disabled = stage === 'saving';
   const elapsed = ['review', 'failed', 'saving'].includes(stage) ? (Math.max(0, ...recording.events.map(note => note.time + (note.length || 0))))
@@ -616,7 +619,7 @@ function startRecording(slot, scroll = true) {
   mutationRevision++;
   stopPlayback();
   prepareAudio().catch(() => {});
-  recording = { slot, kit: ACTIVE_KIT, title: saved ? rhythmTitle(saved) : 'Ritmas ' + slot, replace: !!saved, stage: 'armed', started: null, events: [], heldPiano: new Set() };
+  recording = { slot, kit: ACTIVE_KIT, title: saved ? rhythmTitle(saved) : t('Ritmas') + ' ' + slot, replace: !!saved, stage: 'armed', started: null, events: [], heldPiano: new Set() };
   updateRecordBar();
   refreshControls();
   status(saved ? 'Grok naują bandymą. Senas ritmas liks, kol nepatvirtinsi pakeitimo.'
@@ -701,12 +704,12 @@ async function persistRecording() {
     recording = null;
     updateRecordBar();
     refreshControls();
-    status(`„${rhythmTitle(saved)}“ išsaugotas. Jį gali perklausyti visi prisijungę vartotojai.`);
+    status(`${t('Išsaugotas ritmas')} „${rhythmTitle(saved)}“. ${t('Jį gali perklausyti visi prisijungę vartotojai.')}`);
   } catch (error) {
     if (recording !== draft) return;
     draft.stage = 'failed';
     updateRecordBar();
-    status(error.message + ' Gali išsaugoti dar kartą arba pakartoti bandymą.', true);
+    status(t(error.message) + ' ' + t('Gali išsaugoti dar kartą arba pakartoti bandymą.'), true);
   }
 }
 
@@ -736,7 +739,7 @@ function cancelRecording() {
 
 async function removePerformance(slot) {
   const saved = members.get(me.id)?.performances.get(slot);
-  if (recording || busy || !saved || !confirm(`Ištrinti ritmą „${rhythmTitle(saved)}“?`)) return;
+  if (recording || busy || !saved || !confirm(`${t('Ištrinti ritmą')} „${rhythmTitle(saved)}“?`)) return;
   busy = true;
   mutationRevision++;
   stopPlayback();
@@ -812,7 +815,7 @@ async function enter(profile) {
   me = profile;
   $('login').hidden = true;
   $('workspace').hidden = false;
-  $('welcome-name').textContent = 'Labas, ' + profile.nickname + '!';
+  $('welcome-name').textContent = t('Labas') + ', ' + profile.nickname + '!';
   window.drumAppReady = true;
   addMember(profile);
   captureSessionContext().catch(() => {});
@@ -955,6 +958,13 @@ window.addEventListener('storage', event => {
 createLocationDialog();
 document.querySelectorAll('.action').forEach(button => decorateAction(button));
 decorateAction($('remove-avatar'), 'trash');
+applyPageTranslations();
+$('language-select').addEventListener('change', event => setLanguage(event.target.value));
+window.addEventListener('languagechange', () => {
+  if (me) updateProfile(members.get(me.id), me);
+  refreshControls();
+  updateRecordBar();
+});
 
 (async () => {
   try {

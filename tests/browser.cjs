@@ -74,6 +74,14 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   const base=`http://127.0.0.1:${server.address().port}`;
   await page.goto(base+'/'+file);
   await wait(()=>page.locator('#audio-status').isHidden());
+  await page.locator('#language-select').selectOption('sv');
+  assert.equal(await page.locator('html').getAttribute('lang'),'sv');
+  assert.match(await page.locator('#login-title').innerText(),/Din rytm/);
+  assert.match(await page.locator('[data-kit-link="classic-v1"]').innerText(),/Klassiska trummor/);
+  await page.reload();
+  await wait(()=>page.locator('#audio-status').isHidden());
+  assert.equal(await page.locator('#language-select').inputValue(),'sv','language survives reload');
+  await page.locator('#language-select').selectOption('lt');
   if(await page.locator('#login').isVisible()){
     await page.locator('#nickname').fill('Ritmas');
     await page.locator('#login-form').evaluate(form=>form.requestSubmit());
@@ -88,6 +96,10 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   if(kit==='salamander-v1'){
     assert.equal(await page.locator('.piano-key').count(),13);
     assert.equal(await page.locator('.black-key').count(),5);
+    await page.locator('#language-select').selectOption('sv');
+    assert.equal(await page.locator('[data-key="c4"] span').innerText(),'C');
+    assert.match(await page.locator('[data-octave-shift="-1"]').innerText(),/Lägre/);
+    await page.locator('#language-select').selectOption('lt');
     await page.locator('[data-octave-shift="-1"]').click();
     await page.locator('[data-octave-shift="-1"]').click();
     assert.match(await page.locator('#piano-octave-label').innerText(),/C2–C3/);
@@ -154,6 +166,10 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.match(await page.locator('#recording-title').textContent(),/Ritmas 1 · Pabaiga/);
   assert.equal(await page.locator('#recording-bar .actions button:visible').count(),3);
   assert.match(await page.locator('#commit-recording').innerText(),/Įrašyti į Ritmas 1/);
+  await page.locator('#language-select').selectOption('sv');
+  assert.match(await page.locator('#recording-title').innerText(),/Klart/);
+  assert.match(await page.locator('#commit-recording').innerText(),/Spara i/);
+  await page.locator('#language-select').selectOption('lt');
 
   await page.locator('#restart-recording').click();
   assert(await page.locator('#recording-bar').isHidden());
@@ -164,6 +180,18 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>saves===1);
   await wait(()=>page.locator('#recording-bar').isHidden());
   assert.equal(recordings.get(own+':1').kit,kit);
+  await page.locator('#language-select').selectOption('sv');
+  assert.match(await page.locator('#rhythm-count').innerText(),/rytmer/);
+  assert.match(await page.locator(`[data-owner="${own}"] .play-rhythm`).first().innerText(),/Spela upp/);
+  assert.match(await page.locator('.version').innerText(),/Version/);
+  assert.equal(await page.locator('#app-version').count(),1,'version number survives language changes');
+  await page.locator('[data-kit-link="salamander-v1"]').click();
+  await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value==='salamander-v1'));
+  assert.match(await page.locator('#title').innerText(),/Salamanderpiano/);
+  assert.equal(await page.locator('html').getAttribute('lang'),'sv');
+  await page.locator(`[data-kit-link="${kit}"]`).click();
+  await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===kit));
+  await page.locator('#language-select').selectOption('lt');
 
   await strike(firstKey);
   await page.clock.fastForward(12000);
