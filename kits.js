@@ -1,5 +1,5 @@
 export const DEFAULT_KIT = 'classic-v1';
-export const ACTIVE_KIT = document.body.dataset.kit || DEFAULT_KIT;
+export let ACTIVE_KIT = document.body.dataset.kit || DEFAULT_KIT;
 export const KITS = {
   'classic-v1': {
     name: 'Klasikiniai',
@@ -38,4 +38,9 @@ export function playbackRate(kit, key) {
   const index = PIANO_KEYS.indexOf(key);
   const nearest = [0,3,6,9,12].reduce((best,n)=>Math.abs(n-index)<Math.abs(best-index)?n:best);
   return 2 ** ((index-nearest)/12);
+}
+
+export function setActiveKit(id) {
+  getKit(id);
+  ACTIVE_KIT = id;
 }

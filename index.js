@@ -1,7 +1,8 @@
-import { ACTIVE_KIT, DEFAULT_KIT, getKit, samplePath, playbackRate } from './kits.js';
+import { ACTIVE_KIT, DEFAULT_KIT, getKit, samplePath, playbackRate, setActiveKit } from './kits.js';
 export { ACTIVE_KIT, DEFAULT_KIT, getKit } from './kits.js';
 
 const buttons = new Map();
+const boundButtons = new WeakSet();
 const animationTimers = new Map();
 const buffers = new Map();
 const fallbackSounds = new Map();
@@ -83,7 +84,7 @@ function playBuffer(path, volume, rate = 1) {
 
 export function hitDrum(key, live = true, velocity, kit = ACTIVE_KIT, length) {
   const button = buttons.get(key);
-  if ((live && !button) || !readyKits.has(kit) || !getKit(kit).sounds[key]) return;
+  if ((live && (!button || button.disabled)) || !readyKits.has(kit) || !getKit(kit).sounds[key]) return;
   if (velocity === undefined) velocity = kit === DEFAULT_KIT ? 127 : 96;
   velocity = Math.max(1, Math.min(127, Math.round(velocity)));
   if (live) window.dispatchEvent(new CustomEvent('drumhit', { detail: { key, velocity } }));
@@ -140,39 +141,65 @@ export function releasePianoKeys() {
   for (const key of heldNotes.keys()) releasePiano(key);
 }
 
-for (const button of document.querySelectorAll('.drum, .piano-key')) {
-  const key = button.dataset.key || button.textContent.trim();
-  buttons.set(key, button);
-  if (button.dataset.shortcut) keyboardShortcuts.set(button.dataset.shortcut, key);
-  button.disabled = true;
-  button.addEventListener('pointerdown', event => {
-    if (event.button !== 0 || !window.drumAppReady) return;
-    event.preventDefault();
-    if (ACTIVE_KIT === 'salamander-v1') {
-      button.setPointerCapture(event.pointerId);
-      pressPiano(key, event.pointerId);
-    } else hitDrum(key);
-  });
-  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-    button.addEventListener(type, event => releasePiano(key, event.pointerId));
+function bindInstrumentButtons() {
+  buttons.clear();
+  keyboardShortcuts.clear();
+  for (const button of document.querySelectorAll('.drum, .piano-key')) {
+    const key = button.dataset.key || button.textContent.trim();
+    buttons.set(key, button);
+    if (button.dataset.shortcut) keyboardShortcuts.set(button.dataset.shortcut, key);
+    button.disabled = true;
+    if (boundButtons.has(button)) continue;
+    boundButtons.add(button);
+    button.addEventListener('pointerdown', event => {
+      if (event.button !== 0 || !window.drumAppReady) return;
+      event.preventDefault();
+      if (ACTIVE_KIT === 'salamander-v1') {
+        button.setPointerCapture(event.pointerId);
+        pressPiano(key, event.pointerId);
+      } else hitDrum(key);
+    });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      button.addEventListener(type, event => releasePiano(key, event.pointerId));
+    }
+    button.addEventListener('click', event => {
+      if (event.detail !== 0 || !window.drumAppReady) return;
+      if (ACTIVE_KIT === 'salamander-v1') {
+        pressPiano(key, 'accessibility');
+        setTimeout(() => releasePiano(key, 'accessibility'), 250);
+      } else hitDrum(key);
+    });
   }
-  button.addEventListener('click', event => {
-    if (event.detail !== 0 || !window.drumAppReady) return;
-    if (ACTIVE_KIT === 'salamander-v1') {
-      pressPiano(key, 'accessibility');
-      setTimeout(() => releasePiano(key, 'accessibility'), 250);
-    } else hitDrum(key);
-  });
 }
+
 window.addEventListener('blur', releasePianoKeys);
 document.addEventListener('visibilitychange', () => { if (document.hidden) releasePianoKeys(); });
 
-loadKit().then(() => {
-  for (const button of buttons.values()) button.disabled = false;
-  document.getElementById('audio-status').hidden = true;
-}).catch(() => {
-  document.getElementById('audio-status').textContent = 'Garsų įkelti nepavyko. Patikrink internetą ir perkrauk puslapį.';
-});
+let instrumentGeneration = 0;
+export function suspendInstrument() {
+  instrumentGeneration++;
+  stopAudio();
+  for (const button of buttons.values()) button.disabled = true;
+}
+export async function mountInstrument(id = ACTIVE_KIT) {
+  suspendInstrument();
+  setActiveKit(id);
+  bindInstrumentButtons();
+  const generation = instrumentGeneration;
+  const message = document.getElementById('audio-status');
+  message.hidden = false;
+  message.textContent = 'Įkeliami garsai…';
+  try {
+    await loadKit(id);
+    if (generation !== instrumentGeneration) return;
+    for (const button of buttons.values()) button.disabled = false;
+    message.hidden = true;
+  } catch {
+    if (generation !== instrumentGeneration) return;
+    message.textContent = 'Garsų įkelti nepavyko. Patikrink internetą ir dar kartą pasirink instrumentą.';
+  }
+}
+mountInstrument();
 
 document.addEventListener('keydown', event => {
   if (!window.drumAppReady) return;

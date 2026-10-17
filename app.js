@@ -1,3 +1,4 @@
+import './navigation.js';
 import * as db from './database.js';
 import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit, releasePianoKeys } from './index.js';
 
@@ -711,12 +712,12 @@ async function persistRecording() {
 
 function repeatRecording() {
   if (!recording || recording.stage === 'saving') return;
-  const { slot, title, replace, kit } = recording;
+  const { slot, title, replace } = recording;
   clearRecordTimers();
   stopPlayback();
   stopAudio();
   mutationRevision++;
-  recording = { slot, title, replace, kit, stage: 'armed', started: null, events: [], heldPiano: new Set() };
+  recording = { slot, title, replace, kit: ACTIVE_KIT, stage: 'armed', started: null, events: [], heldPiano: new Set() };
   updateRecordBar();
   refreshControls();
   status('Bandymas pradėtas iš naujo. Įrašymas prasidės nuo pirmo smūgio.');
@@ -906,6 +907,21 @@ window.addEventListener('pageshow', event => {
     startPolling();
     loadUsers(true, true);
   }
+});
+// Instrument navigation keeps this module, identity and library alive.
+window.addEventListener('instrumentwillchange', () => {
+  const discarded = recording && recording.stage !== 'saving';
+  if (discarded) {
+    clearRecordTimers();
+    recording = null;
+    mutationRevision++;
+  }
+  stopPlayback();
+  stopAudio();
+  updateRecordBar();
+  // Refresh only if draft controls changed; ordinary navigation leaves library DOM intact.
+  if (discarded) refreshControls();
+  if (!recording) status(discarded ? 'Nebaigtas bandymas atmestas. Pasirinktas kitas instrumentas.' : '');
 });
 window.addEventListener('pagehide', () => {
   clearInterval(pollTimer);

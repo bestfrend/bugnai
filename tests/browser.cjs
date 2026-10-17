@@ -24,7 +24,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   const context=await browser.newContext(mobile?{...devices['Pixel 7']}:{viewport:{width:1280,height:850}});
   const profiles=[{id:other,nickname:'Kitas',created_at:new Date().toISOString()}];
   const recordings=new Map();
-  let saves=0,emergencySaves=0;
+  let saves=0,emergencySaves=0,authRequests=0,sessionStarts=0;
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
   await context.route('https://ipwho.is/**',route=>route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify({success:true,city:'Vilnius',region:'Vilniaus apskritis',country:'Lietuva'})}));
@@ -33,9 +33,10 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     const headers={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS','content-type':'application/json'};
     const reply=(data,status=200)=>route.fulfill({status,headers,body:JSON.stringify(data)});
     if(method==='OPTIONS')return reply(null);
-    if(url.pathname==='/auth/v1/signup')return reply(session());
+    if(url.pathname==='/auth/v1/signup'){authRequests++;return reply(session());}
     assert.equal(req.headers().authorization,'Bearer test-access');
-    if(url.pathname==='/rest/v1/rpc/touch_member_presence'||url.pathname==='/rest/v1/rpc/start_member_session')return reply(null);
+    if(url.pathname==='/rest/v1/rpc/start_member_session'){sessionStarts++;return reply(null);}
+    if(url.pathname==='/rest/v1/rpc/touch_member_presence')return reply(null);
     if(url.pathname==='/rest/v1/rpc/member_pending_location_request')return reply([]);
     if(url.pathname==='/rest/v1/profiles'){
       if(method==='POST'){profiles.push(req.postDataJSON());return reply(null,201);}
@@ -66,6 +67,8 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   });
 
   const page=await context.newPage();
+  let documentLoads=0;
+  page.on('request',req=>{if(req.isNavigationRequest() && req.frame()===page.mainFrame())documentLoads++;});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.clock.install();
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -123,6 +126,115 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert(await page.locator('#recording-bar').isHidden());
   assert.equal(saves,1);
 
+  // Tabs keep the document, authentication, library nodes and open member groups alive.
+  await page.locator(`[data-owner="${other}"] summary`).click();
+  await page.evaluate(()=>{
+    window.navigationSentinel='same-app';
+    window.liveNotes=0;
+    window.addEventListener('drumhit',()=>window.liveNotes++);
+    window.libraryNode=document.getElementById('users');
+    window.loginFlashes=0;
+    new MutationObserver(()=>{if(!document.getElementById('login').hidden)window.loginFlashes++;})
+      .observe(document.getElementById('login'),{attributes:true});
+  });
+  const authBefore=authRequests,sessionsBefore=sessionStarts,loadsBefore=documentLoads;
+  const originalFirst=JSON.stringify(recordings.get(own+':1'));
+  const alternate=kit==='virtuosity-v1'?'classic-v1':'virtuosity-v1';
+  const alternateFile=alternate==='classic-v1'?'index.html':'studio.html';
+  const choose=async id=>{
+    await page.locator(`[data-kit-link="${id}"]`).click();
+    await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===id));
+    await wait(()=>page.locator('#audio-status').isHidden());
+  };
+  const playCurrent=async()=>{
+    const current=await page.locator('body').getAttribute('data-kit');
+    if(current==='salamander-v1'){
+      await page.keyboard.down('a');await page.clock.runFor(220);await page.keyboard.up('a');
+    }else if(mobile)await page.locator('.drum').first().tap();
+    else await page.locator('.drum').first().click();
+  };
+  // A failed fragment fetch leaves the current instrument usable and does not reload login.
+  await context.route(base+'/'+alternateFile,route=>route.abort());
+  await playCurrent();
+  await page.locator(`[data-kit-link="${alternate}"]`).click();
+  await wait(()=>page.locator('#status').innerText().then(text=>text.includes('Instrumento įkelti nepavyko')));
+  assert.equal(await page.locator('body').getAttribute('data-kit'),kit);
+  await wait(()=>page.locator('#audio-status').isHidden());
+  await context.unroute(base+'/'+alternateFile);
+  const notesBefore=await page.evaluate(()=>window.liveNotes);
+  await playCurrent();
+  assert.equal(await page.evaluate(()=>window.liveNotes),notesBefore+1,'recovery must not bind duplicate input listeners');
+  // A slow earlier response must not replace the user's newer selection.
+  let delayed;
+  await context.route(base+'/'+alternateFile,route=>{delayed=route;});
+  await page.locator(`[data-kit-link="${alternate}"]`).click();
+  await wait(()=>!!delayed);
+  await choose(kit);
+  await delayed.fulfill({contentType:'text/html',body:await fs.readFile(path.join(root,alternateFile),'utf8')});
+  await context.unroute(base+'/'+alternateFile);
+  await page.clock.runFor(100);
+  assert.equal(await page.locator('body').getAttribute('data-kit'),kit);
+
+  for(const next of [alternate,'salamander-v1','classic-v1','virtuosity-v1',kit]){
+    if(await page.locator('body').getAttribute('data-kit')===next)continue;
+    await playCurrent();
+    await choose(next);
+    assert(await page.locator('#recording-bar').isHidden());
+    assert.equal(saves,1);
+    assert.equal(emergencySaves,0,'switching must never invoke the pagehide emergency save');
+    assert.equal(JSON.stringify(recordings.get(own+':1')),originalFirst);
+    assert.equal(await page.evaluate(()=>window.navigationSentinel),'same-app');
+    assert(await page.evaluate(()=>window.libraryNode===document.getElementById('users')));
+    assert(await page.locator(`[data-owner="${other}"]`).evaluate(e=>e.open));
+    assert.equal(await page.locator('.kit-tabs [aria-current]').getAttribute('data-kit-link'),next);
+    assert.equal(new URL(page.url()).pathname.split('/').at(-1),next==='salamander-v1'?'piano.html':next==='virtuosity-v1'?'studio.html':'index.html');
+  }
+  await page.clock.fastForward(12000);
+  assert(await page.locator('#recording-bar').isHidden(),'old silence timers are cleared');
+  // Switching from the review overlay also discards, rather than saving, the draft.
+  await playCurrent();
+  await page.clock.fastForward(12000);
+  await wait(()=>page.locator('#recording-bar').isVisible());
+  await choose(alternate);
+  assert(await page.locator('#recording-bar').isHidden());
+  assert.equal(saves,1);
+  await page.goBack();
+  await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===kit));
+  await wait(()=>page.locator('#audio-status').isHidden());
+  await page.goForward();
+  await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===alternate));
+  await wait(()=>page.locator('#audio-status').isHidden());
+  // A held piano note is released and discarded when changing instruments.
+  await choose('salamander-v1');
+  await page.keyboard.down('a');
+  await page.clock.runFor(200);
+  await choose(alternate);
+  await page.keyboard.up('a');
+  await page.clock.fastForward(12000);
+  assert(await page.locator('#recording-bar').isHidden());
+  assert.equal(saves,1);
+  assert.equal(emergencySaves,0);
+  // A recording after navigation uses the new instrument and its note schema.
+  await choose('salamander-v1');
+  await playCurrent();
+  await page.clock.fastForward(12000);
+  await wait(()=>page.locator('#recording-bar').isVisible());
+  await page.locator('#commit-recording').click();
+  await wait(()=>saves===2);
+  assert.equal(recordings.get(own+':2').kit,'salamander-v1');
+  assert.equal(recordings.get(own+':2').events[0].key,'c4');
+  assert(recordings.get(own+':2').events[0].length>=220);
+  await choose(kit);
+  await page.locator(`[data-owner="${own}"] .slot[data-slot="1"] .play-rhythm`).click();
+  await wait(()=>page.locator('#playback-bar').isVisible());
+  await choose(alternate);
+  assert(await page.locator('#playback-bar').isHidden(),'changing instrument stops playback');
+  await choose(kit);
+  assert.equal(authRequests,authBefore);
+  assert.equal(sessionStarts,sessionsBefore,'tab changes do not start another member session');
+  assert.equal(documentLoads,loadsBefore,'no new document navigation');
+  assert.equal(await page.evaluate(()=>window.loginFlashes),0);
+
   if(mobile){
     await page.setViewportSize({width:915,height:412});
     assert.equal(await page.locator('body > header').evaluate(e=>getComputedStyle(e).display),'none');
@@ -143,7 +255,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>emergencySaves>=1);
   assert.equal(recordings.get(own+':1').events[0].key,firstKey,'closing overwrites the emergency first slot');
   assert.deepEqual(errors,[]);
-  console.log('PASS',file,mobile?'mobile landscape':'desktop','automatic recording, review, save/repeat/exit and emergency slot');
+  console.log('PASS',file,mobile?'mobile landscape':'desktop','automatic recording, save/repeat/exit, seamless tabs, draft discard, history, fetch failure/race and emergency slot');
   await context.close();
 }
 

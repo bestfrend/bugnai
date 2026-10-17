@@ -352,3 +352,6 @@ footer { padding: 24px 0 32px; }
   .admin-filters { grid-template-columns: 1fr; }
   .admin-table th, .admin-table td { padding: 12px 10px; }
 }
+
+/* Instrument tabs remain available over the recording review overlay. */
+.kit-tabs { position: relative; z-index: 21; }

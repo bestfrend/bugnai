@@ -38,7 +38,7 @@ jobs:
         run: |
           mkdir -p _site
           python3 scripts/build-studio.py
-          cp index.html studio.html piano.html admin.html index.js kits.js app.js admin.js database.js supabase-config.js styles.css _site/
+          cp index.html studio.html piano.html admin.html index.js kits.js navigation.js app.js admin.js database.js supabase-config.js styles.css _site/
           cp -R images sounds _site/
           python3 - <<'PY'
           import os

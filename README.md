@@ -205,3 +205,20 @@ Visų trijų instrumentų prisijungimas ir 50 įrašų limitas bendri. Pianino �
 atkuriamas pianinu ir būgnų puslapyje. `python3 scripts/build-studio.py` generuoja
 abu papildomus puslapius iš bendro `index.html`; GitHub Actions tai atlieka prieš
 publikuodamas ir visiems trims puslapiams suteikia tą pačią versiją.
+
+### Skirtukai be puslapio perkrovimo
+
+`navigation.js` perjungia instrumentus tame pačiame dokumente. Iš esamų statinių
+puslapių paimama tik instrumento sritis, pavadinimas ir garsų autorystės eilutė;
+šablonai ir dekoduoti garsai laikomi atmintyje. Prisijungimas, narių sąrašas,
+išskleistos grupės ir periodinis atnaujinimas lieka aktyvūs. `pushState` ir
+`popstate` išlaiko esamus adresus bei naršyklės „Atgal“ / „Pirmyn“ veikimą.
+Tiesioginės nuorodos ir atidarymas naujame skirtuke veikia kaip anksčiau.
+
+Pasirinkus kitą instrumentą sustabdomas atkūrimas, atleidžiamos laikomos natos,
+atmetamas nepatvirtintas bandymas ir išvalomi jo tylos / dviejų minučių laikmačiai.
+Perjungimas nesukelia `pagehide`, todėl neišsaugo juodraščio į avarinį pirmą slotą.
+Vartotojo jau patvirtinta, vykdoma išsaugojimo užklausa užbaigiama įprastai.
+Garsų krovimo metu klavišai neaktyvūs; nepavykus įkelti šablono lieka ankstesnis
+instrumentas ir galimybė bandyti dar kartą be naujo prisijungimo.
+Supabase pakeitimų šiam atnaujinimui nereikia.
