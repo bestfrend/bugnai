@@ -25,6 +25,7 @@ let mutationRevision = 0;
 let renamingSlot = null;
 let renamingBusy = false;
 let avatarRemovalVisible = false;
+let activeStatus = { message: '', error: false };
 
 const iconPaths = {
   play: ['M8 5v14l11-7z'],
@@ -68,8 +69,9 @@ function decorateAction(button, icon = button.dataset.icon || actionIcons[button
 }
 
 function status(message = '', error = false) {
-  $('status').dataset.source = message;
-  $('status').textContent = t(message);
+  activeStatus = { message, error };
+  $('status').dataset.source = typeof message === 'string' ? message : '';
+  $('status').textContent = typeof message === 'function' ? message() : t(message);
   $('status').classList.toggle('error', error);
 }
 
@@ -101,8 +103,13 @@ function updatePlaybackButtons() {
   }
 }
 
+function displayRhythmTitle(title, slot) {
+  return !title || title === `Ritmas ${slot}` || title === `Rytm ${slot}`
+    ? `${t('Ritmas')} ${slot}` : title;
+}
+
 function rhythmTitle(saved) {
-  return saved.title || t('Ritmas') + ' ' + saved.slot;
+  return displayRhythmTitle(saved.title, saved.slot);
 }
 
 function nextFreeSlot(member) {
@@ -491,6 +498,7 @@ async function checkLocationRequest() {
     const requests = await db.pendingLocationRequest();
     if (!requests.length) return;
     activeLocationRequest = requests[0];
+    $('location-request-status').dataset.source = '';
     $('location-request-status').textContent = '';
     $('location-request-dialog').showModal();
   } catch {}
@@ -508,6 +516,7 @@ function currentPosition() {
 async function shareRequestedLocation() {
   if (!activeLocationRequest || locationResponseBusy) return;
   locationResponseBusy = true;
+  $('location-request-status').dataset.source = 'Nustatoma dabartinė vieta…';
   $('location-request-status').textContent = t('Nustatoma dabartinė vieta…');
   try {
     const position = await currentPosition();
@@ -534,6 +543,7 @@ async function declineLocationRequest() {
     activeLocationRequest = null;
     status('Vietos bendrinimo prašymas atmestas.');
   } catch (error) {
+    $('location-request-status').dataset.source = error.message;
     $('location-request-status').textContent = t(error.message);
   } finally {
     locationResponseBusy = false;
@@ -599,13 +609,13 @@ function updateRecordBar() {
   if (!recording) return;
   const stage = recording.stage;
   $('recording-bar').dataset.stage = stage;
-  $('recording-title').textContent = `${recording.title} · ` + t(({
+  $('recording-title').textContent = `${displayRhythmTitle(recording.title, recording.slot)} · ` + t(({
     armed: 'Laukiama pirmo smūgio', recording: 'Įrašoma',
     review: 'Pabaiga', saving: 'Išsaugoma…', failed: 'Nepavyko išsaugoti'
   })[stage]);
   $('commit-recording').hidden = stage !== 'review';
   $('commit-recording').querySelector('.button-label').textContent = recording.replace
-    ? `${t('Atnaujinti')} ${recording.title}` : `${t('Įrašyti į')} ${recording.title}`;
+    ? `${t('Atnaujinti')} ${displayRhythmTitle(recording.title, recording.slot)}` : `${t('Įrašyti į')} ${displayRhythmTitle(recording.title, recording.slot)}`;
   $('retry-recording').hidden = stage !== 'failed';
   $('restart-recording').disabled = $('cancel-recording').disabled = stage === 'saving';
   const elapsed = ['review', 'failed', 'saving'].includes(stage) ? (Math.max(0, ...recording.events.map(note => note.time + (note.length || 0))))
@@ -704,12 +714,14 @@ async function persistRecording() {
     recording = null;
     updateRecordBar();
     refreshControls();
-    status(`${t('Išsaugotas ritmas')} „${rhythmTitle(saved)}“. ${t('Jį gali perklausyti visi prisijungę vartotojai.')}`);
+    status(() => language === 'sv'
+      ? `”${rhythmTitle(saved)}” har sparats. Alla inloggade kan lyssna på inspelningen.`
+      : `„${rhythmTitle(saved)}“ išsaugotas. Jį gali perklausyti visi prisijungę vartotojai.`);
   } catch (error) {
     if (recording !== draft) return;
     draft.stage = 'failed';
     updateRecordBar();
-    status(t(error.message) + ' ' + t('Gali išsaugoti dar kartą arba pakartoti bandymą.'), true);
+    status(() => t(error.message) + ' ' + t('Gali išsaugoti dar kartą arba pakartoti bandymą.'), true);
   }
 }
 
@@ -739,7 +751,9 @@ function cancelRecording() {
 
 async function removePerformance(slot) {
   const saved = members.get(me.id)?.performances.get(slot);
-  if (recording || busy || !saved || !confirm(`${t('Ištrinti ritmą')} „${rhythmTitle(saved)}“?`)) return;
+  if (recording || busy || !saved || !confirm(language === 'sv'
+    ? `Vill du ta bort ”${rhythmTitle(saved)}”?`
+    : `Ištrinti ritmą „${rhythmTitle(saved)}“?`)) return;
   busy = true;
   mutationRevision++;
   stopPlayback();
@@ -964,6 +978,7 @@ window.addEventListener('languagechange', () => {
   if (me) updateProfile(members.get(me.id), me);
   refreshControls();
   updateRecordBar();
+  if (typeof activeStatus.message === 'function') status(activeStatus.message, activeStatus.error);
 });
 
 (async () => {

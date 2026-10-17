@@ -26,7 +26,7 @@ export function loadKit(id = ACTIVE_KIT) {
   const promise = Promise.all([...new Set(Object.values(getKit(id).sounds).flat())].map(async path => {
     if (buffers.has(path)) return;
     const response = await fetch(path, { signal: AbortSignal.timeout(20000) });
-    if (!response.ok) throw new Error(t('Nepavyko įkelti būgnų garsų.'));
+    if (!response.ok) throw new Error('Nepavyko įkelti būgnų garsų.');
     const data = await response.arrayBuffer();
     if (audioContext) buffers.set(path, await audioContext.decodeAudioData(data));
     else {

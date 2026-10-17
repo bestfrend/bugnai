@@ -20,6 +20,27 @@ async function wait(check){
   throw new Error('Timed out waiting for expected app state');
 }
 
+async function untranslatedPublicText(page){
+  return page.evaluate(()=>{
+    const remaining=[];
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+    while(walker.nextNode()){
+      const node=walker.currentNode,element=node.parentElement;
+      if(element?.closest('noscript, option[value="lt"], [hidden]'))continue;
+      const value=node.textContent.trim();
+      if(/[ąčęėįšųūžĄČĘĖĮŠŲŪŽ]/.test(value))remaining.push(value);
+    }
+    for(const element of document.body.querySelectorAll('[aria-label], [title], [placeholder]')){
+      if(element.closest('[hidden]'))continue;
+      for(const name of ['aria-label','title','placeholder']){
+        const value=element.getAttribute(name);
+        if(value&&/[ąčęėįšųūžĄČĘĖĮŠŲŪŽ]/.test(value))remaining.push(`${name}: ${value}`);
+      }
+    }
+    return remaining;
+  });
+}
+
 async function instrumentScenario(browser,file,kit,mobile=false){
   const context=await browser.newContext(mobile?{...devices['Pixel 7']}:{viewport:{width:1280,height:850}});
   const profiles=[{id:other,nickname:'Kitas',created_at:new Date().toISOString()}];
@@ -76,8 +97,15 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>page.locator('#audio-status').isHidden());
   await page.locator('#language-select').selectOption('sv');
   assert.equal(await page.locator('html').getAttribute('lang'),'sv');
+  assert.equal(await page.locator('label[for="language-select"]').innerText(),'Språk');
   assert.match(await page.locator('#login-title').innerText(),/Din rytm/);
   assert.match(await page.locator('[data-kit-link="classic-v1"]').innerText(),/Klassiska trummor/);
+  if(kit==='classic-v1'){
+    assert.equal(await page.locator('.drum').first().getAttribute('aria-label'),'Tom 1, W');
+  }else if(kit==='virtuosity-v1'){
+    assert.equal(await page.locator('.drum-name').first().innerText(),'Hög tom-tom');
+  }
+  assert.deepEqual(await untranslatedPublicText(page),[],'login screen is fully translated');
   await page.reload();
   await wait(()=>page.locator('#audio-status').isHidden());
   assert.equal(await page.locator('#language-select').inputValue(),'sv','language survives reload');
@@ -167,8 +195,10 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.equal(await page.locator('#recording-bar .actions button:visible').count(),3);
   assert.match(await page.locator('#commit-recording').innerText(),/Įrašyti į Ritmas 1/);
   await page.locator('#language-select').selectOption('sv');
-  assert.match(await page.locator('#recording-title').innerText(),/Klart/);
-  assert.match(await page.locator('#commit-recording').innerText(),/Spara i/);
+  assert.match(await page.locator('#recording-title').innerText(),/Inspelningen är klar/);
+  assert.match(await page.locator('#recording-title').innerText(),/Rytm 1/);
+  assert.match(await page.locator('#commit-recording').innerText(),/Spara i Rytm 1/);
+  assert.deepEqual(await untranslatedPublicText(page),[],'recording review is fully translated');
   await page.locator('#language-select').selectOption('lt');
 
   await page.locator('#restart-recording').click();
@@ -183,12 +213,15 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.locator('#language-select').selectOption('sv');
   assert.match(await page.locator('#rhythm-count').innerText(),/rytmer/);
   assert.match(await page.locator(`[data-owner="${own}"] .play-rhythm`).first().innerText(),/Spela upp/);
+  assert.match(await page.locator('#status').innerText(),/”Rytm 1” har sparats/);
   assert.match(await page.locator('.version').innerText(),/Version/);
   assert.equal(await page.locator('#app-version').count(),1,'version number survives language changes');
+  assert.deepEqual(await untranslatedPublicText(page),[],'signed-in interface is fully translated');
   await page.locator('[data-kit-link="salamander-v1"]').click();
   await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value==='salamander-v1'));
   assert.match(await page.locator('#title').innerText(),/Salamanderpiano/);
   assert.equal(await page.locator('html').getAttribute('lang'),'sv');
+  assert.deepEqual(await untranslatedPublicText(page),[],'instrument switch keeps translations');
   await page.locator(`[data-kit-link="${kit}"]`).click();
   await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===kit));
   await page.locator('#language-select').selectOption('lt');

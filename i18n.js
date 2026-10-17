@@ -1,15 +1,16 @@
 const STORAGE_KEY = 'bugnai.language';
 const swedish = {
+  'Kalba': 'Språk',
   'Instrumentai': 'Instrument', 'Pianinas · Salamander': 'Piano · Salamander',
   'Klasikiniai būgnai': 'Klassiska trummor', 'Virtuosity būgnai': 'Virtuosity-trummor',
   'Būgnų 🥁 komplektas': 'Trumset 🥁', 'Salamander pianinas': 'Salamanderpiano',
   'Būgnai': 'Trummor',
   'Jungiamasi…': 'Ansluter…', 'Tavo ritmas. Tavo kūryba.': 'Din rytm. Din musik.',
-  'Įvesk slapyvardį, grok ir klausyk kitų sukurtų ritmų.': 'Ange ett smeknamn, spela och lyssna på andras rytmer.',
+  'Įvesk slapyvardį, grok ir klausyk kitų sukurtų ritmų.': 'Välj ett smeknamn, spela och lyssna på andras inspelningar.',
   'Tavo slapyvardis': 'Ditt smeknamn', 'Kaip tave vadinti?': 'Vad ska vi kalla dig?',
   'Pradėti groti': 'Börja spela',
-  'Be slaptažodžio. Ši naršyklė prisimins tave; išvalius jos duomenis prieigos prie savo įrašų galima netekti.': 'Inget lösenord behövs. Den här webbläsaren kommer ihåg dig. Om du rensar dess data kan du förlora åtkomsten till dina inspelningar.',
-  'Prisijungus administratoriui privačiai rodoma įrenginio rūšis, sistema, naršyklė, prisijungimo laikas ir apytikslė vieta pagal IP. Tiksli vieta perduodama tik atskirai patvirtinus prašymą.': 'Administratören kan privat se enhetstyp, system, webbläsare, inloggningstid och ungefärlig plats utifrån IP. Exakt plats delas bara om du godkänner en separat begäran.',
+  'Be slaptažodžio. Ši naršyklė prisimins tave; išvalius jos duomenis prieigos prie savo įrašų galima netekti.': 'Inget lösenord behövs. Den här webbläsaren kommer ihåg dig. Om du rensar webbläsarens data kan du förlora åtkomsten till dina inspelningar.',
+  'Prisijungus administratoriui privačiai rodoma įrenginio rūšis, sistema, naršyklė, prisijungimo laikas ir apytikslė vieta pagal IP. Tiksli vieta perduodama tik atskirai patvirtinus prašymą.': 'Administratören kan se enhetstyp, operativsystem, webbläsare, inloggningstid och ungefärlig plats utifrån IP-adressen. Din exakta plats delas bara om du godkänner en separat förfrågan.',
   'Įkelti arba pakeisti profilio nuotrauką': 'Ladda upp eller ändra profilbild',
   'Įkelti arba pakeisti nuotrauką': 'Ladda upp eller ändra bild',
   'Dukart paspausk, kad tvarkytum nuotrauką': 'Dubbeltryck för att hantera bilden',
@@ -19,28 +20,28 @@ const swedish = {
   'Išeiti': 'Avsluta', 'Paliesk būgnus arba grok klavišais W A S D J K L.': 'Tryck på trummorna eller spela med tangenterna W A S D J K L.',
   'Įkeliami būgnų garsai…': 'Laddar trumljud…', 'Įkeliami pianino garsai…': 'Laddar pianoljud…',
   'Įkeliami garsai…': 'Laddar ljud…', 'Stabdyti atkūrimą': 'Stoppa uppspelning',
-  'Mūsų ritmai': 'Våra rytmer', 'Kitų įrašus galite tik paklausyti.': 'Du kan bara lyssna på andras inspelningar.',
+  'Mūsų ritmai': 'Våra rytmer', 'Kitų įrašus galite tik paklausyti.': 'Du kan lyssna på andras inspelningar, men bara ändra dina egna.',
   'Rodyti daugiau vartotojų': 'Visa fler användare', 'Šiai programai reikia įjungti JavaScript.': 'JavaScript måste vara aktiverat för den här appen.',
-  'Ritmo pavadinimas': 'Rytmens namn', 'Pavadinimas': 'Namn',
+  'Ritmo pavadinimas': 'Namn på rytmen', 'Pavadinimas': 'Namn',
   'Išsaugoti pavadinimą': 'Spara namnet', 'Atšaukti': 'Avbryt',
   'Kurta su ❤️ Londone': 'Skapad med ❤️ i London', 'Versija': 'Version',
   'Garsai: Virtuosity Drums · CC0': 'Ljud: Virtuosity Drums · CC0',
   'Garsų šaltinis': 'Ljudkälla', 'Atrinkti mėginiai, natų aukščio keitimas ir atleidimo gaubtinė.': 'Utvalda ljudprover, tonhöjdsändring och avklingning.',
-  'Pianino aukščio pasirinkimas': 'Välj pianots tonläge', 'Žemesni garsai': 'Lägre toner',
-  'Aukštesni garsai': 'Högre toner', 'Pilnas pianinas': 'Hela pianot',
-  'Žemiau': 'Lägre', 'Aukščiau': 'Högre', 'Pilnas': 'Hela',
-  'Pianino klavišai': 'Pianotangenter', 'klavišas': 'tangent',
-  'Vidurinė dalis': 'Mellanregister', 'Pianinas': 'Piano',
-  'Pirmas tomas': 'Första tom', 'Antras tomas': 'Andra tom', 'Trečias tomas': 'Tredje tom',
-  'Ketvirtas tomas': 'Fjärde tom', 'Mažasis būgnas': 'Virveltrumma',
+  'Pianino aukščio pasirinkimas': 'Välj oktav', 'Žemesni garsai': 'Lägre toner',
+  'Aukštesni garsai': 'Högre toner', 'Pilnas pianinas': 'Alla tillgängliga pianotangenter',
+  'Žemiau': 'Lägre', 'Aukščiau': 'Högre', 'Pilnas': 'Alla',
+  'Pianino klavišai': 'Pianots tangenter', 'klavišas': 'tangent',
+  'Vidurinė dalis': 'Mellanregistret', 'Pianinas': 'Piano',
+  'Pirmas tomas': 'Tom 1', 'Antras tomas': 'Tom 2', 'Trečias tomas': 'Tom 3',
+  'Ketvirtas tomas': 'Tom 4', 'Mažasis būgnas': 'Virveltrumma',
   'Lėkštė': 'Cymbal', 'Bosinis būgnas': 'Bastrumma',
-  'Aukštas tomas': 'Hög tom', 'Žemas tomas': 'Låg tom',
+  'Aukštas tomas': 'Hög tom-tom', 'Žemas tomas': 'Låg tom-tom',
   'Užd. hi-hat': 'Stängd hi-hat', 'Ride lėkštė': 'Ridecymbal', 'Crash lėkštė': 'Crashcymbal',
   'Ritmas': 'Rytm', 'ritmų': 'rytmer', 'ritmai': 'rytmer',
-  'Dar nėra išsaugotų ritmų.': 'Du har inga sparade rytmer ännu.', 'Dar nėra ritmų.': 'Inga rytmer ännu.',
-  'Perklausa': 'Förhandslyssning', 'Bandymas': 'Inspelningsförsök',
-  'Atkurti': 'Spela upp', 'Perrašyti': 'Spela in på nytt', 'Ištrinti': 'Radera',
-  'Pervadinti': 'Byt namn', 'Labas': 'Hej', 'Išsaugotas ritmas': 'Sparad rytm',
+  'Dar nėra išsaugotų ritmų.': 'Du har inte sparat några rytmer än.', 'Dar nėra ritmų.': 'Det finns inga rytmer än.',
+  'Perklausa': 'Förhandslyssning', 'Bandymas': 'Nytt försök',
+  'Atkurti': 'Spela upp', 'Perrašyti': 'Spela in igen', 'Ištrinti': 'Ta bort',
+  'Pervadinti': 'Byt namn', 'Labas': 'Hej', 'Išsaugotas ritmas': 'Rytmen har sparats',
   'Jį gali perklausyti visi prisijungę vartotojai.': 'Alla inloggade användare kan lyssna på den.',
   'Ištrinti ritmą': 'Radera rytmen',
   'Klasikiniai': 'Klassiska trummor', 'Virtuosity': 'Virtuosity-trummor',
@@ -49,34 +50,34 @@ const swedish = {
   'La♯': 'A♯', 'Si': 'B',
   'Sukurta': 'Skapad', 'Paskutinis žinomas atnaujinimas': 'Senaste kända uppdatering',
   'Įkeliami grojimai…': 'Laddar inspelningar…', 'Bandyti dar kartą': 'Försök igen',
-  'Laukiama pirmo smūgio': 'Väntar på första tonen', 'Įrašoma': 'Spelar in',
-  'Pabaiga': 'Klart', 'Išsaugoma…': 'Sparar…', 'Nepavyko išsaugoti': 'Kunde inte spara',
+  'Laukiama pirmo smūgio': 'Väntar på att du börjar spela', 'Įrašoma': 'Spelar in',
+  'Pabaiga': 'Inspelningen är klar', 'Išsaugoma…': 'Sparar…', 'Nepavyko išsaugoti': 'Det gick inte att spara',
   'Atnaujinti': 'Uppdatera', 'Įrašyti į': 'Spara i',
   'Vietos bendrinimo prašymas': 'Begäran om platsdelning',
-  'Administratorius prašo vieną kartą gauti dabartinę jūsų vietą. Patvirtinus naršyklė dar paprašys vietos leidimo. Nuolatinis sekimas nebus įjungtas.': 'Administratören ber om din aktuella plats en gång. Webbläsaren kommer också att fråga om tillstånd. Kontinuerlig spårning aktiveras inte.',
+  'Administratorius prašo vieną kartą gauti dabartinę jūsų vietą. Patvirtinus naršyklė dar paprašys vietos leidimo. Nuolatinis sekimas nebus įjungtas.': 'Administratören vill se var du befinner dig just nu. Om du godkänner frågar webbläsaren också om tillåtelse. Platsen delas bara en gång och spåras inte löpande.',
   'Bendrinti dabartinę vietą': 'Dela aktuell plats', 'Atmesti': 'Avvisa',
   'Nustatoma dabartinė vieta…': 'Hämtar aktuell plats…',
-  'Vieta perduota administratoriui vieną kartą.': 'Platsen delades med administratören en gång.',
+  'Vieta perduota administratoriui vieną kartą.': 'Din aktuella plats har delats med administratören en gång.',
   'Vietos nustatyti nepavyko.': 'Kunde inte fastställa platsen.',
   'Vietos bendrinimo prašymas atmestas.': 'Begäran om platsdelning avvisades.',
   'Ši naršyklė nepalaiko vietos nustatymo.': 'Den här webbläsaren stöder inte platsbestämning.',
-  'Pasiektas 50 ritmų limitas. Gali perrašyti arba ištrinti vieną iš savo ritmų.': 'Gränsen på 50 rytmer är nådd. Spela in över eller radera en av dina rytmer.',
+  'Pasiektas 50 ritmų limitas. Gali perrašyti arba ištrinti vieną iš savo ritmų.': 'Gränsen på 50 rytmer har nåtts. Spela in igen eller ta bort en av dina rytmer.',
   'Pavadinimas turi būti nuo 1 iki 60 simbolių.': 'Namnet måste vara 1–60 tecken långt.',
-  'Ritmo pavadinimas išsaugotas.': 'Rytmens namn har sparats.',
+  'Ritmo pavadinimas išsaugotas.': 'Namnet har sparats.',
   'Pasirink JPG, PNG arba WebP nuotrauką iki 5 MB.': 'Välj en JPG-, PNG- eller WebP-bild på högst 5 MB.',
   'Nepavyko perskaityti nuotraukos. Pasirink kitą JPG, PNG arba WebP failą.': 'Kunde inte läsa bilden. Välj en annan JPG-, PNG- eller WebP-fil.',
   'Nuotrauka per didelė. Pasirink mažesnę.': 'Bilden är för stor. Välj en mindre.',
   'Nuotrauka išsaugota.': 'Bilden har sparats.', 'Nuotrauka pašalinta.': 'Bilden har tagits bort.',
-  'Grok naują bandymą. Senas ritmas liks, kol nepatvirtinsi pakeitimo.': 'Spela in ett nytt försök. Den gamla rytmen finns kvar tills du bekräftar ändringen.',
-  'Įrašymas prasidėjo nuo pirmo smūgio.': 'Inspelningen började vid första tonen.',
-  'Tuščias bandymas neišsaugotas. Ankstesnis grojimas nepakeistas.': 'Ett tomt försök sparades inte. Den tidigare inspelningen är kvar.',
+  'Grok naują bandymą. Senas ritmas liks, kol nepatvirtinsi pakeitimo.': 'Spela in ett nytt försök. Den gamla inspelningen finns kvar tills du bekräftar ändringen.',
+  'Įrašymas prasidėjo nuo pirmo smūgio.': 'Inspelningen startade när du började spela.',
+  'Tuščias bandymas neišsaugotas. Ankstesnis grojimas nepakeistas.': 'Den tomma inspelningen sparades inte. Den tidigare inspelningen finns kvar.',
   'Pasirink: atnaujinti ritmą, pakartoti bandymą arba išeiti.': 'Välj att uppdatera rytmen, spela in igen eller avsluta.',
   'Pasirink: išsaugoti ritmą, pakartoti bandymą arba išeiti.': 'Välj att spara rytmen, spela in igen eller avsluta.',
   'Gali išsaugoti dar kartą arba pakartoti bandymą.': 'Du kan försöka spara igen eller spela in på nytt.',
-  'Bandymas pradėtas iš naujo. Įrašymas prasidės nuo pirmo smūgio.': 'Ett nytt försök är redo. Inspelningen börjar vid första tonen.',
+  'Bandymas pradėtas iš naujo. Įrašymas prasidės nuo pirmo smūgio.': 'Redo för ett nytt försök. Inspelningen börjar när du spelar.',
   'Bandymas atmestas. Ankstesni įrašai nepakeisti.': 'Försöket avbröts. Tidigare inspelningar är kvar.',
-  'Ritmas ištrintas. Gali sukurti naują.': 'Rytmen raderades. Du kan skapa en ny.',
-  'Nepavyko paleisti garso. Paliesk būgną ir bandyk atkurti dar kartą.': 'Kunde inte spela upp ljudet. Tryck på ett instrument och försök igen.',
+  'Ritmas ištrintas. Gali sukurti naują.': 'Inspelningen har tagits bort. Du kan skapa en ny.',
+  'Nepavyko paleisti garso. Paliesk būgną ir bandyk atkurti dar kartą.': 'Det gick inte att spela upp ljudet. Tryck på en tangent eller trumma och försök igen.',
   'Įvesk slapyvardį nuo 1 iki 24 simbolių.': 'Ange ett smeknamn på 1–24 tecken.',
   'Nebaigtas bandymas atmestas. Pasirinktas kitas instrumentas.': 'Det oavslutade försöket avbröts när du bytte instrument.',
   'Prisijungimas šiame įrenginyje pasikeitė. Perkrauk puslapį.': 'Inloggningen på den här enheten har ändrats. Ladda om sidan.',
@@ -148,7 +149,11 @@ function setText(element, source) {
 export function applyPageTranslations() {
   document.documentElement.lang = language;
   const select = document.getElementById('language-select');
-  if (select) select.value = language;
+  if (select) {
+    select.value = language;
+    select.setAttribute('aria-label', t('Kalba'));
+    document.querySelector('label[for="language-select"]').textContent = t('Kalba');
+  }
   document.querySelector('.kit-tabs')?.setAttribute('aria-label', t('Instrumentai'));
   const nickname = document.getElementById('nickname');
   if (nickname) nickname.placeholder = t('Kaip tave vadinti?');
@@ -175,8 +180,20 @@ export function applyPageTranslations() {
   document.getElementById('remove-avatar')?.setAttribute('aria-label', t('Pašalinti profilio nuotrauką'));
   const kitSection = document.querySelector('.kit');
   if (kitSection) kitSection.setAttribute('aria-label', t(document.body.dataset.kit === 'salamander-v1' ? 'Pianinas' : 'Būgnai'));
+  for (const drum of document.querySelectorAll('.drum')) {
+    drum.dataset.ariaSource ||= drum.getAttribute('aria-label') || '';
+    const [name, key] = drum.dataset.ariaSource.split(', ');
+    if (name && key) drum.setAttribute('aria-label', `${t(name)}, ${key}`);
+    const drumName = drum.querySelector('.drum-name');
+    if (drumName) {
+      drumName.dataset.source ||= drumName.textContent;
+      drumName.textContent = t(drumName.dataset.source);
+    }
+  }
+  const locationStatus = document.getElementById('location-request-status');
+  if (locationStatus && 'source' in locationStatus.dataset) locationStatus.textContent = t(locationStatus.dataset.source);
   const audio = document.getElementById('audio-status');
-  if (audio && !audio.hidden) audio.textContent = t(audio.dataset.source || (document.body.dataset.kit === 'salamander-v1' ? 'Įkeliami pianino garsai…' : 'Įkeliami būgnų garsai…'));
+  if (audio) audio.textContent = t(audio.dataset.source || (document.body.dataset.kit === 'salamander-v1' ? 'Įkeliami pianino garsai…' : 'Įkeliami būgnų garsai…'));
   const octaveControls = document.querySelector('.piano-octave-controls');
   if (octaveControls) octaveControls.setAttribute('aria-label', t('Pianino aukščio pasirinkimas'));
   const lowerButton = document.querySelector('[data-octave-shift="-1"]');
