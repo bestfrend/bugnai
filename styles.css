@@ -315,6 +315,7 @@ footer { padding: 24px 0 32px; }
   .kit .set:not(.piano-keyboard) .drum { grid-column: span 2; width: 100%; height: 100%; margin: 0; border-width: 5px; border-radius: 14px; font-size: clamp(2rem, 12vh, 4rem); line-height: 1; }
   .kit .set:not(.piano-keyboard) .drum:nth-child(5) { grid-column: 2 / span 2; }
   .piano-keyboard { max-width: none; height: 100%; border-radius: 0; }
+  .piano-keyboard .black-key { height: 46%; }
   .recording-bar { width: 100%; height: 100%; }
 }
 

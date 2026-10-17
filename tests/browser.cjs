@@ -283,6 +283,10 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert(kitBox.width>=910&&kitBox.height>=407,'instrument fills a rotated phone');
     const setBox=await page.locator('.set').boundingBox();
     assert(setBox.width>=910&&setBox.height>=407,'keys or drums use the full instrument area');
+    if(kit==='salamander-v1'){
+      const [keyboard,black]=await Promise.all([page.locator('.piano-keyboard').boundingBox(),page.locator('.black-key').first().boundingBox()]);
+      assert(black.height<=keyboard.height*.47,'black piano keys are shorter in landscape');
+    }
   }
 
   await strike(firstKey);
