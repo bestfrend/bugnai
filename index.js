@@ -165,7 +165,6 @@ function bindInstrumentButtons() {
     boundButtons.add(button);
     button.addEventListener('pointerdown', event => {
       if (event.button !== 0 || !window.drumAppReady) return;
-      event.preventDefault();
       if (ACTIVE_KIT === 'salamander-v1') {
         button.setPointerCapture(event.pointerId);
         pianoPointers.set(event.pointerId, key);

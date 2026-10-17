@@ -271,11 +271,18 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.equal(await page.evaluate(()=>window.loginFlashes),0);
 
   if(mobile){
-    await page.setViewportSize({width:915,height:412});
-    const pageHeight=await page.evaluate(()=>document.documentElement.scrollHeight);
-    assert(pageHeight>412,'a rotated phone page has content below the fold');
+    const portraitPageHeight=await page.evaluate(()=>document.documentElement.scrollHeight);
+    const portraitViewportHeight=await page.evaluate(()=>window.innerHeight);
+    assert(portraitPageHeight>portraitViewportHeight,'a vertical phone page has content below the fold');
     await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
-    assert(await page.evaluate(()=>window.scrollY>0),'a rotated phone page remains scrollable');
+    assert(await page.evaluate(()=>window.scrollY>0),'a vertical phone page remains scrollable');
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.setViewportSize({width:915,height:412});
+    assert.equal(await page.locator('body > header').evaluate(e=>getComputedStyle(e).display),'none');
+    const kitBox=await page.locator('.kit').boundingBox();
+    assert(kitBox.width>=910&&kitBox.height>=407,'instrument fills a rotated phone');
+    const setBox=await page.locator('.set').boundingBox();
+    assert(setBox.width>=910&&setBox.height>=407,'keys or drums use the full instrument area');
   }
 
   await strike(firstKey);
