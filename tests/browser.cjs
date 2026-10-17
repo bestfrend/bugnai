@@ -95,6 +95,8 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   const base=`http://127.0.0.1:${server.address().port}`;
   await page.goto(base+(file==='index.html'?'/':'/'+file));
   await wait(()=>page.locator('#audio-status').isHidden());
+  assert.equal(await page.locator('html').getAttribute('translate'),'no','browser translation must not override the language selector');
+  assert.equal(await page.locator('meta[name="google"]').getAttribute('content'),'notranslate');
   assert.equal(await page.locator('html').getAttribute('lang'),'lt','Lithuanian is the initial language');
   assert.equal(await page.locator('#language-select').inputValue(),'lt');
   assert(await page.locator('#status').isHidden(),'no connection message before entering a name');
@@ -231,7 +233,8 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.equal(recordings.get(own+':1').kit,kit);
   await page.locator('#language-select').selectOption('sv');
   assert.match(await page.locator('#rhythm-count').innerText(),/rytmer/);
-  assert.match(await page.locator(`[data-owner="${own}"] .play-rhythm`).first().innerText(),/Spela upp/);
+  assert.equal(await page.locator('#community-title').innerText(),'Våra rytmer');
+  assert.equal(await page.locator(`[data-owner="${own}"] .play-rhythm`).first().innerText(),'Spela upp');
   assert.match(await page.locator('#status').innerText(),/”Rytm 1” har sparats/);
   assert.match(await page.locator('.version').innerText(),/Version/);
   assert.equal(await page.locator('#app-version').count(),1,'version number survives language changes');
