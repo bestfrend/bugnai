@@ -521,9 +521,13 @@ async function instrumentScenario(browser,file,kit,mobile=false){
 async function adminScenario(browser){
   const context=await browser.newContext();
   const page=await context.newPage();
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now()+1000));
   let locationStatus='declined';
   let locationAccuracy=8;
+  let memberListRequests=0;
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',route=>{
+    memberListRequests++;
     const rows=[
       {id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:new Date().toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva',location_status:locationStatus,exact_latitude:54.680123,exact_longitude:25.280456,exact_accuracy_m:locationAccuracy,location_captured_at:'2026-10-15T12:30:00Z'},
       {id:other,nickname:'Atsijungęs',created_at:new Date().toISOString(),last_seen_at:'2026-01-01T00:00:00Z',rhythm_count:0,location_status:null}
@@ -534,6 +538,12 @@ async function adminScenario(browser){
   await page.locator('#admin-code').fill('test-admin-code-123');
   await page.locator('#admin-login-form').evaluate(form=>form.requestSubmit());
   await wait(()=>page.locator('#member-rows tr').count().then(n=>n===2));
+  assert.equal(memberListRequests,1);
+  await page.clock.fastForward(59999);
+  assert.equal(memberListRequests,1,'no automatic refresh before one minute');
+  await page.clock.fastForward(1);
+  await wait(()=>memberListRequests===2);
+  await wait(()=>page.locator('#admin-refresh').isEnabled());
   assert.match(await page.locator('#member-rows').textContent(),/Telefonas/);
   const coordinates=page.locator('.coordinate-copy');
   assert.equal(await coordinates.innerText(),'54.680123, 25.280456');
@@ -551,8 +561,10 @@ async function adminScenario(browser){
   assert.equal(await offlineRequest.innerText(),'Vartotojas neprisijungęs');
   assert(await offlineRequest.isDisabled());
   locationStatus='browser_denied';
+  const requestsBeforeClick=memberListRequests;
   await page.locator('#admin-refresh').click();
   await wait(()=>page.locator('.coordinate-state').innerText().then(text=>text.includes('Atmestas naršyklės leidimas')));
+  assert.equal(memberListRequests,requestsBeforeClick+1,'manual refresh runs immediately without waiting for the minute timer');
   locationStatus='pending';
   await page.locator('#admin-refresh').click();
   await wait(()=>page.getByRole('button',{name:'Atšaukti prašymą',exact:true}).count().then(Boolean));

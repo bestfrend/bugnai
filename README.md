@@ -40,7 +40,7 @@ be viešos skaitymo teisės.
 Panelėje rodomi visi nariai, jų ritmų skaičius ir būsena. Programa atnaujina nario
 aktyvumo laiką kas 30 sekundžių; jei atnaujinimo nebuvo 75 sekundes, panelė jį rodo
 kaip atsijungusį. Aktyvumo laikas saugomas privačioje lentelėje ir paprastiems
-nariams negrąžinamas. Panelė pati atsinaujina kas 5 sekundes.
+nariams negrąžinamas. Panelė pati atsinaujina kas minutę arba iškart paspaudus „Atnaujinti“.
 
 Įrenginio rūšiai, operacinei sistemai, naršyklei, sesijos pradžiai, apytikslei IP
 vietai ir vartotojo patvirtinamoms vienkartinėms tikslioms koordinatėms pridėti

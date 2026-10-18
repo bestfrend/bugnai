@@ -215,13 +215,13 @@ function showPanel() {
   $('admin-login').hidden = true;
   $('admin-panel').hidden = false;
   clearInterval(refreshTimer);
-  refreshTimer = setInterval(() => refresh(true), 5_000);
+  refreshTimer = setInterval(() => refresh(true), 60_000);
 }
 
 async function refresh(silent = false) {
   if (!adminCode) return showLogin();
   if (!silent) setStatus('Atnaujinama…');
-  $('admin-refresh').disabled = true;
+  if (!silent) $('admin-refresh').disabled = true;
   try {
     members = await listMembers();
     render();
@@ -230,7 +230,7 @@ async function refresh(silent = false) {
     if (error.status === 401 || error.status === 403) showLogin('Neteisingas administratoriaus kodas.', true);
     else setStatus(error.message, true);
   } finally {
-    $('admin-refresh').disabled = false;
+    if (!silent) $('admin-refresh').disabled = false;
   }
 }
 
