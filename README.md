@@ -54,6 +54,11 @@ lentelė rodo naujausias patvirtintas koordinates net tada, kai paskutinis praš
 atmestas arba dar laukia atsakymo. Koordinates galima nukopijuoti spustelėjus
 arba atverti „Google Maps“ nuorodoje.
 
+Po to paleiskite ir [supabase/location-request-expiry.sql](supabase/location-request-expiry.sql).
+Ji leidžia prašyti vietos tik aktyviai prisijungusio vartotojo, prašymą apriboja iki
+10 sekundžių ir leidžia administratoriui jį atšaukti. Lentelėje apytikslė vietovė
+pagal IP rodoma atskirai nuo vienkartinės tikslios, vartotojo patvirtintos vietos.
+
 ### Įrašymo taisyklės
 
 - Vardas yra viešas slapyvardis, ne slaptažodis. Tapatybę suteikia Supabase Auth.

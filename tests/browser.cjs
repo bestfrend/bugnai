@@ -413,13 +413,16 @@ async function adminScenario(browser){
   const context=await browser.newContext();
   const page=await context.newPage();
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',route=>{
-    const rows=[{id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:new Date().toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva',location_status:'declined',exact_latitude:54.680123,exact_longitude:25.280456,exact_accuracy_m:8,location_captured_at:'2026-10-15T12:30:00Z'}];
+    const rows=[
+      {id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:new Date().toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva',location_status:'declined',exact_latitude:54.680123,exact_longitude:25.280456,exact_accuracy_m:8,location_captured_at:'2026-10-15T12:30:00Z'},
+      {id:other,nickname:'Atsijungęs',created_at:new Date().toISOString(),last_seen_at:'2026-01-01T00:00:00Z',rhythm_count:0,location_status:null}
+    ];
     route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify(rows)});
   });
   await page.goto(`http://127.0.0.1:${server.address().port}/admin.html`);
   await page.locator('#admin-code').fill('test-admin-code-123');
   await page.locator('#admin-login-form').evaluate(form=>form.requestSubmit());
-  await wait(()=>page.locator('#member-rows tr').count().then(n=>n===1));
+  await wait(()=>page.locator('#member-rows tr').count().then(n=>n===2));
   assert.match(await page.locator('#member-rows').textContent(),/Telefonas/);
   const coordinates=page.locator('.coordinate-copy');
   assert.equal(await coordinates.innerText(),'54.680123, 25.280456');
@@ -432,6 +435,9 @@ async function adminScenario(browser){
   await coordinates.click();
   assert.equal(await page.evaluate(()=>window.copiedCoordinate),'54.680123, 25.280456');
   assert.match(await page.locator('#admin-status').innerText(),/nukopijuotos/);
+  const offlineRequest=page.locator('#member-rows tr').filter({hasText:'Atsijungęs'}).getByRole('button');
+  assert.equal(await offlineRequest.innerText(),'Vartotojas neprisijungęs');
+  assert(await offlineRequest.isDisabled());
   console.log('PASS admin member list');
   await context.close();
 }

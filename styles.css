@@ -355,6 +355,7 @@ footer { padding: 24px 0 32px; }
 .coordinate-map { color: #8dd7ff; font: 600 12px/1.2 system-ui, sans-serif; white-space: nowrap; text-underline-offset: 3px; }
 .exact-location-cell small { margin-top: 3px; color: #b7c4df; white-space: nowrap; }
 .exact-location-cell .coordinate-state { color: #e1c6a5; white-space: normal; }
+.exact-location-cell .coordinate-kind { color: #9ec8b5; white-space: normal; }
 .admin-table td:first-child small { max-width: 250px; margin-top: 4px; overflow: hidden; color: #94a4c1; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; user-select: text; -webkit-user-select: text; }
 .presence { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 .presence::before { width: 9px; height: 9px; border-radius: 50%; content: ''; }

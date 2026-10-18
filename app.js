@@ -21,6 +21,7 @@ let presenceTimer;
 let locationRequestTimer;
 let activeLocationRequest;
 let locationResponseBusy = false;
+let locationExpiryTimer;
 let mutationRevision = 0;
 let renamingSlot = null;
 let renamingBusy = false;
@@ -415,7 +416,7 @@ function startPolling() {
   db.touchPresence().catch(() => {});
   pollTimer = setInterval(() => loadUsers(true, true), 30000);
   presenceTimer = setInterval(() => db.touchPresence().catch(() => {}), 30000);
-  locationRequestTimer = setInterval(checkLocationRequest, 8000);
+  locationRequestTimer = setInterval(checkLocationRequest, 2000);
   checkLocationRequest();
 }
 
@@ -498,17 +499,29 @@ async function checkLocationRequest() {
     const requests = await db.pendingLocationRequest();
     if (!requests.length) return;
     activeLocationRequest = requests[0];
+    const remaining = new Date(activeLocationRequest.expires_at).getTime() - Date.now();
+    if (!Number.isFinite(remaining) || remaining <= 0) {
+      activeLocationRequest = null;
+      return;
+    }
+    clearTimeout(locationExpiryTimer);
+    locationExpiryTimer = setTimeout(() => {
+      if (!activeLocationRequest) return;
+      $('location-request-dialog').close();
+      activeLocationRequest = null;
+      status('Vietos bendrinimo prašymo laikas baigėsi.');
+    }, remaining);
     $('location-request-status').dataset.source = '';
     $('location-request-status').textContent = '';
     $('location-request-dialog').showModal();
   } catch {}
 }
 
-function currentPosition() {
+function currentPosition(timeout) {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) return reject(new Error(t('Ši naršyklė nepalaiko vietos nustatymo.')));
     navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true, timeout: 15000, maximumAge: 0
+      enableHighAccuracy: true, timeout, maximumAge: 0
     });
   });
 }
@@ -519,14 +532,18 @@ async function shareRequestedLocation() {
   $('location-request-status').dataset.source = 'Nustatoma dabartinė vieta…';
   $('location-request-status').textContent = t('Nustatoma dabartinė vieta…');
   try {
-    const position = await currentPosition();
+    const remaining = new Date(activeLocationRequest.expires_at).getTime() - Date.now();
+    if (!Number.isFinite(remaining) || remaining < 1000) throw new Error(t('Vietos bendrinimo prašymo laikas baigėsi.'));
+    const position = await currentPosition(Math.min(8000, remaining - 250));
     await db.respondLocationRequest(activeLocationRequest.id, 'approved', position);
+    clearTimeout(locationExpiryTimer);
     $('location-request-dialog').close();
     activeLocationRequest = null;
     status('Vieta perduota administratoriui vieną kartą.');
   } catch (error) {
     try { await db.respondLocationRequest(activeLocationRequest.id, 'error'); } catch {}
     $('location-request-dialog').close();
+    clearTimeout(locationExpiryTimer);
     activeLocationRequest = null;
     status(error.message || 'Vietos nustatyti nepavyko.', true);
   } finally {
@@ -540,6 +557,7 @@ async function declineLocationRequest() {
   try {
     await db.respondLocationRequest(activeLocationRequest.id, 'declined');
     $('location-request-dialog').close();
+    clearTimeout(locationExpiryTimer);
     activeLocationRequest = null;
     status('Vietos bendrinimo prašymas atmestas.');
   } catch (error) {
@@ -945,6 +963,7 @@ window.addEventListener('pagehide', () => {
   clearInterval(pollTimer);
   clearInterval(presenceTimer);
   clearInterval(locationRequestTimer);
+  clearTimeout(locationExpiryTimer);
   clearRecordTimers();
   if (recording?.events.length && recording.stage !== 'saving') {
     localStorage.setItem(EMERGENCY_DRAFT_KEY, JSON.stringify({ events: recording.events, kit: recording.kit }));

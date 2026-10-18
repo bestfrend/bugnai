@@ -3,6 +3,7 @@
 -- Run once in Supabase SQL Editor after member-insights.sql. Safe to re-run.
 begin;
 
+drop function if exists public.admin_list_members(text);
 create or replace function public.admin_list_members(p_code text)
 returns table (
   id uuid,
@@ -20,7 +21,8 @@ returns table (
   exact_longitude double precision,
   exact_accuracy_m double precision,
   location_captured_at timestamptz,
-  location_requested_at timestamptz
+  location_requested_at timestamptz,
+  location_expires_at timestamptz
 )
 language plpgsql
 stable
@@ -35,11 +37,11 @@ begin
     select p.id, p.nickname, p.created_at, mp.last_seen_at,
       (select count(*) from public.performances r where r.owner_id = p.id)::bigint,
       mp.session_started_at, mp.device_type, mp.os_name, mp.browser_name, mp.approx_location,
-      lr.status, approved.latitude, approved.longitude, approved.accuracy_m, approved.captured_at, lr.requested_at
+      lr.status, approved.latitude, approved.longitude, approved.accuracy_m, approved.captured_at, lr.requested_at, lr.expires_at
     from public.profiles p
     left join public.member_presence mp on mp.member_id = p.id
     left join lateral (
-      select q.status, q.requested_at
+      select q.status, q.requested_at, q.expires_at
       from public.location_requests q
       where q.member_id = p.id
       order by q.requested_at desc

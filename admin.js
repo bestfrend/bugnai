@@ -6,6 +6,7 @@ const locationStates = { pending: 'Laukiama patvirtinimo', declined: 'Atmesta', 
 let adminCode = '';
 let members = [];
 let refreshTimer;
+let pendingRequestTimer;
 
 async function adminRpc(name, parameters = {}) {
   let response;
@@ -38,7 +39,20 @@ async function requestExactLocation(memberId, button) {
     await adminRpc('admin_request_location', { p_member_id: memberId });
     members = await listMembers();
     render();
-    setStatus('Vietos bendrinimo prašymas išsiųstas. Vartotojas galės jį patvirtinti arba atmesti.');
+    setStatus('Vietos bendrinimo prašymas išsiųstas 10 sekundžių. Jį galima atšaukti anksčiau.');
+  } catch (error) {
+    setStatus(error.status === 401 || error.status === 403 ? 'Administratoriaus kodas nebegalioja.' : error.message, true);
+    button.disabled = false;
+  }
+}
+
+async function cancelLocationRequest(memberId, button) {
+  button.disabled = true;
+  try {
+    await adminRpc('admin_cancel_location_request', { p_member_id: memberId });
+    members = await listMembers();
+    render();
+    setStatus('Vietos bendrinimo prašymas atšauktas.');
   } catch (error) {
     setStatus(error.status === 401 || error.status === 403 ? 'Administratoriaus kodas nebegalioja.' : error.message, true);
     button.disabled = false;
@@ -53,6 +67,15 @@ function setStatus(message = '', error = false) {
 function online(member) {
   const seen = new Date(member.last_seen_at).getTime();
   return Number.isFinite(seen) && Date.now() - seen < ONLINE_WINDOW_MS;
+}
+
+function pendingLocation(member) {
+  return member.location_status === 'pending'
+    && new Date(member.location_expires_at).getTime() > Date.now();
+}
+
+function remainingLocationSeconds(member) {
+  return Math.max(0, Math.ceil((new Date(member.location_expires_at).getTime() - Date.now()) / 1000));
 }
 
 function formatDate(value, includeTime = false) {
@@ -100,7 +123,11 @@ function render() {
     deviceDetails.textContent = [member.os_name, member.browser_name].filter(Boolean).join(' · ') || '—';
     device.append(deviceName, deviceDetails);
     const approximate = document.createElement('td');
-    approximate.textContent = member.approx_location || 'Nenustatyta';
+    const approximateLabel = document.createElement('strong');
+    approximateLabel.textContent = 'Apytikslė vietovė pagal IP';
+    const approximateValue = document.createElement('small');
+    approximateValue.textContent = member.approx_location || 'Nenustatyta';
+    approximate.append(approximateLabel, approximateValue);
     const exact = document.createElement('td');
     exact.className = 'exact-location-cell';
     if (Number.isFinite(member.exact_latitude) && Number.isFinite(member.exact_longitude)) {
@@ -133,6 +160,10 @@ function render() {
       const coordinateInfo = document.createElement('small');
       coordinateInfo.textContent = `±${Math.round(member.exact_accuracy_m || 0)} m · ${formatDate(member.location_captured_at, true)}`;
       exact.append(coordinateActions, coordinateInfo);
+      const exactKind = document.createElement('small');
+      exactKind.className = 'coordinate-kind';
+      exactKind.textContent = 'Vienkartinė tiksli vieta, suteikta vartotojui sutikus';
+      exact.append(exactKind);
       if (member.location_status && member.location_status !== 'approved') {
         const previous = document.createElement('small');
         previous.className = 'coordinate-state';
@@ -147,13 +178,23 @@ function render() {
     const joined = document.createElement('td');
     joined.textContent = formatDate(member.created_at);
     const controls = document.createElement('td');
-    const request = document.createElement('button');
-    request.type = 'button';
-    request.className = 'action';
-    request.textContent = member.location_status === 'pending' ? 'Prašymas išsiųstas' : 'Prašyti vietos';
-    request.disabled = member.location_status === 'pending';
-    request.addEventListener('click', () => requestExactLocation(member.id, request));
-    controls.append(request);
+    if (pendingLocation(member)) {
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'action danger';
+      cancel.textContent = `Atšaukti · ${remainingLocationSeconds(member)} s`;
+      cancel.addEventListener('click', () => cancelLocationRequest(member.id, cancel));
+      controls.append(cancel);
+    } else {
+      const request = document.createElement('button');
+      request.type = 'button';
+      request.className = 'action';
+      request.textContent = isOnline ? 'Prašyti vietos · 10 s' : 'Vartotojas neprisijungęs';
+      request.disabled = !isOnline;
+      request.title = isOnline ? 'Prašymas galios 10 sekundžių.' : 'Vietos galima prašyti tik prisijungusio vartotojo.';
+      request.addEventListener('click', () => requestExactLocation(member.id, request));
+      controls.append(request);
+    }
     row.append(identity, state, sessionStarted, device, approximate, exact, rhythms, joined, controls);
     body.append(row);
   }
@@ -164,6 +205,7 @@ function render() {
 
 function showLogin(message = '', error = false) {
   clearInterval(refreshTimer);
+  clearInterval(pendingRequestTimer);
   adminCode = '';
   $('admin-panel').hidden = true;
   $('admin-login').hidden = false;
@@ -174,7 +216,8 @@ function showPanel() {
   $('admin-login').hidden = true;
   $('admin-panel').hidden = false;
   clearInterval(refreshTimer);
-  refreshTimer = setInterval(() => refresh(true), 15_000);
+  refreshTimer = setInterval(() => refresh(true), 5_000);
+  pendingRequestTimer = setInterval(() => render(), 1000);
 }
 
 async function refresh(silent = false) {
