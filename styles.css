@@ -269,9 +269,29 @@ footer { padding: 24px 0 32px; }
 .kit-tabs a { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 42px; padding: 8px; border-radius: 11px; color: #c0cce2; text-decoration: none; font-size: 13px; font-weight: 600; }
 .kit-tabs a[aria-current="page"] { color: #fff; background: #485d80; box-shadow: 0 2px 8px #1115; }
 .kit-tabs a:focus-visible { outline: 3px solid #dbedf3; outline-offset: 2px; }
-.studio-kit .drum { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border-radius: 22px; vertical-align: top; background-size: cover; background-position: center; }
-.studio-kit .drum-key { font-size: 2.3rem; line-height: 1; }
-.studio-kit .drum-name { max-width: 100%; padding: 3px 4px; border-radius: 6px; font: 600 10px/1.2 system-ui, sans-serif; color: #f2f6ff; background: #172238dc; text-shadow: none; }
+/* Keep the two main rhythm pads wide and within reach of either thumb. */
+.kit .set:not(.piano-keyboard) {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  grid-template-areas: "high high mid mid crash crash" "low low low floor floor floor" "snare snare snare kick kick kick";
+  gap: 10px;
+  max-width: 720px;
+  height: clamp(288px, 68vw, 440px);
+}
+.studio-kit .set:not(.piano-keyboard) {
+  grid-template-areas: "low low floor floor crash crash" "high high high mid mid mid" "snare snare snare kick kick kick";
+}
+.kit .set:not(.piano-keyboard) .drum { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 4px; border-width: 6px; border-radius: 20px; background-size: cover; background-position: center; }
+.drum.w { grid-area: high; }
+.drum.a { grid-area: mid; }
+.drum.s { grid-area: low; }
+.drum.d { grid-area: floor; }
+.drum.j { grid-area: snare; }
+.drum.k { grid-area: crash; }
+.drum.l { grid-area: kick; }
+.drum .drum-key { font-size: clamp(1.8rem, 5vw, 2.8rem); line-height: 1; }
+.drum .drum-name { max-width: 100%; padding: 3px 4px; border-radius: 6px; font: 600 10px/1.2 system-ui, sans-serif; color: #f2f6ff; background: #172238dc; text-shadow: none; }
 .studio-kit .a { background-image: url('images/tom4.png'); }
 .studio-kit .s { background-image: url('images/hihat.svg'); }
 .studio-kit .d { background-image: url('images/ride.svg'); }
@@ -280,9 +300,8 @@ footer { padding: 24px 0 32px; }
 .sound-credit a { color: #a5b1c9; text-decoration: none; }
 .rhythm-kit { display: block; color: #a5b1c9; font-size: 9px; line-height: 12px; }
 @media (max-width: 400px) {
-  .studio-kit .drum { gap: 3px; }
-  .studio-kit .drum-key { font-size: 1.8rem; }
-  .studio-kit .drum-name { font-size: 9px; padding: 2px 3px; }
+  .kit .set:not(.piano-keyboard) { gap: 7px; }
+  .drum .drum-name { font-size: 9px; padding: 2px 3px; }
 }
 
 /* One octave fits a phone without sideways scrolling; touch supports chords. */
@@ -319,9 +338,8 @@ footer { padding: 24px 0 32px; }
   main, #workspace, .kit { width: 100%; max-width: none; height: 100%; margin: 0; padding: 0; }
   .kit > .hint, .kit > .sound-credit, .kit > .piano-author { display: none !important; }
   .kit .set { width: 100%; height: 100%; margin: 0; }
-  .kit .set:not(.piano-keyboard) { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; }
-  .kit .set:not(.piano-keyboard) .drum { grid-column: span 2; width: 100%; height: 100%; margin: 0; border-width: 5px; border-radius: 14px; font-size: clamp(2rem, 12vh, 4rem); line-height: 1; }
-  .kit .set:not(.piano-keyboard) .drum:nth-child(5) { grid-column: 2 / span 2; }
+  .kit .set:not(.piano-keyboard) { max-width: none; height: 100%; gap: 4px; padding: 4px; }
+  .kit .set:not(.piano-keyboard) .drum { border-width: 5px; border-radius: 14px; }
   .piano-keyboard { max-width: none; height: 100%; border-radius: 0; }
   .piano-keyboard .black-key { height: 38%; }
   .piano-kit .piano-octave-controls { position: absolute; z-index: 2; top: 4px; left: 50%; transform: translateX(-50%); margin: 0; padding: 2px 4px; border-radius: 9px; background: #151c2bdb; }
