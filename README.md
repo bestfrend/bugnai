@@ -49,15 +49,12 @@ vietai ir vartotojo patvirtinamoms vienkartinėms tikslioms koordinatėms pridė
 naudojama `ipwho.is` HTTPS paslauga; IP adresas programos duomenų bazėje nesaugomas.
 Kiekvienas tikslios vietos prašymas ir atsakymas saugomas atskira istorijos eilute.
 Jei `member-insights.sql` jau buvo paleistas anksčiau, Supabase SQL Editor paleiskite
-[supabase/location-history.sql](supabase/location-history.sql). Po šio pakeitimo
-lentelė rodo naujausias patvirtintas koordinates net tada, kai paskutinis prašymas
-atmestas arba dar laukia atsakymo. Koordinates galima nukopijuoti spustelėjus
-arba atverti „Google Maps“ nuorodoje.
-
-Po to paleiskite ir [supabase/location-request-expiry.sql](supabase/location-request-expiry.sql).
-Ji leidžia prašyti vietos tik aktyviai prisijungusio vartotojo, prašymą apriboja iki
-10 sekundžių ir leidžia administratoriui jį atšaukti. Lentelėje apytikslė vietovė
-pagal IP rodoma atskirai nuo vienkartinės tikslios, vartotojo patvirtintos vietos.
+vieną kartą visą [supabase/location-request-expiry.sql](supabase/location-request-expiry.sql).
+Ji taip pat išlaiko lentelėje naujausias patvirtintas koordinates, kai vėlesnis
+užklausimas atmetamas arba pasibaigia. Prašyti vietos galima tik aktyviai prisijungusio
+vartotojo, prašymas galioja 10 sekundžių ir administratorius gali jį atšaukti.
+Lentelėje apytikslė vietovė pagal IP rodoma atskirai nuo vienkartinės tikslios,
+vartotojo patvirtintos vietos; koordinates galima nukopijuoti arba atverti „Google Maps“.
 
 ### Įrašymo taisyklės
 
