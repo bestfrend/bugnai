@@ -22,6 +22,8 @@ let locationRequestTimer;
 let activeLocationRequest;
 let locationResponseBusy = false;
 let locationExpiryTimer;
+let locationRequestChecking = false;
+let lastLocationRequestCheck = 0;
 let mutationRevision = 0;
 let renamingSlot = null;
 let renamingBusy = false;
@@ -416,7 +418,9 @@ function startPolling() {
   db.touchPresence().catch(() => {});
   pollTimer = setInterval(() => loadUsers(true, true), 30000);
   presenceTimer = setInterval(() => db.touchPresence().catch(() => {}), 30000);
-  locationRequestTimer = setInterval(checkLocationRequest, 2000);
+  locationRequestTimer = setInterval(() => {
+    if (activeLocationRequest || Date.now() - lastLocationRequestCheck >= 2000) checkLocationRequest();
+  }, 500);
   checkLocationRequest();
 }
 
@@ -494,9 +498,22 @@ function createLocationDialog() {
 }
 
 async function checkLocationRequest() {
-  if (!me || document.hidden || activeLocationRequest || locationResponseBusy) return;
+  if (!me || document.hidden || locationRequestChecking) return;
+  locationRequestChecking = true;
+  lastLocationRequestCheck = Date.now();
+  const current = activeLocationRequest;
   try {
     const requests = await db.pendingLocationRequest();
+    if (current) {
+      if (activeLocationRequest?.id !== current.id) return;
+      if (!requests.some(request => request.id === current.id)) {
+        clearTimeout(locationExpiryTimer);
+        $('location-request-dialog').close();
+        activeLocationRequest = null;
+      }
+      return;
+    }
+    if (locationResponseBusy) return;
     if (!requests.length) return;
     activeLocationRequest = requests[0];
     const remaining = new Date(activeLocationRequest.expires_at).getTime() - Date.now();
@@ -513,7 +530,9 @@ async function checkLocationRequest() {
     $('location-request-status').dataset.source = '';
     $('location-request-status').textContent = '';
     $('location-request-dialog').showModal();
-  } catch {}
+  } catch {} finally {
+    locationRequestChecking = false;
+  }
 }
 
 function currentPosition(timeout) {
@@ -540,7 +559,7 @@ async function shareRequestedLocation() {
       return;
     }
     const position = await currentPosition(Math.min(8000, remaining - 250));
-    if (!activeLocationRequest || new Date(request.expires_at).getTime() <= Date.now()) return;
+    if (activeLocationRequest?.id !== request.id || new Date(request.expires_at).getTime() <= Date.now()) return;
     await db.respondLocationRequest(request.id, 'approved', position);
     clearTimeout(locationExpiryTimer);
     $('location-request-dialog').close();

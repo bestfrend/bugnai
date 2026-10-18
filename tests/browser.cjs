@@ -46,6 +46,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   const profiles=[{id:other,nickname:'Kitas',created_at:new Date().toISOString()}];
   const recordings=new Map();
   let saves=0,emergencySaves=0,authRequests=0,sessionStarts=0;
+  let locationRequest=null;
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
   await context.route('https://ipwho.is/**',route=>route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify({success:true,city:'Vilnius',region:'Vilniaus apskritis',country:'Lietuva'})}));
@@ -58,7 +59,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert.equal(req.headers().authorization,'Bearer test-access');
     if(url.pathname==='/rest/v1/rpc/start_member_session'){sessionStarts++;return reply(null);}
     if(url.pathname==='/rest/v1/rpc/touch_member_presence')return reply(null);
-    if(url.pathname==='/rest/v1/rpc/member_pending_location_request')return reply([]);
+    if(url.pathname==='/rest/v1/rpc/member_pending_location_request')return reply(locationRequest?[locationRequest]:[]);
     if(url.pathname==='/rest/v1/profiles'){
       if(method==='POST'){profiles.push(req.postDataJSON());return reply(null,201);}
       const id=url.searchParams.get('id')?.slice(3);
@@ -137,6 +138,15 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>page.locator(`[data-owner="${own}"]`).count().then(Boolean));
   assert(await page.locator('.kit-tabs').isVisible(),'instrument tabs appear after sign-in');
   await wait(()=>page.locator('#rhythm-count').textContent().then(text=>text.includes('0 / 50')));
+
+  const statusBeforeLocation=await page.locator('#status').textContent();
+  locationRequest={id:'33333333-3333-4333-8333-333333333333',expires_at:new Date(await page.evaluate(()=>Date.now())+10000).toISOString()};
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  locationRequest=null;
+  await page.clock.runFor(600);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'admin cancellation closes the request without a message');
 
   assert.equal(await page.locator('#create-rhythm').count(),0);
   assert.equal(await page.locator('#strength-control').count(),0);
