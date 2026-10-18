@@ -46,6 +46,10 @@ paleiskite [supabase/location-live-updates.sql](supabase/location-live-updates.s
 Serveris siunčia tik tuščią pranešimą apie pakeitimą; gavusi jį, panelė iš naujo
 užkrauna duomenis per administratoriaus kodu apsaugotą užklausą. Ryšiui nutrūkus jis
 atkuriamas, o minutinis ir rankinis atnaujinimai lieka veikti.
+Pirmos naršyklės pateiktos koordinatės išsaugomos iškart. Dar iki 12 sekundžių
+renkami tikslesni rezultatai ir atnaujinamas tas pats patvirtintas įrašas.
+Jei SQL failas paleistas prieš šį pakeitimą, paleiskite jį pakartotinai, kad būtų
+pridėta `member_refine_location_request` funkcija. Esami duomenys išlieka.
 
 Įrenginio rūšiai, operacinei sistemai, naršyklei, sesijos pradžiai, apytikslei IP
 vietai ir vartotojo patvirtinamoms vienkartinėms tikslioms koordinatėms pridėti

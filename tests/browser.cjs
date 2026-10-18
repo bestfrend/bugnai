@@ -65,6 +65,13 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     if(url.pathname==='/rest/v1/rpc/touch_member_presence')return reply(null);
     if(url.pathname==='/rest/v1/rpc/member_pending_location_request')return reply(locationRequest?[locationRequest]:[]);
     if(url.pathname==='/rest/v1/rpc/member_begin_location_request')return beginLocationAvailable?reply(null):reply({code:'PGRST202'},404);
+    if(url.pathname==='/rest/v1/rpc/member_refine_location_request'){
+      const refinement=req.postDataJSON();
+      assert.equal(locationOutcomes.get(refinement.p_request_id),'approved','refine only after saving the first fix');
+      assert(refinement.p_accuracy_m<locationData.p_accuracy_m,'refinements must improve accuracy');
+      locationData=refinement;
+      return reply(null);
+    }
     if(url.pathname==='/rest/v1/rpc/member_respond_location_request'){
       const decision=req.postDataJSON();
       if(locationOutcomes.has(decision.p_request_id))return reply({code:'P0002'},404);
@@ -244,12 +251,13 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.clock.fastForward(20000);
   assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open),'permission waiting remains in the background');
   await page.evaluate(()=>window.watchSuccess({coords:{latitude:54,longitude:25,accuracy:2500}}));
-  assert.equal(locationDecision,null,'coarse first fix must not prevent a more accurate fix');
+  await wait(()=>locationDecision==='approved');
+  assert.equal(locationData.p_accuracy_m,2500,'first fix is saved without waiting for the refinement timer');
   await page.clock.runFor(100);
   await page.evaluate(()=>window.watchSuccess({coords:{latitude:54.68,longitude:25.28,accuracy:8}}));
   await wait(()=>locationDecision==='approved');
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
-  assert.equal(locationData.p_accuracy_m,8);
+  await wait(()=>locationData.p_accuracy_m===8);
   assert.equal(locationData.p_latitude,54.68);
   assert.equal(await page.evaluate(()=>window.clearedLocationWatch),1,'watch stops after an accurate fix');
 
@@ -267,7 +275,8 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.clock.fastForward(12000);
   await wait(()=>locationDecision==='approved');
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
-  assert.equal(locationData.p_accuracy_m,800,'save the best fix, not the last or first fix');
+  await wait(()=>locationData.p_accuracy_m===800);
+  assert.equal(locationData.p_accuracy_m,800,'save improvements without overwriting them with a worse fix');
   assert.equal(await page.evaluate(()=>window.clearedLocationWatch),2,'coarse-only acquisition is bounded');
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'refinement adds no client messages');
 

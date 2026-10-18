@@ -522,7 +522,7 @@ function closeLocationRequest() {
   activeLocationRequest = null;
 }
 
-function currentPosition(requestId) {
+function currentPosition(requestId, onPosition) {
   return new Promise((resolve, reject) => {
     const geolocation = navigator.geolocation;
     if (!geolocation) return reject(new Error(t('Ši naršyklė nepalaiko vietos nustatymo.')));
@@ -530,6 +530,7 @@ function currentPosition(requestId) {
     let watchId;
     let refinementTimer;
     let best;
+    let saving = Promise.resolve();
     let finished = false;
     const finish = error => {
       if (finished) return;
@@ -538,7 +539,7 @@ function currentPosition(requestId) {
       if (watchId !== undefined) geolocation.clearWatch(watchId);
       locationAcquisitions.delete(requestId);
       if (error) reject(error);
-      else resolve(best);
+      else resolve(saving);
     };
     locationAcquisitions.set(requestId, () => finish(Object.assign(new Error('Location collection cancelled'), { code: 'LOCATION_CANCELLED' })));
     const onError = error => finish(best && error.code !== 1 ? undefined : error);
@@ -547,17 +548,26 @@ function currentPosition(requestId) {
         geolocation.getCurrentPosition(position => {
           if (finished) return;
           best = position;
+          saving = saving.then(() => onPosition(position, false));
+          saving.catch(() => {});
           finish();
         }, onError, options);
         return;
       }
       watchId = geolocation.watchPosition(position => {
         if (finished) return;
-        if (!best || position.coords.accuracy < best.coords.accuracy) best = position;
+        if (!best || position.coords.accuracy < best.coords.accuracy) {
+          const refinement = !!best;
+          best = position;
+          // Save the first fix immediately. Serialize later improvements so an
+          // earlier, slower request cannot overwrite a more accurate result.
+          saving = saving.then(() => onPosition(position, refinement));
+          saving.catch(() => {});
+        }
         if (best.coords.accuracy <= 100) return finish();
         // The browser can initially return a coarse fix while GPS warms up.
         // This bounded refinement starts AFTER a first fix, never while waiting
-        // for permission. Save one best fix and stop watching afterwards.
+        // for permission. The first fix is already visible to the admin.
         if (!refinementTimer) refinementTimer = setTimeout(() => finish(), 12000);
       }, onError, options);
       if (finished) geolocation.clearWatch(watchId);
@@ -573,8 +583,9 @@ async function shareRequestedLocation() {
   closeLocationRequest();
   try {
     await db.beginLocationRequest(request.id);
-    const position = await currentPosition(request.id);
-    await db.respondLocationRequest(request.id, 'approved', position);
+    await currentPosition(request.id, (position, refinement) => refinement
+      ? db.refineLocationRequest(request.id, position)
+      : db.respondLocationRequest(request.id, 'approved', position));
   } catch (error) {
     const cancelled = error.code === 'P0002' || error.code === 'LOCATION_CANCELLED';
     const browserDenied = error.code === 1;

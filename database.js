@@ -194,6 +194,23 @@ export function respondLocationRequest(requestId, decision, position = null) {
   });
 }
 
+export async function refineLocationRequest(requestId, position) {
+  try {
+    await rest('rpc/member_refine_location_request', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_request_id: requestId,
+        p_latitude: position.coords.latitude,
+        p_longitude: position.coords.longitude,
+        p_accuracy_m: position.coords.accuracy
+      })
+    });
+  } catch (error) {
+    // Saving the first fix works even before this optional migration is run.
+    if (error.code !== 'PGRST202') throw error;
+  }
+}
+
 export function saveAvatar(avatar) {
   return rest('profiles?id=eq.' + currentUser().id, {
     method: 'PATCH',
