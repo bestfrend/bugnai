@@ -97,7 +97,7 @@ create table if not exists public.location_requests (
   requested_at timestamptz not null default now(),
   responded_at timestamptz,
   status text not null default 'pending'
-    check (status in ('pending', 'approved', 'declined', 'browser_denied', 'error', 'expired')),
+    check (status in ('pending', 'approved', 'declined', 'browser_denied', 'error', 'expired', 'cancelled')),
   latitude double precision check (latitude is null or latitude between -90 and 90),
   longitude double precision check (longitude is null or longitude between -180 and 180),
   accuracy_m double precision check (accuracy_m is null or accuracy_m between 0 and 100000),
@@ -107,21 +107,21 @@ create index if not exists location_requests_member_time
   on public.location_requests (member_id, requested_at desc);
 alter table public.location_requests drop constraint if exists location_requests_status_check;
 alter table public.location_requests add constraint location_requests_status_check
-  check (status in ('pending', 'approved', 'declined', 'browser_denied', 'error', 'expired'));
+  check (status in ('pending', 'approved', 'declined', 'browser_denied', 'error', 'expired', 'cancelled'));
+alter table public.location_requests add column if not exists browser_started_at timestamptz;
 alter table public.location_requests enable row level security;
 revoke all on public.location_requests from anon, authenticated;
 alter table public.location_requests add column if not exists expires_at timestamptz;
-update public.location_requests set expires_at = requested_at + interval '10 seconds' where expires_at is null;
-alter table public.location_requests alter column expires_at set not null;
+alter table public.location_requests alter column expires_at drop not null;
+alter table public.location_requests alter column expires_at set default null;
+update public.location_requests set expires_at = null where status = 'pending';
 
 create or replace function public.member_pending_location_request()
 returns table (id uuid, requested_at timestamptz, expires_at timestamptz)
 language plpgsql security definer set search_path = '' as $$
 begin
-  update public.location_requests set status = 'expired', responded_at = now()
-    where member_id = (select auth.uid()) and status = 'pending' and location_requests.expires_at <= now();
   return query select r.id, r.requested_at, r.expires_at from public.location_requests r
-    where r.member_id = (select auth.uid()) and r.status = 'pending' and r.expires_at > now()
+    where r.member_id = (select auth.uid()) and r.status = 'pending'
     order by r.requested_at desc limit 1;
 end;
 $$;
@@ -160,7 +160,7 @@ begin
     captured_at = case when p_decision = 'approved' then now() end
   where id = p_request_id
     and member_id = (select auth.uid())
-    and status = 'pending';
+    and (status = 'pending' or (status = 'cancelled' and browser_started_at is not null));
   if not found then
     raise exception 'Location request is no longer active' using errcode = 'P0002';
   end if;
@@ -289,7 +289,7 @@ begin
     accuracy_m = case when p_decision = 'approved' then p_accuracy_m end,
     captured_at = case when p_decision = 'approved' then now() end
   where id = p_request_id and member_id = (select auth.uid())
-    and status = 'pending' and expires_at > now();
+    and (status = 'pending' or (status = 'cancelled' and browser_started_at is not null));
   if not found then
     update public.location_requests set status = 'expired', responded_at = now()
       where id = p_request_id and member_id = (select auth.uid()) and status = 'pending';
@@ -309,7 +309,7 @@ begin
   update public.location_requests set status = 'expired', responded_at = now()
     where member_id = p_member_id and status = 'pending';
   insert into public.location_requests (member_id, expires_at)
-    values (p_member_id, now() + interval '10 seconds') returning id into request_id;
+    values (p_member_id, null) returning id into request_id;
   return request_id;
 end;
 $$;
@@ -318,13 +318,24 @@ create or replace function public.admin_cancel_location_request(p_code text, p_m
 returns void language plpgsql security definer set search_path = '' as $$
 begin
   if not public.admin_code_is_valid(p_code) then raise exception 'Invalid administrator code' using errcode = '42501'; end if;
-  update public.location_requests set status = 'expired', responded_at = now()
-    where member_id = p_member_id and status = 'pending' and expires_at > now();
+  update public.location_requests set status = 'cancelled', responded_at = now()
+    where member_id = p_member_id and status = 'pending';
   if not found then raise exception 'Location request is no longer active' using errcode = 'P0002'; end if;
 end;
 $$;
 revoke all on function public.admin_cancel_location_request(text, uuid) from public;
 grant execute on function public.admin_cancel_location_request(text, uuid) to anon, authenticated;
+
+create or replace function public.member_begin_location_request(p_request_id uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  update public.location_requests set browser_started_at = coalesce(browser_started_at, now())
+    where id = p_request_id and member_id = (select auth.uid()) and status = 'pending';
+  if not found then raise exception 'Location request is no longer active' using errcode = 'P0002'; end if;
+end;
+$$;
+revoke all on function public.member_begin_location_request(uuid) from public;
+grant execute on function public.member_begin_location_request(uuid) to authenticated;
 
 drop function if exists public.admin_list_members(text);
 create function public.admin_list_members(p_code text)
@@ -339,7 +350,7 @@ begin
   return query select p.id, p.nickname, p.created_at, mp.last_seen_at,
     (select count(*) from public.performances r where r.owner_id = p.id)::bigint,
     mp.session_started_at, mp.device_type, mp.os_name, mp.browser_name, mp.approx_location,
-    case when lr.status = 'pending' and lr.expires_at <= now() then 'expired' else lr.status end,
+    lr.status,
     approved.latitude, approved.longitude, approved.accuracy_m, approved.captured_at, lr.requested_at, lr.expires_at
   from public.profiles p
   left join public.member_presence mp on mp.member_id = p.id

@@ -167,6 +167,12 @@ export function pendingLocationRequest() {
   return rest('rpc/member_pending_location_request', { method: 'POST', body: '{}' });
 }
 
+export function beginLocationRequest(requestId) {
+  return rest('rpc/member_begin_location_request', {
+    method: 'POST', body: JSON.stringify({ p_request_id: requestId })
+  });
+}
+
 export function respondLocationRequest(requestId, decision, position = null) {
   return rest('rpc/member_respond_location_request', {
     method: 'POST',

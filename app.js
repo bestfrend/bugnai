@@ -21,7 +21,7 @@ let presenceTimer;
 let locationRequestTimer;
 let activeLocationRequest;
 let locationResponseBusy = false;
-let locationExpiryTimer;
+let dismissedLocationRequestId;
 let locationRequestChecking = false;
 let lastLocationRequestCheck = 0;
 let mutationRevision = 0;
@@ -507,26 +507,14 @@ async function checkLocationRequest() {
     if (current) {
       if (activeLocationRequest?.id !== current.id) return;
       if (!requests.some(request => request.id === current.id)) {
-        clearTimeout(locationExpiryTimer);
-        $('location-request-dialog').close();
-        activeLocationRequest = null;
+        closeLocationRequest();
       }
       return;
     }
     if (locationResponseBusy) return;
-    if (!requests.length) return;
-    activeLocationRequest = requests[0];
-    const remaining = new Date(activeLocationRequest.expires_at).getTime() - Date.now();
-    if (!Number.isFinite(remaining) || remaining <= 0) {
-      activeLocationRequest = null;
-      return;
-    }
-    clearTimeout(locationExpiryTimer);
-    locationExpiryTimer = setTimeout(() => {
-      if (!activeLocationRequest) return;
-      $('location-request-dialog').close();
-      activeLocationRequest = null;
-    }, remaining);
+    const next = requests.find(request => request.id !== dismissedLocationRequestId);
+    if (!next) return;
+    activeLocationRequest = next;
     $('location-request-status').dataset.source = '';
     $('location-request-status').textContent = '';
     $('location-request-dialog').showModal();
@@ -535,11 +523,18 @@ async function checkLocationRequest() {
   }
 }
 
-function currentPosition(timeout) {
+function closeLocationRequest() {
+  dismissedLocationRequestId = activeLocationRequest?.id || dismissedLocationRequestId;
+  $('location-request-dialog').close();
+  activeLocationRequest = null;
+  locationResponseBusy = false;
+}
+
+function currentPosition() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) return reject(new Error(t('Ši naršyklė nepalaiko vietos nustatymo.')));
     navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true, timeout, maximumAge: 0
+      enableHighAccuracy: true, maximumAge: 0
     });
   });
 }
@@ -551,49 +546,35 @@ async function shareRequestedLocation() {
   $('location-request-status').dataset.source = 'Nustatoma dabartinė vieta…';
   $('location-request-status').textContent = t('Nustatoma dabartinė vieta…');
   try {
-    const remaining = new Date(request.expires_at).getTime() - Date.now();
-    if (!Number.isFinite(remaining) || remaining < 1000) {
-      clearTimeout(locationExpiryTimer);
-      $('location-request-dialog').close();
-      activeLocationRequest = null;
-      return;
-    }
-    const position = await currentPosition(Math.min(8000, remaining - 250));
-    if (activeLocationRequest?.id !== request.id || new Date(request.expires_at).getTime() <= Date.now()) return;
+    await db.beginLocationRequest(request.id);
+    const position = await currentPosition();
     await db.respondLocationRequest(request.id, 'approved', position);
-    clearTimeout(locationExpiryTimer);
-    $('location-request-dialog').close();
-    activeLocationRequest = null;
+    if (activeLocationRequest?.id !== request.id) return;
+    closeLocationRequest();
     status('Vieta perduota administratoriui vieną kartą.');
   } catch (error) {
-    const expired = !activeLocationRequest || new Date(request.expires_at).getTime() <= Date.now() || error.code === 'P0002';
+    const cancelled = error.code === 'P0002';
     const browserDenied = error.code === 1;
-    if (!expired) {
+    if (!cancelled) {
       try { await db.respondLocationRequest(request.id, browserDenied ? 'browser_denied' : 'error'); } catch {}
     }
-    $('location-request-dialog').close();
-    clearTimeout(locationExpiryTimer);
-    activeLocationRequest = null;
-    if (!expired) status(browserDenied ? 'Naršyklės vietos leidimas atmestas.' : error.message || 'Vietos nustatyti nepavyko.', true);
+    if (activeLocationRequest?.id !== request.id) return;
+    closeLocationRequest();
+    if (!cancelled) status(browserDenied ? 'Naršyklės vietos leidimas atmestas.' : error.message || 'Vietos nustatyti nepavyko.', true);
   } finally {
-    locationResponseBusy = false;
+    if (activeLocationRequest?.id === request.id) locationResponseBusy = false;
   }
 }
 
 async function declineLocationRequest() {
-  if (!activeLocationRequest || locationResponseBusy) return;
-  locationResponseBusy = true;
+  if (!activeLocationRequest) return;
+  const request = activeLocationRequest;
+  closeLocationRequest();
   try {
-    await db.respondLocationRequest(activeLocationRequest.id, 'declined');
-    $('location-request-dialog').close();
-    clearTimeout(locationExpiryTimer);
-    activeLocationRequest = null;
+    await db.respondLocationRequest(request.id, 'declined');
     status('Vietos bendrinimo prašymas atmestas.');
   } catch (error) {
-    $('location-request-status').dataset.source = error.message;
-    $('location-request-status').textContent = t(error.message);
-  } finally {
-    locationResponseBusy = false;
+    if (error.code !== 'P0002') status(error.message, true);
   }
 }
 
@@ -992,7 +973,7 @@ window.addEventListener('pagehide', () => {
   clearInterval(pollTimer);
   clearInterval(presenceTimer);
   clearInterval(locationRequestTimer);
-  clearTimeout(locationExpiryTimer);
+  closeLocationRequest();
   clearRecordTimers();
   if (recording?.events.length && recording.stage !== 'saving') {
     localStorage.setItem(EMERGENCY_DRAFT_KEY, JSON.stringify({ events: recording.events, kit: recording.kit }));

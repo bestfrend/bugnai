@@ -2,11 +2,10 @@ import { SUPABASE_URL, SUPABASE_KEY } from './supabase-config.js';
 
 const ONLINE_WINDOW_MS = 75_000;
 const $ = id => document.getElementById(id);
-const locationStates = { pending: 'Laukiama patvirtinimo', declined: 'Atmesta programėlėje', browser_denied: 'Atmestas naršyklės leidimas', error: 'Nepavyko nustatyti', expired: 'Pasibaigė' };
+const locationStates = { pending: 'Laukiama patvirtinimo', declined: 'Atmesta programėlėje', browser_denied: 'Atmestas naršyklės leidimas', error: 'Nepavyko nustatyti', expired: 'Pasibaigė', cancelled: 'Atšaukta administratoriaus' };
 let adminCode = '';
 let members = [];
 let refreshTimer;
-let pendingRequestTimer;
 
 async function adminRpc(name, parameters = {}) {
   let response;
@@ -39,7 +38,7 @@ async function requestExactLocation(memberId, button) {
     await adminRpc('admin_request_location', { p_member_id: memberId });
     members = await listMembers();
     render();
-    setStatus('Vietos bendrinimo prašymas išsiųstas 10 sekundžių. Jį galima atšaukti anksčiau.');
+    setStatus('Vietos bendrinimo prašymas išsiųstas. Jį galima atšaukti.');
   } catch (error) {
     setStatus(error.status === 401 || error.status === 403 ? 'Administratoriaus kodas nebegalioja.' : error.message, true);
     button.disabled = false;
@@ -70,12 +69,7 @@ function online(member) {
 }
 
 function pendingLocation(member) {
-  return member.location_status === 'pending'
-    && new Date(member.location_expires_at).getTime() > Date.now();
-}
-
-function remainingLocationSeconds(member) {
-  return Math.max(0, Math.ceil((new Date(member.location_expires_at).getTime() - Date.now()) / 1000));
+  return member.location_status === 'pending';
 }
 
 function formatDate(value, includeTime = false) {
@@ -182,16 +176,16 @@ function render() {
       const cancel = document.createElement('button');
       cancel.type = 'button';
       cancel.className = 'action danger';
-      cancel.textContent = `Atšaukti · ${remainingLocationSeconds(member)} s`;
+      cancel.textContent = 'Atšaukti prašymą';
       cancel.addEventListener('click', () => cancelLocationRequest(member.id, cancel));
       controls.append(cancel);
     } else {
       const request = document.createElement('button');
       request.type = 'button';
       request.className = 'action';
-      request.textContent = isOnline ? 'Prašyti vietos · 10 s' : 'Vartotojas neprisijungęs';
+      request.textContent = isOnline ? 'Prašyti vietos' : 'Vartotojas neprisijungęs';
       request.disabled = !isOnline;
-      request.title = isOnline ? 'Prašymas galios 10 sekundžių.' : 'Vietos galima prašyti tik prisijungusio vartotojo.';
+      request.title = isOnline ? 'Prašyti vienkartinės vietos.' : 'Vietos galima prašyti tik prisijungusio vartotojo.';
       request.addEventListener('click', () => requestExactLocation(member.id, request));
       controls.append(request);
     }
@@ -205,7 +199,6 @@ function render() {
 
 function showLogin(message = '', error = false) {
   clearInterval(refreshTimer);
-  clearInterval(pendingRequestTimer);
   adminCode = '';
   $('admin-panel').hidden = true;
   $('admin-login').hidden = false;
@@ -217,7 +210,6 @@ function showPanel() {
   $('admin-panel').hidden = false;
   clearInterval(refreshTimer);
   refreshTimer = setInterval(() => refresh(true), 5_000);
-  pendingRequestTimer = setInterval(() => render(), 1000);
 }
 
 async function refresh(silent = false) {

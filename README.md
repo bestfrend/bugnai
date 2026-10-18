@@ -40,7 +40,7 @@ be viešos skaitymo teisės.
 Panelėje rodomi visi nariai, jų ritmų skaičius ir būsena. Programa atnaujina nario
 aktyvumo laiką kas 30 sekundžių; jei atnaujinimo nebuvo 75 sekundes, panelė jį rodo
 kaip atsijungusį. Aktyvumo laikas saugomas privačioje lentelėje ir paprastiems
-nariams negrąžinamas. Panelė pati atsinaujina kas 15 sekundžių.
+nariams negrąžinamas. Panelė pati atsinaujina kas 5 sekundes.
 
 Įrenginio rūšiai, operacinei sistemai, naršyklei, sesijos pradžiai, apytikslei IP
 vietai ir vartotojo patvirtinamoms vienkartinėms tikslioms koordinatėms pridėti
@@ -48,17 +48,18 @@ vietai ir vartotojo patvirtinamoms vienkartinėms tikslioms koordinatėms pridė
 [supabase/member-insights.sql](supabase/member-insights.sql). Apytikslei vietai
 naudojama `ipwho.is` HTTPS paslauga; IP adresas programos duomenų bazėje nesaugomas.
 Kiekvienas tikslios vietos prašymas ir atsakymas saugomas atskira istorijos eilute.
-Jei `member-insights.sql` jau buvo paleistas anksčiau, Supabase SQL Editor paleiskite
-vieną kartą visą [supabase/location-request-expiry.sql](supabase/location-request-expiry.sql).
-Ji taip pat išlaiko lentelėje naujausias patvirtintas koordinates, kai vėlesnis
-užklausimas atmetamas arba pasibaigia. Prašyti vietos galima tik aktyviai prisijungusio
-vartotojo, prašymas galioja 10 sekundžių ir administratorius gali jį atšaukti.
+Jei ankstesnis 10 sekundžių atnaujinimas jau įdiegtas, Supabase SQL Editor paleiskite
+visą [supabase/location-no-timeout.sql](supabase/location-no-timeout.sql).
+Ji pašalina automatinį galiojimo terminą ir išlaiko ankstesnes patvirtintas koordinates.
+Prašyti vietos galima tik aktyviai prisijungusio vartotojo. Prašymas lieka aktyvus,
+kol vartotojas atsako arba administratorius jį atšaukia. Naršyklės leidimo lango
+programėlė negali uždaryti. Jei vartotojas jau paspaudė „Bendrinti“, jo vėlesnis
+sutikimas naršyklės lange išsaugomas ir po administratoriaus atšaukimo. Jei iki
+atšaukimo vartotojas nesutiko pradėti bendrinimo, atsakymas nepriimamas.
 Lentelėje apytikslė vietovė pagal IP rodoma atskirai nuo vienkartinės tikslios,
 vartotojo patvirtintos vietos; koordinates galima nukopijuoti arba atverti „Google Maps“.
 
-Jei 10 sekundžių prašymų atnaujinimas jau įdiegtas, paleiskite
-[supabase/location-permission-status.sql](supabase/location-permission-status.sql), kad
-panelė skirtų „Atmesta programėlėje“ nuo „Atmestas naršyklės leidimas“.
+Panelė skiria „Atmesta programėlėje“ nuo „Atmestas naršyklės leidimas“.
 Naršyklės atsisakymas taip pat gali reikšti anksčiau užblokuotą leidimą ar įrenginio
 vietos privatumo nustatymą; naršyklė nepateikia paties leidimo lango pasirinkimo istorijos.
 

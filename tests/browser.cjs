@@ -48,6 +48,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   let saves=0,emergencySaves=0,authRequests=0,sessionStarts=0;
   let locationRequest=null;
   let locationDecision=null;
+  const locationOutcomes=new Map();
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
   await context.route('https://ipwho.is/**',route=>route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify({success:true,city:'Vilnius',region:'Vilniaus apskritis',country:'Lietuva'})}));
@@ -61,9 +62,13 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     if(url.pathname==='/rest/v1/rpc/start_member_session'){sessionStarts++;return reply(null);}
     if(url.pathname==='/rest/v1/rpc/touch_member_presence')return reply(null);
     if(url.pathname==='/rest/v1/rpc/member_pending_location_request')return reply(locationRequest?[locationRequest]:[]);
+    if(url.pathname==='/rest/v1/rpc/member_begin_location_request')return reply(null);
     if(url.pathname==='/rest/v1/rpc/member_respond_location_request'){
-      locationDecision=req.postDataJSON().p_decision;
-      locationRequest=null;
+      const decision=req.postDataJSON();
+      if(locationOutcomes.has(decision.p_request_id))return reply({code:'P0002'},404);
+      locationDecision=decision.p_decision;
+      locationOutcomes.set(decision.p_request_id,decision.p_decision);
+      if(locationRequest?.id===decision.p_request_id)locationRequest=null;
       return reply(null);
     }
     if(url.pathname==='/rest/v1/profiles'){
@@ -145,14 +150,45 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert(await page.locator('.kit-tabs').isVisible(),'instrument tabs appear after sign-in');
   await wait(()=>page.locator('#rhythm-count').textContent().then(text=>text.includes('0 / 50')));
 
-  const statusBeforeLocation=await page.locator('#status').textContent();
-  locationRequest={id:'33333333-3333-4333-8333-333333333333',expires_at:new Date(await page.evaluate(()=>Date.now())+10000).toISOString()};
+  await page.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{
+    getCurrentPosition(success,error){window.positionRequests=(window.positionRequests||0)+1;window.resolveLocation=success;window.rejectLocation=error;}
+  }}));
+  locationRequest={id:'55555555-5555-4555-8555-555555555555',expires_at:null};
   await page.clock.runFor(2100);
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  await wait(()=>page.evaluate(()=>window.positionRequests===1));
+  await page.clock.fastForward(12000);
+  assert(await page.locator('#location-request-dialog').evaluate(dialog=>dialog.open),'browser permission may take longer than ten seconds');
+  await page.evaluate(()=>window.resolveLocation({coords:{latitude:54.68,longitude:25.28,accuracy:10}}));
+  await wait(()=>locationDecision==='approved');
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  const statusBeforeLocation=await page.locator('#status').textContent();
+  locationRequest={id:'33333333-3333-4333-8333-333333333333',expires_at:null};
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  await wait(()=>page.evaluate(()=>window.positionRequests===2));
   locationRequest=null;
   await page.clock.runFor(600);
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'admin cancellation closes the request without a message');
+  locationDecision=null;
+  await page.evaluate(()=>window.resolveLocation({coords:{latitude:56,longitude:24,accuracy:5}}));
+  await wait(()=>locationDecision==='approved');
+  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'late browser approval is saved silently after admin cancellation');
+  locationRequest={id:'66666666-6666-4666-8666-666666666666',expires_at:null};
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  await wait(()=>page.evaluate(()=>window.positionRequests===3));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Atmesti',exact:true}).click();
+  await wait(()=>locationDecision==='declined');
+  assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  locationDecision=null;
+  await page.evaluate(()=>window.resolveLocation({coords:{latitude:56,longitude:24,accuracy:5}}));
+  await page.clock.runFor(100);
+  assert.equal(locationDecision,null,'in-app refusal also invalidates a pending browser approval');
   await page.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{
     getCurrentPosition(success,error){error({code:1,message:'User denied Geolocation'});}
   }}));
@@ -468,6 +504,9 @@ async function adminScenario(browser){
   locationStatus='browser_denied';
   await page.locator('#admin-refresh').click();
   await wait(()=>page.locator('.coordinate-state').innerText().then(text=>text.includes('Atmestas naršyklės leidimas')));
+  locationStatus='pending';
+  await page.locator('#admin-refresh').click();
+  await wait(()=>page.getByRole('button',{name:'Atšaukti prašymą',exact:true}).count().then(Boolean));
   console.log('PASS admin member list');
   await context.close();
 }
