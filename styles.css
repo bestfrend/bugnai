@@ -81,7 +81,7 @@ background-image: url("images/kick.png");
 }
 
 .drum {
-  touch-action: manipulation;
+  touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -278,6 +278,7 @@ footer { padding: 24px 0 32px; }
   gap: 10px;
   max-width: 720px;
   height: clamp(288px, 68vw, 440px);
+  touch-action: pan-y;
 }
 .studio-kit .set:not(.piano-keyboard) {
   grid-template-areas: "low low floor floor crash crash" "high high high mid mid mid" "snare snare snare kick kick kick";
@@ -331,11 +332,12 @@ footer { padding: 24px 0 32px; }
 
 /* A rotated phone becomes a distraction-free instrument. */
 @media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
-  html, body { width: 100%; height: 100%; overflow: hidden; }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
   body { padding: 0; }
   body > header, body > footer, main > #status,
   #workspace > .welcome, #workspace > .playback-bar, #workspace > .community { display: none !important; }
   main, #workspace, .kit { width: 100%; max-width: none; height: 100%; margin: 0; padding: 0; }
+  #workspace, .kit .set, .kit .drum, .kit .piano-key { touch-action: none; overscroll-behavior: none; }
   .kit > .hint, .kit > .sound-credit, .kit > .piano-author { display: none !important; }
   .kit .set { width: 100%; height: 100%; margin: 0; }
   .kit .set:not(.piano-keyboard) { max-width: none; height: 100%; gap: 4px; padding: 4px; }

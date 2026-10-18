@@ -10,6 +10,7 @@ const fallbackSounds = new Map();
 const activeSources = new Set();
 const heldNotes = new Map();
 const pianoPointers = new Map();
+const drumPointers = new Map();
 const keyboardShortcuts = new Map();
 const loading = new Map();
 const readyKits = new Set();
@@ -171,10 +172,17 @@ function bindInstrumentButtons() {
         button.setPointerCapture(event.pointerId);
         pianoPointers.set(event.pointerId, key);
         pressPiano(key, event.pointerId);
-      } else hitDrum(key);
+      } else {
+        button.setPointerCapture(event.pointerId);
+        hitDrum(key);
+        drumPointers.set(event.pointerId, key);
+      }
     });
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-      button.addEventListener(type, event => releasePianoPointer(event.pointerId));
+      button.addEventListener(type, event => {
+        releasePianoPointer(event.pointerId);
+        drumPointers.delete(event.pointerId);
+      });
     }
     button.addEventListener('click', event => {
       if (event.detail !== 0 || !window.drumAppReady) return;
@@ -187,6 +195,15 @@ function bindInstrumentButtons() {
 }
 
 document.addEventListener('pointermove', event => {
+  if (ACTIVE_KIT !== 'salamander-v1' && drumPointers.has(event.pointerId)) {
+    const pad = document.elementFromPoint(event.clientX, event.clientY)?.closest('.drum');
+    const nextKey = pad && !pad.disabled ? pad.dataset.key : null;
+    if (nextKey !== drumPointers.get(event.pointerId)) {
+      drumPointers.set(event.pointerId, nextKey);
+      if (nextKey) hitDrum(nextKey);
+    }
+    return;
+  }
   if (ACTIVE_KIT !== 'salamander-v1' || !pianoPointers.has(event.pointerId)) return;
   const previousKey = pianoPointers.get(event.pointerId);
   const nextKey = document.elementFromPoint(event.clientX, event.clientY)?.closest('.piano-key')?.dataset.key;
@@ -200,6 +217,20 @@ document.addEventListener('pointermove', event => {
   pianoPointers.set(event.pointerId, nextKey);
   pressPiano(nextKey, event.pointerId);
 }, { passive: false });
+
+// Keep cleanup reliable even if capture ends outside the original pad.
+for (const type of ['pointerup', 'pointercancel']) {
+  document.addEventListener(type, event => drumPointers.delete(event.pointerId));
+}
+for (const type of ['contextmenu', 'dragstart']) {
+  document.addEventListener(type, event => {
+    if (window.drumAppReady && event.target.closest('.kit .set')) event.preventDefault();
+  });
+}
+function clearInstrumentPointers() {
+  releasePianoKeys();
+  drumPointers.clear();
+}
 
 const pianoNames = { c: 'Do', cs: 'Do♯', d: 'Re', ds: 'Re♯', e: 'Mi', f: 'Fa', fs: 'Fa♯', g: 'Sol', gs: 'Sol♯', a: 'La', as: 'La♯', b: 'Si' };
 const pianoShortcuts = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k'];
@@ -239,8 +270,8 @@ function updatePianoOctave(octave) {
   bindInstrumentButtons();
 }
 
-window.addEventListener('blur', releasePianoKeys);
-document.addEventListener('visibilitychange', () => { if (document.hidden) releasePianoKeys(); });
+window.addEventListener('blur', clearInstrumentPointers);
+document.addEventListener('visibilitychange', () => { if (document.hidden) clearInstrumentPointers(); });
 window.addEventListener('languagechange', () => { if (ACTIVE_KIT === 'salamander-v1') updatePianoOctave(currentPianoOctave); });
 
 let instrumentGeneration = 0;
@@ -307,7 +338,7 @@ export function soundDuration(key, kit = ACTIVE_KIT, velocity = 127, length) {
 }
 
 export function stopAudio() {
-  releasePianoKeys();
+  clearInstrumentPointers();
   for (const voice of activeSources) { clearTimeout(voice.releaseTimer); voice.source.stop(); }
   activeSources.clear();
   for (const { voices } of fallbackSounds.values()) for (const audio of voices) {

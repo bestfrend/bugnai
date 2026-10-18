@@ -215,6 +215,12 @@ Paruošti failai saugomi saugykloje, todėl naudojantis svetaine nereikia jokio 
 FFmpeg ar SFZ grotuvo. Keisdami patį rinkinį ateityje naudokite naują versijos ID,
 kad senų įrašų skambesys nepasikeistų.
 
+Abu būgnų rinkiniai palaiko kelis pirštus ir grojimą braukiant per mygtukus:
+garsas suveikia įėjus į kitą mygtuką arba grįžus į jį per tarpą. Stačiame telefone
+vertikalus braukimas leidžia slinkti puslapiu. Pasuktame telefono vaizde grojimo
+sritis perima gestus ir neleidžia slinkti ar keisti mastelio; ilgo paspaudimo
+meniu ir elementų vilkimas grojimo srityje išjungti.
+
 ### Pianinas telefonui: Salamander · Alexander Holm
 
 Puslapio viršuje galima pasirinkti lietuvių arba švedų kalbą. Pasirinkimas

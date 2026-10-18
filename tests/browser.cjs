@@ -520,12 +520,14 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
     assert(await page.evaluate(()=>window.scrollY>0),'a vertical phone page remains scrollable');
     await page.evaluate(()=>window.scrollTo(0,0));
+    assert.equal(await page.locator('.drum, .piano-key').first().evaluate(e=>getComputedStyle(e).touchAction),'pan-y','portrait playing keeps vertical page scrolling available');
     await page.setViewportSize({width:915,height:412});
     assert.equal(await page.locator('body > header').evaluate(e=>getComputedStyle(e).display),'none');
     const kitBox=await page.locator('.kit').boundingBox();
     assert(kitBox.width>=910&&kitBox.height>=407,'instrument fills a rotated phone');
     const setBox=await page.locator('.set').boundingBox();
     assert(setBox.width>=910&&setBox.height>=407,'keys or drums use the full instrument area');
+    assert.equal(await page.locator('.drum, .piano-key').first().evaluate(e=>getComputedStyle(e).touchAction),'none','landscape gestures belong to the instrument');
     if(kit==='salamander-v1'){
       const [keyboard,black]=await Promise.all([page.locator('.piano-keyboard').boundingBox(),page.locator('.black-key').first().boundingBox()]);
       assert(black.height<=keyboard.height*.47,'black piano keys are shorter in landscape');
@@ -536,6 +538,29 @@ async function instrumentScenario(browser,file,kit,mobile=false){
       await page.locator('[data-octave-shift="-1"]').click();
       await page.locator('[data-octave-shift="-1"]').click();
       await page.locator('[data-octave-shift="-1"]').click();
+    }else{
+      const input=await context.newCDPSession(page);
+      const center=async key=>{const b=await page.locator(`.drum[data-key="${key}"]`).boundingBox();return {x:b.x+b.width/2,y:b.y+b.height/2};};
+      const [snare,kick,tom,otherTom]=await Promise.all(['j','l','w','a'].map(center));
+      await page.evaluate(()=>{window.gestureNotes=[];window.addEventListener('drumhit',event=>window.gestureNotes.push(event.detail.key));});
+      const initialScroll=await page.evaluate(()=>window.scrollY);
+      await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...snare,id:1},{...kick,id:2}]});
+      assert.deepEqual(await page.evaluate(()=>[...window.gestureNotes].sort()),['j','l'],'two fingers play two drums together');
+      await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...snare,id:1},{...kick,id:2}]});
+      assert.equal(await page.evaluate(()=>window.gestureNotes.length),2,'remaining on a pad does not repeat its sound');
+      await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...tom,id:1},{...otherTom,id:2}]});
+      assert.deepEqual(await page.evaluate(()=>[...window.gestureNotes].sort()),['a','j','l','w'],'each finger can slide onto another drum');
+      const gap={x:(snare.x+kick.x)/2,y:snare.y};
+      await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...gap,id:1},{...otherTom,id:2}]});
+      await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...snare,id:1},{...otherTom,id:2}]});
+      await wait(()=>page.evaluate(()=>window.gestureNotes.at(-1)==='j'));
+      assert.equal(await page.evaluate(()=>window.gestureNotes.at(-1)),'j','a finger can cross an empty gap and re-enter a pad');
+      await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      assert.equal(await page.evaluate(()=>window.scrollY),initialScroll,'playing in landscape does not scroll the page');
+      assert.equal(await page.locator('.set').evaluate(e=>{const event=new MouseEvent('contextmenu',{bubbles:true,cancelable:true});return e.dispatchEvent(event);}),false,'playing surface suppresses the long-press context menu');
+      await page.clock.fastForward(12000);
+      await wait(()=>page.locator('#recording-bar').isVisible());
+      await page.locator('#cancel-recording').click();
     }
   }
 
