@@ -63,6 +63,20 @@ jobs:
               if count != 1:
                   raise SystemExit(f'Expected exactly one admin asset: {asset}')
           admin.write_text(html)
+          # A fresh entry script must also load fresh dependencies; otherwise a
+          # phone can combine new HTML with a cached database/navigation module.
+          for name in ['index.html', 'classic.html', 'studio.html', 'piano.html']:
+              page = Path('_site') / name
+              html = page.read_text()
+              for asset in ['styles.css', 'app.js']:
+                  pattern = rf'="{re.escape(asset)}(?:\?v=[^"]*)?"'
+                  html, count = re.subn(pattern, f'="{asset}?v={version}"', html)
+                  if count != 1:
+                      raise SystemExit(f'Expected exactly one asset in {name}: {asset}')
+              page.write_text(html)
+          module_import = re.compile(r'''(\b(?:from|import)\s*['"])(\./[^'"]+\.js)(['"])''')
+          for module in Path('_site').glob('*.js'):
+              module.write_text(module_import.sub(lambda match: f'{match[1]}{match[2]}?v={version}{match[3]}', module.read_text()))
           print(f'Publishing version {version}')
           PY
       - name: Configure Pages
