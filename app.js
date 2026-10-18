@@ -24,6 +24,7 @@ let locationResponseBusy = false;
 let dismissedLocationRequestId;
 let locationRequestChecking = false;
 let lastLocationRequestCheck = 0;
+const locationAcquisitions = new Map();
 let mutationRevision = 0;
 let renamingSlot = null;
 let renamingBusy = false;
@@ -524,12 +525,48 @@ function closeLocationRequest() {
   locationResponseBusy = false;
 }
 
-function currentPosition() {
+function currentPosition(requestId) {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error(t('Ši naršyklė nepalaiko vietos nustatymo.')));
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true, maximumAge: 0
-    });
+    const geolocation = navigator.geolocation;
+    if (!geolocation) return reject(new Error(t('Ši naršyklė nepalaiko vietos nustatymo.')));
+    const options = { enableHighAccuracy: true, maximumAge: 0 };
+    let watchId;
+    let refinementTimer;
+    let best;
+    let finished = false;
+    const finish = error => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(refinementTimer);
+      if (watchId !== undefined) geolocation.clearWatch(watchId);
+      locationAcquisitions.delete(requestId);
+      if (error) reject(error);
+      else resolve(best);
+    };
+    locationAcquisitions.set(requestId, () => finish(Object.assign(new Error('Location collection cancelled'), { code: 'LOCATION_CANCELLED' })));
+    const onError = error => finish(best && error.code !== 1 ? undefined : error);
+    try {
+      if (typeof geolocation.watchPosition !== 'function') {
+        geolocation.getCurrentPosition(position => {
+          if (finished) return;
+          best = position;
+          finish();
+        }, onError, options);
+        return;
+      }
+      watchId = geolocation.watchPosition(position => {
+        if (finished) return;
+        if (!best || position.coords.accuracy < best.coords.accuracy) best = position;
+        if (best.coords.accuracy <= 100) return finish();
+        // The browser can initially return a coarse fix while GPS warms up.
+        // This bounded refinement starts AFTER a first fix, never while waiting
+        // for permission. Save one best fix and stop watching afterwards.
+        if (!refinementTimer) refinementTimer = setTimeout(() => finish(), 12000);
+      }, onError, options);
+      if (finished) geolocation.clearWatch(watchId);
+    } catch (error) {
+      finish(error);
+    }
   });
 }
 
@@ -539,12 +576,12 @@ async function shareRequestedLocation() {
   locationResponseBusy = true;
   try {
     await db.beginLocationRequest(request.id);
-    const position = await currentPosition();
+    const position = await currentPosition(request.id);
     await db.respondLocationRequest(request.id, 'approved', position);
     if (activeLocationRequest?.id !== request.id) return;
     closeLocationRequest();
   } catch (error) {
-    const cancelled = error.code === 'P0002';
+    const cancelled = error.code === 'P0002' || error.code === 'LOCATION_CANCELLED';
     const browserDenied = error.code === 1;
     if (!cancelled) {
       try { await db.respondLocationRequest(request.id, browserDenied ? 'browser_denied' : 'error'); } catch {}
@@ -559,6 +596,7 @@ async function shareRequestedLocation() {
 async function declineLocationRequest() {
   if (!activeLocationRequest) return;
   const request = activeLocationRequest;
+  locationAcquisitions.get(request.id)?.();
   closeLocationRequest();
   try {
     await db.respondLocationRequest(request.id, 'declined');
@@ -957,6 +995,7 @@ window.addEventListener('instrumentwillchange', () => {
   if (!recording) status(discarded ? 'Nebaigtas bandymas atmestas. Pasirinktas kitas instrumentas.' : '');
 });
 window.addEventListener('pagehide', () => {
+  for (const cancel of locationAcquisitions.values()) cancel();
   clearInterval(pollTimer);
   clearInterval(presenceTimer);
   clearInterval(locationRequestTimer);
@@ -974,6 +1013,7 @@ window.addEventListener('pagehide', () => {
 });
 window.addEventListener('storage', event => {
   if (event.key?.startsWith('bugnai.auth.') && !event.newValue) {
+    for (const cancel of locationAcquisitions.values()) cancel();
     clearInterval(pollTimer);
     clearInterval(presenceTimer);
     clearInterval(locationRequestTimer);

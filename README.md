@@ -63,6 +63,10 @@ bendrintos naršyklės vietos; koordinates galima nukopijuoti arba atverti „Go
 Naršyklės vieta žymima pagal jos pateiktą paklaidą: iki 100 m – maža paklaida,
 virš 100 m – apytikslė vieta. Tai įvertinimas, nes naršyklė tiesiogiai neatskleidžia
 vartotojo pasirinktos tikslios ar apytikslės vietos leidimo parinkties.
+Vieta renkama su `enableHighAccuracy` ir be naršyklės talpyklos. Jei pirmas matavimas
+apytikslis, po jo iki 12 sekundžių laukiama geresnio matavimo, tada išsaugomas vienas
+mažiausią paklaidą turintis rezultatas ir matavimai sustabdomi. Vartotojo leidimo
+laukimas neribojamas; pati programėlė negali pakeisti telefono vietos nustatymų.
 
 Panelė skiria „Atmesta programėlėje“ nuo „Atmestas naršyklės leidimas“.
 Naršyklės atsisakymas taip pat gali reikšti anksčiau užblokuotą leidimą ar įrenginio

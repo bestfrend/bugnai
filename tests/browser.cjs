@@ -48,6 +48,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   let saves=0,emergencySaves=0,authRequests=0,sessionStarts=0;
   let locationRequest=null;
   let locationDecision=null;
+  let locationData=null;
   let beginLocationAvailable=false;
   const locationOutcomes=new Map();
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
@@ -68,6 +69,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
       const decision=req.postDataJSON();
       if(locationOutcomes.has(decision.p_request_id))return reply({code:'P0002'},404);
       locationDecision=decision.p_decision;
+      locationData=decision;
       locationOutcomes.set(decision.p_request_id,decision.p_decision);
       if(locationRequest?.id===decision.p_request_id)locationRequest=null;
       return reply(null);
@@ -203,6 +205,47 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>locationDecision==='browser_denied');
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'browser refusal leaves the app status unchanged');
+
+  await page.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{
+    watchPosition(success,error,options){window.watchOptions=options;window.watchSuccess=success;window.watchError=error;window.watchCount=(window.watchCount||0)+1;return window.watchCount;},
+    clearWatch(id){window.clearedLocationWatch=id;}
+  }}));
+  locationDecision=null;
+  locationRequest={id:'77777777-7777-4777-8777-777777777777',expires_at:null};
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  await wait(()=>page.evaluate(()=>window.watchCount===1));
+  assert.deepEqual(await page.evaluate(()=>window.watchOptions),{enableHighAccuracy:true,maximumAge:0});
+  await page.clock.fastForward(20000);
+  assert(await page.locator('#location-request-dialog').evaluate(dialog=>dialog.open),'permission waiting has no refinement timeout');
+  await page.evaluate(()=>window.watchSuccess({coords:{latitude:54,longitude:25,accuracy:2500}}));
+  assert.equal(locationDecision,null,'coarse first fix must not prevent a more accurate fix');
+  await page.clock.runFor(100);
+  await page.evaluate(()=>window.watchSuccess({coords:{latitude:54.68,longitude:25.28,accuracy:8}}));
+  await wait(()=>locationDecision==='approved');
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  assert.equal(locationData.p_accuracy_m,8);
+  assert.equal(locationData.p_latitude,54.68);
+  assert.equal(await page.evaluate(()=>window.clearedLocationWatch),1,'watch stops after an accurate fix');
+
+  locationDecision=null;
+  locationRequest={id:'88888888-8888-4888-8888-888888888888',expires_at:null};
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  await wait(()=>page.evaluate(()=>window.watchCount===2));
+  await page.evaluate(()=>{
+    window.watchSuccess({coords:{latitude:54,longitude:25,accuracy:2500}});
+    window.watchSuccess({coords:{latitude:54.1,longitude:25.1,accuracy:800}});
+    window.watchSuccess({coords:{latitude:54.2,longitude:25.2,accuracy:2000}});
+  });
+  await page.clock.fastForward(12000);
+  await wait(()=>locationDecision==='approved');
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  assert.equal(locationData.p_accuracy_m,800,'save the best fix, not the last or first fix');
+  assert.equal(await page.evaluate(()=>window.clearedLocationWatch),2,'coarse-only acquisition is bounded');
+  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'refinement adds no client messages');
 
   assert.equal(await page.locator('#create-rhythm').count(),0);
   assert.equal(await page.locator('#strength-control').count(),0);
