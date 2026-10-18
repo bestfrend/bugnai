@@ -509,7 +509,6 @@ async function checkLocationRequest() {
       if (!activeLocationRequest) return;
       $('location-request-dialog').close();
       activeLocationRequest = null;
-      status('Vietos bendrinimo prašymo laikas baigėsi.');
     }, remaining);
     $('location-request-status').dataset.source = '';
     $('location-request-status').textContent = '';
@@ -528,24 +527,34 @@ function currentPosition(timeout) {
 
 async function shareRequestedLocation() {
   if (!activeLocationRequest || locationResponseBusy) return;
+  const request = activeLocationRequest;
   locationResponseBusy = true;
   $('location-request-status').dataset.source = 'Nustatoma dabartinė vieta…';
   $('location-request-status').textContent = t('Nustatoma dabartinė vieta…');
   try {
-    const remaining = new Date(activeLocationRequest.expires_at).getTime() - Date.now();
-    if (!Number.isFinite(remaining) || remaining < 1000) throw new Error(t('Vietos bendrinimo prašymo laikas baigėsi.'));
+    const remaining = new Date(request.expires_at).getTime() - Date.now();
+    if (!Number.isFinite(remaining) || remaining < 1000) {
+      clearTimeout(locationExpiryTimer);
+      $('location-request-dialog').close();
+      activeLocationRequest = null;
+      return;
+    }
     const position = await currentPosition(Math.min(8000, remaining - 250));
-    await db.respondLocationRequest(activeLocationRequest.id, 'approved', position);
+    if (!activeLocationRequest || new Date(request.expires_at).getTime() <= Date.now()) return;
+    await db.respondLocationRequest(request.id, 'approved', position);
     clearTimeout(locationExpiryTimer);
     $('location-request-dialog').close();
     activeLocationRequest = null;
     status('Vieta perduota administratoriui vieną kartą.');
   } catch (error) {
-    try { await db.respondLocationRequest(activeLocationRequest.id, 'error'); } catch {}
+    const expired = !activeLocationRequest || new Date(request.expires_at).getTime() <= Date.now() || error.code === 'P0002';
+    if (!expired) {
+      try { await db.respondLocationRequest(request.id, 'error'); } catch {}
+    }
     $('location-request-dialog').close();
     clearTimeout(locationExpiryTimer);
     activeLocationRequest = null;
-    status(error.message || 'Vietos nustatyti nepavyko.', true);
+    if (!expired) status(error.message || 'Vietos nustatyti nepavyko.', true);
   } finally {
     locationResponseBusy = false;
   }
