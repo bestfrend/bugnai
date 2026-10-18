@@ -550,6 +550,22 @@ async function adminScenario(browser){
   let locationStatus='declined';
   let locationAccuracy=8;
   let memberListRequests=0;
+  let liveSocket;
+  let liveJoins=0;
+  await page.routeWebSocket('wss://hsqsjxnotqpoodvnxecv.supabase.co/realtime/v1/websocket*',socket=>{
+    liveSocket=socket;
+    socket.onMessage(message=>{
+      const frame=JSON.parse(message);
+      assert(!message.includes('test-admin-code'),'administrator secret must never enter the broadcast connection');
+      if(frame.event==='phx_join')liveJoins++;
+      if(frame.event==='phx_join'||frame.event==='heartbeat')socket.send(JSON.stringify({
+        topic:frame.topic,event:'phx_reply',ref:frame.ref,payload:{status:'ok',response:{}}
+      }));
+    });
+  });
+  const locationChanged=()=>liveSocket.send(JSON.stringify({
+    topic:'realtime:admin-location-updates',event:'broadcast',payload:{event:'location_changed',payload:{}}
+  }));
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',route=>{
     memberListRequests++;
     const rows=[
@@ -562,11 +578,13 @@ async function adminScenario(browser){
   await page.locator('#admin-code').fill('test-admin-code-123');
   await page.locator('#admin-login-form').evaluate(form=>form.requestSubmit());
   await wait(()=>page.locator('#member-rows tr').count().then(n=>n===2));
-  assert.equal(memberListRequests,1);
-  await page.clock.fastForward(59999);
-  assert.equal(memberListRequests,1,'no automatic refresh before one minute');
-  await page.clock.fastForward(1);
+  await wait(()=>liveJoins===1);
+  await page.clock.runFor(150);
   await wait(()=>memberListRequests===2);
+  await page.clock.fastForward(59000);
+  assert.equal(memberListRequests,2,'no periodic refresh before one minute');
+  await page.clock.fastForward(1000);
+  await wait(()=>memberListRequests===3);
   await wait(()=>page.locator('#admin-refresh').isEnabled());
   assert.match(await page.locator('#member-rows').textContent(),/Telefonas/);
   const coordinates=page.locator('.coordinate-copy');
@@ -593,9 +611,21 @@ async function adminScenario(browser){
   await page.locator('#admin-refresh').click();
   await wait(()=>page.getByRole('button',{name:'Atšaukti prašymą',exact:true}).count().then(Boolean));
   locationAccuracy=2500;
-  await page.locator('#admin-refresh').click();
+  locationChanged();
+  await page.clock.runFor(150);
   await wait(()=>page.locator('.coordinate-kind').innerText().then(text=>text.includes('apytikslė vieta')));
   assert.match(await page.locator('.exact-location-cell').first().innerText(),/±2500 m/);
+  assert(await page.locator('#admin-refresh').isEnabled(),'event updates do not blink or disable the refresh button');
+  locationAccuracy=12;
+  locationChanged();
+  await page.clock.runFor(150);
+  await wait(()=>page.locator('.exact-location-cell').first().innerText().then(text=>text.includes('±12 m')));
+  locationAccuracy=20;
+  liveSocket.close();
+  await page.clock.runFor(1300);
+  await wait(()=>liveJoins===2);
+  await page.clock.runFor(150);
+  await wait(()=>page.locator('.exact-location-cell').first().innerText().then(text=>text.includes('±20 m')));
   locationAccuracy=null;
   await page.locator('#admin-refresh').click();
   await wait(()=>page.locator('.coordinate-kind').innerText().then(text=>text.includes('tikslumas nežinomas')));

@@ -332,4 +332,36 @@ test('private device data and consent-based location requests are admin-only',as
   const completed=(await db.query("select * from admin_list_members('test-admin-code') where id=$1",[alice])).rows[0];
   assert.equal(completed.exact_latitude,55.3,'an already-started browser approval can finish after admin cancellation');
   assert.equal(completed.exact_accuracy_m,5,'the latest received precise result replaces a previously received approximate result');
+  await db.exec(`reset role;
+    create schema if not exists realtime;
+    create table realtime.test_notifications (payload jsonb, event_name text, topic text, is_private boolean);
+    create function realtime.send(jsonb,text,text,boolean) returns void language sql as $$
+      insert into realtime.test_notifications values ($1,$2,$3,$4)
+    $$;`);
+  const liveMigration=readFileSync('supabase/location-live-updates.sql','utf8');
+  await db.exec(liveMigration);
+  await db.exec(liveMigration);
+  await db.exec('set role anon');
+  const liveRequest=(await db.query("select admin_request_location('test-admin-code',$1) as id",[alice])).rows[0].id;
+  await user(alice);
+  await db.query('select member_begin_location_request($1)',[liveRequest]);
+  await db.query("select member_respond_location_request($1,'declined')",[liveRequest]);
+  await db.exec('reset role');
+  const notifications=(await db.query('select * from realtime.test_notifications')).rows;
+  assert(notifications.length>=3,'request creation, consent start and response each notify the admin');
+  for(const notification of notifications){
+    assert.deepEqual(notification.payload,{},'notifications contain no member or location data');
+    assert.equal(notification.event_name,'location_changed');
+    assert.equal(notification.topic,'admin-location-updates');
+    assert.equal(notification.is_private,false);
+  }
+  await db.exec(`create or replace function realtime.send(jsonb,text,text,boolean) returns void language plpgsql as $$
+    begin raise exception 'Notification service unavailable'; end;
+  $$; set role anon;`);
+  const outageRequest=(await db.query("select admin_request_location('test-admin-code',$1) as id",[alice])).rows[0].id;
+  await user(alice);
+  await db.query("select member_respond_location_request($1,'approved',55.4,24.6,8)",[outageRequest]);
+  await db.exec('reset role; set role anon');
+  const duringOutage=(await db.query("select * from admin_list_members('test-admin-code') where id=$1",[alice])).rows[0];
+  assert.equal(duringOutage.exact_latitude,55.4,'notification failure must not prevent saving consented coordinates');
 });

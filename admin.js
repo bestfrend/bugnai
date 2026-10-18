@@ -1,4 +1,5 @@
 import { SUPABASE_URL, SUPABASE_KEY } from './supabase-config.js';
+import { subscribeLocationChanges } from './admin-live.js';
 
 const ONLINE_WINDOW_MS = 75_000;
 const $ = id => document.getElementById(id);
@@ -6,6 +7,9 @@ const locationStates = { pending: 'Laukiama patvirtinimo', declined: 'Atmesta pr
 let adminCode = '';
 let members = [];
 let refreshTimer;
+let stopLiveUpdates;
+let liveRefreshTimer;
+let refreshGeneration = 0;
 
 async function adminRpc(name, parameters = {}) {
   let response;
@@ -36,9 +40,7 @@ async function requestExactLocation(memberId, button) {
   button.disabled = true;
   try {
     await adminRpc('admin_request_location', { p_member_id: memberId });
-    members = await listMembers();
-    render();
-    setStatus('Vietos bendrinimo prašymas išsiųstas. Jį galima atšaukti.');
+    if (await refresh(true)) setStatus('Vietos bendrinimo prašymas išsiųstas. Jį galima atšaukti.');
   } catch (error) {
     setStatus(error.status === 401 || error.status === 403 ? 'Administratoriaus kodas nebegalioja.' : error.message, true);
     button.disabled = false;
@@ -49,9 +51,7 @@ async function cancelLocationRequest(memberId, button) {
   button.disabled = true;
   try {
     await adminRpc('admin_cancel_location_request', { p_member_id: memberId });
-    members = await listMembers();
-    render();
-    setStatus('Vietos bendrinimo prašymas atšauktas.');
+    if (await refresh(true)) setStatus('Vietos bendrinimo prašymas atšauktas.');
   } catch (error) {
     setStatus(error.status === 401 || error.status === 403 ? 'Administratoriaus kodas nebegalioja.' : error.message, true);
     button.disabled = false;
@@ -205,6 +205,11 @@ function render() {
 
 function showLogin(message = '', error = false) {
   clearInterval(refreshTimer);
+  clearTimeout(liveRefreshTimer);
+  liveRefreshTimer = null;
+  stopLiveUpdates?.();
+  stopLiveUpdates = null;
+  refreshGeneration++;
   adminCode = '';
   $('admin-panel').hidden = true;
   $('admin-login').hidden = false;
@@ -216,19 +221,33 @@ function showPanel() {
   $('admin-panel').hidden = false;
   clearInterval(refreshTimer);
   refreshTimer = setInterval(() => refresh(true), 60_000);
+  stopLiveUpdates?.();
+  stopLiveUpdates = subscribeLocationChanges(() => {
+    if (!adminCode || liveRefreshTimer) return;
+    liveRefreshTimer = setTimeout(() => {
+      liveRefreshTimer = null;
+      if (adminCode) refresh(true);
+    }, 100);
+  });
 }
 
 async function refresh(silent = false) {
   if (!adminCode) return showLogin();
+  const generation = ++refreshGeneration;
   if (!silent) setStatus('Atnaujinama…');
   if (!silent) $('admin-refresh').disabled = true;
   try {
-    members = await listMembers();
+    const next = await listMembers();
+    if (!adminCode || generation !== refreshGeneration) return false;
+    members = next;
     render();
     setStatus('');
+    return true;
   } catch (error) {
+    if (generation !== refreshGeneration) return false;
     if (error.status === 401 || error.status === 403) showLogin('Neteisingas administratoriaus kodas.', true);
     else setStatus(error.message, true);
+    return false;
   } finally {
     if (!silent) $('admin-refresh').disabled = false;
   }
@@ -256,6 +275,18 @@ $('member-search').addEventListener('input', render);
 $('status-filter').addEventListener('change', render);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && adminCode) refresh(true);
+});
+window.addEventListener('pagehide', () => {
+  clearInterval(refreshTimer);
+  clearTimeout(liveRefreshTimer);
+  liveRefreshTimer = null;
+  stopLiveUpdates?.();
+});
+window.addEventListener('pageshow', event => {
+  if (event.persisted && adminCode) {
+    showPanel();
+    refresh(true);
+  }
 });
 
 showLogin();
