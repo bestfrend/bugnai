@@ -52,11 +52,6 @@ const swedish = {
   'Vietos bendrinimo prašymas': 'Begäran om platsdelning',
   'Administratorius prašo vieną kartą gauti dabartinę jūsų vietą. Patvirtinus naršyklė dar paprašys vietos leidimo. Nuolatinis sekimas nebus įjungtas.': 'Administratören vill se var du befinner dig just nu. Om du godkänner frågar webbläsaren också om tillåtelse. Platsen delas bara en gång och spåras inte löpande.',
   'Bendrinti dabartinę vietą': 'Dela aktuell plats', 'Atmesti': 'Avvisa',
-  'Nustatoma dabartinė vieta…': 'Hämtar aktuell plats…',
-  'Vieta perduota administratoriui vieną kartą.': 'Din aktuella plats har delats med administratören en gång.',
-  'Vietos nustatyti nepavyko.': 'Kunde inte fastställa platsen.',
-  'Vietos bendrinimo prašymas atmestas.': 'Begäran om platsdelning avvisades.',
-  'Naršyklės vietos leidimas atmestas.': 'Webbläsaren nekade åtkomst till din plats.',
   'Ši naršyklė nepalaiko vietos nustatymo.': 'Den här webbläsaren stöder inte platsbestämning.',
   'Pasiektas 50 ritmų limitas. Gali perrašyti arba ištrinti vieną iš savo ritmų.': 'Gränsen på 50 rytmer har nåtts. Spela in igen eller ta bort en av dina rytmer.',
   'Pavadinimas turi būti nuo 1 iki 60 simbolių.': 'Namnet måste vara 1–60 tecken långt.',
@@ -182,8 +177,6 @@ export function applyPageTranslations() {
       drumName.textContent = t(drumName.dataset.source);
     }
   }
-  const locationStatus = document.getElementById('location-request-status');
-  if (locationStatus && 'source' in locationStatus.dataset) locationStatus.textContent = t(locationStatus.dataset.source);
   const audio = document.getElementById('audio-status');
   if (audio) audio.textContent = t(audio.dataset.source || (document.body.dataset.kit === 'salamander-v1' ? 'Įkeliami pianino garsai…' : 'Įkeliami būgnų garsai…'));
   const octaveControls = document.querySelector('.piano-octave-controls');

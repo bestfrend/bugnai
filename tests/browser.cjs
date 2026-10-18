@@ -149,6 +149,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>page.locator(`[data-owner="${own}"]`).count().then(Boolean));
   assert(await page.locator('.kit-tabs').isVisible(),'instrument tabs appear after sign-in');
   await wait(()=>page.locator('#rhythm-count').textContent().then(text=>text.includes('0 / 50')));
+  const statusBeforeLocation=await page.locator('#status').textContent();
 
   await page.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{
     getCurrentPosition(success,error){window.positionRequests=(window.positionRequests||0)+1;window.resolveLocation=success;window.rejectLocation=error;}
@@ -163,7 +164,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.evaluate(()=>window.resolveLocation({coords:{latitude:54.68,longitude:25.28,accuracy:10}}));
   await wait(()=>locationDecision==='approved');
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
-  const statusBeforeLocation=await page.locator('#status').textContent();
+  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'successful sharing leaves the app status unchanged');
   locationRequest={id:'33333333-3333-4333-8333-333333333333',expires_at:null};
   await page.clock.runFor(2100);
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
@@ -185,6 +186,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.locator('#location-request-dialog').getByRole('button',{name:'Atmesti',exact:true}).click();
   await wait(()=>locationDecision==='declined');
   assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'in-app refusal leaves the app status unchanged');
   locationDecision=null;
   await page.evaluate(()=>window.resolveLocation({coords:{latitude:56,longitude:24,accuracy:5}}));
   await page.clock.runFor(100);
@@ -198,7 +200,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
   await wait(()=>locationDecision==='browser_denied');
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
-  assert.equal(await page.locator('#status').innerText(),'Naršyklės vietos leidimas atmestas.');
+  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'browser refusal leaves the app status unchanged');
 
   assert.equal(await page.locator('#create-rhythm').count(),0);
   assert.equal(await page.locator('#strength-control').count(),0);

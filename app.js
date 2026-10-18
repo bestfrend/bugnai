@@ -469,10 +469,6 @@ function createLocationDialog() {
   title.textContent = t('Vietos bendrinimo prašymas');
   const explanation = document.createElement('p');
   explanation.textContent = t('Administratorius prašo vieną kartą gauti dabartinę jūsų vietą. Patvirtinus naršyklė dar paprašys vietos leidimo. Nuolatinis sekimas nebus įjungtas.');
-  const message = document.createElement('p');
-  message.id = 'location-request-status';
-  message.className = 'hint';
-  message.setAttribute('role', 'status');
   const controls = document.createElement('div');
   controls.className = 'actions';
   const share = document.createElement('button');
@@ -484,7 +480,7 @@ function createLocationDialog() {
   decline.className = 'action';
   decline.textContent = 'Atmesti';
   controls.append(share, decline);
-  dialog.append(title, explanation, message, controls);
+  dialog.append(title, explanation, controls);
   document.body.append(dialog);
   decorateAction(share, 'check');
   decorateAction(decline, 'close');
@@ -515,8 +511,6 @@ async function checkLocationRequest() {
     const next = requests.find(request => request.id !== dismissedLocationRequestId);
     if (!next) return;
     activeLocationRequest = next;
-    $('location-request-status').dataset.source = '';
-    $('location-request-status').textContent = '';
     $('location-request-dialog').showModal();
   } catch {} finally {
     locationRequestChecking = false;
@@ -543,15 +537,12 @@ async function shareRequestedLocation() {
   if (!activeLocationRequest || locationResponseBusy) return;
   const request = activeLocationRequest;
   locationResponseBusy = true;
-  $('location-request-status').dataset.source = 'Nustatoma dabartinė vieta…';
-  $('location-request-status').textContent = t('Nustatoma dabartinė vieta…');
   try {
     await db.beginLocationRequest(request.id);
     const position = await currentPosition();
     await db.respondLocationRequest(request.id, 'approved', position);
     if (activeLocationRequest?.id !== request.id) return;
     closeLocationRequest();
-    status('Vieta perduota administratoriui vieną kartą.');
   } catch (error) {
     const cancelled = error.code === 'P0002';
     const browserDenied = error.code === 1;
@@ -560,7 +551,6 @@ async function shareRequestedLocation() {
     }
     if (activeLocationRequest?.id !== request.id) return;
     closeLocationRequest();
-    if (!cancelled) status(browserDenied ? 'Naršyklės vietos leidimas atmestas.' : error.message || 'Vietos nustatyti nepavyko.', true);
   } finally {
     if (activeLocationRequest?.id === request.id) locationResponseBusy = false;
   }
@@ -572,10 +562,7 @@ async function declineLocationRequest() {
   closeLocationRequest();
   try {
     await db.respondLocationRequest(request.id, 'declined');
-    status('Vietos bendrinimo prašymas atmestas.');
-  } catch (error) {
-    if (error.code !== 'P0002') status(error.message, true);
-  }
+  } catch {}
 }
 
 async function optimizeAvatar(file) {
