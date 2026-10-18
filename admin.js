@@ -152,11 +152,17 @@ function render() {
       map.setAttribute('aria-label', `Atverti koordinates ${coordinates} Google Maps`);
       coordinateActions.append(copy, map);
       const coordinateInfo = document.createElement('small');
-      coordinateInfo.textContent = `±${Math.round(member.exact_accuracy_m || 0)} m · ${formatDate(member.location_captured_at, true)}`;
+      const accuracy = member.exact_accuracy_m;
+      const hasAccuracy = Number.isFinite(accuracy) && accuracy >= 0;
+      coordinateInfo.textContent = `${hasAccuracy ? `±${Math.ceil(accuracy)} m` : 'Paklaida nežinoma'} · ${formatDate(member.location_captured_at, true)}`;
       exact.append(coordinateActions, coordinateInfo);
       const exactKind = document.createElement('small');
       exactKind.className = 'coordinate-kind';
-      exactKind.textContent = 'Vienkartinė tiksli vieta, suteikta vartotojui sutikus';
+      exactKind.textContent = !hasAccuracy
+        ? 'Vienkartinė naršyklės vieta · tikslumas nežinomas'
+        : accuracy <= 100
+          ? 'Vienkartinė naršyklės vieta · maža paklaida (iki 100 m)'
+          : 'Vienkartinė apytikslė vieta (pagal naršyklės paklaidą)';
       exact.append(exactKind);
       if (member.location_status && member.location_status !== 'approved') {
         const previous = document.createElement('small');

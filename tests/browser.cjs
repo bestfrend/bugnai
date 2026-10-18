@@ -475,9 +475,10 @@ async function adminScenario(browser){
   const context=await browser.newContext();
   const page=await context.newPage();
   let locationStatus='declined';
+  let locationAccuracy=8;
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',route=>{
     const rows=[
-      {id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:new Date().toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva',location_status:locationStatus,exact_latitude:54.680123,exact_longitude:25.280456,exact_accuracy_m:8,location_captured_at:'2026-10-15T12:30:00Z'},
+      {id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:new Date().toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva',location_status:locationStatus,exact_latitude:54.680123,exact_longitude:25.280456,exact_accuracy_m:locationAccuracy,location_captured_at:'2026-10-15T12:30:00Z'},
       {id:other,nickname:'Atsijungęs',created_at:new Date().toISOString(),last_seen_at:'2026-01-01T00:00:00Z',rhythm_count:0,location_status:null}
     ];
     route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify(rows)});
@@ -491,6 +492,7 @@ async function adminScenario(browser){
   assert.equal(await coordinates.innerText(),'54.680123, 25.280456');
   assert.equal(await coordinates.evaluate(element=>getComputedStyle(element).whiteSpace),'nowrap');
   assert.match(await page.locator('.coordinate-state').innerText(),/Paskutinis prašymas: Atmesta programėlėje/);
+  assert.match(await page.locator('.coordinate-kind').innerText(),/maža paklaida/);
   const map=page.locator('.coordinate-map');
   assert.equal(new URL(await map.getAttribute('href')).searchParams.get('query'),'54.680123, 25.280456');
   assert.equal(await map.getAttribute('target'),'_blank');
@@ -507,6 +509,14 @@ async function adminScenario(browser){
   locationStatus='pending';
   await page.locator('#admin-refresh').click();
   await wait(()=>page.getByRole('button',{name:'Atšaukti prašymą',exact:true}).count().then(Boolean));
+  locationAccuracy=2500;
+  await page.locator('#admin-refresh').click();
+  await wait(()=>page.locator('.coordinate-kind').innerText().then(text=>text.includes('apytikslė vieta')));
+  assert.match(await page.locator('.exact-location-cell').first().innerText(),/±2500 m/);
+  locationAccuracy=null;
+  await page.locator('#admin-refresh').click();
+  await wait(()=>page.locator('.coordinate-kind').innerText().then(text=>text.includes('tikslumas nežinomas')));
+  assert.match(await page.locator('.exact-location-cell').first().innerText(),/Paklaida nežinoma/);
   console.log('PASS admin member list');
   await context.close();
 }

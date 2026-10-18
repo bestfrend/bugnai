@@ -56,8 +56,11 @@ kol vartotojas atsako arba administratorius jį atšaukia. Naršyklės leidimo l
 programėlė negali uždaryti. Jei vartotojas jau paspaudė „Bendrinti“, jo vėlesnis
 sutikimas naršyklės lange išsaugomas ir po administratoriaus atšaukimo. Jei iki
 atšaukimo vartotojas nesutiko pradėti bendrinimo, atsakymas nepriimamas.
-Lentelėje apytikslė vietovė pagal IP rodoma atskirai nuo vienkartinės tikslios,
-vartotojo patvirtintos vietos; koordinates galima nukopijuoti arba atverti „Google Maps“.
+Lentelėje apytikslė vietovė pagal IP rodoma atskirai nuo vienkartinės vartotojo
+bendrintos naršyklės vietos; koordinates galima nukopijuoti arba atverti „Google Maps“.
+Naršyklės vieta žymima pagal jos pateiktą paklaidą: iki 100 m – maža paklaida,
+virš 100 m – apytikslė vieta. Tai įvertinimas, nes naršyklė tiesiogiai neatskleidžia
+vartotojo pasirinktos tikslios ar apytikslės vietos leidimo parinkties.
 
 Panelė skiria „Atmesta programėlėje“ nuo „Atmestas naršyklės leidimas“.
 Naršyklės atsisakymas taip pat gali reikšti anksčiau užblokuotą leidimą ar įrenginio
