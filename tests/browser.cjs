@@ -153,6 +153,13 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert(await page.locator('.kit-tabs').isVisible(),'instrument tabs appear after sign-in');
   await wait(()=>page.locator('#rhythm-count').textContent().then(text=>text.includes('0 / 50')));
   const statusBeforeLocation=await page.locator('#status').textContent();
+  locationRequest={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',expires_at:null};
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  locationRequest=null;
+  await page.clock.runFor(600);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'admin can silently close an unanswered modal');
 
   await page.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{
     getCurrentPosition(success,error){window.positionRequests=(window.positionRequests||0)+1;window.resolveLocation=success;window.rejectLocation=error;}
@@ -160,10 +167,17 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   locationRequest={id:'55555555-5555-4555-8555-555555555555',expires_at:null};
   await page.clock.runFor(2100);
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
-  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  const firstLocationChoice=page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'});
+  const choiceBox=await firstLocationChoice.boundingBox();
+  await page.mouse.move(choiceBox.x+choiceBox.width/2,choiceBox.y+choiceBox.height/2);
+  await page.mouse.down();
+  await page.clock.runFor(150);
+  assert.equal(await firstLocationChoice.evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(214, 56, 133)','location choice shows pressed background');
+  await page.mouse.up();
+  assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open),'share closes immediately before location is available');
   await wait(()=>page.evaluate(()=>window.positionRequests===1));
   await page.clock.fastForward(12000);
-  assert(await page.locator('#location-request-dialog').evaluate(dialog=>dialog.open),'browser permission may take longer than ten seconds');
+  assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open),'waiting for browser permission does not reopen the modal');
   await page.evaluate(()=>window.resolveLocation({coords:{latitude:54.68,longitude:25.28,accuracy:10}}));
   await wait(()=>locationDecision==='approved');
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
@@ -174,19 +188,29 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
   await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
   await wait(()=>page.evaluate(()=>window.positionRequests===2));
+  assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  await page.evaluate(()=>{window.previousLocationResult=window.resolveLocation;});
   locationRequest=null;
   await page.clock.runFor(600);
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'admin cancellation closes the request without a message');
   locationDecision=null;
-  await page.evaluate(()=>window.resolveLocation({coords:{latitude:56,longitude:24,accuracy:5}}));
+  locationRequest={id:'99999999-9999-4999-8999-999999999999',expires_at:null};
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  const nextShare=page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'});
+  assert(await nextShare.isEnabled(),'a new request stays usable while an earlier browser result is pending');
+  await nextShare.click();
+  assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  await wait(()=>page.evaluate(()=>window.positionRequests===3));
+  await page.evaluate(()=>window.previousLocationResult({coords:{latitude:56,longitude:24,accuracy:5}}));
   await wait(()=>locationDecision==='approved');
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'late browser approval is saved silently after admin cancellation');
+  await page.evaluate(()=>window.rejectLocation({code:1,message:'User denied Geolocation'}));
+  await wait(()=>locationDecision==='browser_denied');
   locationRequest={id:'66666666-6666-4666-8666-666666666666',expires_at:null};
   await page.clock.runFor(2100);
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
-  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
-  await wait(()=>page.evaluate(()=>window.positionRequests===3));
   await page.locator('#location-request-dialog').getByRole('button',{name:'Atmesti',exact:true}).click();
   await wait(()=>locationDecision==='declined');
   assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
@@ -218,7 +242,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>page.evaluate(()=>window.watchCount===1));
   assert.deepEqual(await page.evaluate(()=>window.watchOptions),{enableHighAccuracy:true,maximumAge:0});
   await page.clock.fastForward(20000);
-  assert(await page.locator('#location-request-dialog').evaluate(dialog=>dialog.open),'permission waiting has no refinement timeout');
+  assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open),'permission waiting remains in the background');
   await page.evaluate(()=>window.watchSuccess({coords:{latitude:54,longitude:25,accuracy:2500}}));
   assert.equal(locationDecision,null,'coarse first fix must not prevent a more accurate fix');
   await page.clock.runFor(100);

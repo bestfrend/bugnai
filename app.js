@@ -20,7 +20,6 @@ let pollTimer;
 let presenceTimer;
 let locationRequestTimer;
 let activeLocationRequest;
-let locationResponseBusy = false;
 let dismissedLocationRequestId;
 let locationRequestChecking = false;
 let lastLocationRequestCheck = 0;
@@ -508,7 +507,6 @@ async function checkLocationRequest() {
       }
       return;
     }
-    if (locationResponseBusy) return;
     const next = requests.find(request => request.id !== dismissedLocationRequestId);
     if (!next) return;
     activeLocationRequest = next;
@@ -522,7 +520,6 @@ function closeLocationRequest() {
   dismissedLocationRequestId = activeLocationRequest?.id || dismissedLocationRequestId;
   $('location-request-dialog').close();
   activeLocationRequest = null;
-  locationResponseBusy = false;
 }
 
 function currentPosition(requestId) {
@@ -571,25 +568,19 @@ function currentPosition(requestId) {
 }
 
 async function shareRequestedLocation() {
-  if (!activeLocationRequest || locationResponseBusy) return;
+  if (!activeLocationRequest) return;
   const request = activeLocationRequest;
-  locationResponseBusy = true;
+  closeLocationRequest();
   try {
     await db.beginLocationRequest(request.id);
     const position = await currentPosition(request.id);
     await db.respondLocationRequest(request.id, 'approved', position);
-    if (activeLocationRequest?.id !== request.id) return;
-    closeLocationRequest();
   } catch (error) {
     const cancelled = error.code === 'P0002' || error.code === 'LOCATION_CANCELLED';
     const browserDenied = error.code === 1;
     if (!cancelled) {
       try { await db.respondLocationRequest(request.id, browserDenied ? 'browser_denied' : 'error'); } catch {}
     }
-    if (activeLocationRequest?.id !== request.id) return;
-    closeLocationRequest();
-  } finally {
-    if (activeLocationRequest?.id === request.id) locationResponseBusy = false;
   }
 }
 

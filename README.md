@@ -54,7 +54,9 @@ Ji pašalina automatinį galiojimo terminą ir išlaiko ankstesnes patvirtintas 
 Failą galima paleisti pakartotinai. Lentelė rodo paskutinio gauto patvirtinto atsakymo
 koordinates ir paklaidą, net jei jo prašymas buvo išsiųstas anksčiau.
 Prašyti vietos galima tik aktyviai prisijungusio vartotojo. Prašymas lieka aktyvus,
-kol vartotojas atsako arba administratorius jį atšaukia. Naršyklės leidimo lango
+kol vartotojas atsako arba administratorius jį atšaukia.
+Vartotojo modalas užsidaro iškart paspaudus „Bendrinti“ arba „Atmesti“; vietos gavimas
+ir išsaugojimas vyksta fone ir neužblokuoja kito prašymo pasirinkimų. Naršyklės leidimo lango
 programėlė negali uždaryti. Jei vartotojas jau paspaudė „Bendrinti“, jo vėlesnis
 sutikimas naršyklės lange išsaugomas ir po administratoriaus atšaukimo. Jei iki
 atšaukimo vartotojas nesutiko pradėti bendrinimo, atsakymas nepriimamas.
