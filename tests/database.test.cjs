@@ -323,9 +323,13 @@ test('private device data and consent-based location requests are admin-only',as
   await db.query('select member_begin_location_request($1)',[begunRequest]);
   await db.exec('reset role; set role anon');
   await db.query("select admin_cancel_location_request('test-admin-code',$1)",[alice]);
+  const moreRecentRequest=(await db.query("select admin_request_location('test-admin-code',$1) as id",[alice])).rows[0].id;
+  await user(alice);
+  await db.query("select member_respond_location_request($1,'approved',54,25,1500)",[moreRecentRequest]);
   await user(alice);
   await db.query("select member_respond_location_request($1,'approved',55.3,24.7,5)",[begunRequest]);
   await db.exec('reset role; set role anon');
   const completed=(await db.query("select * from admin_list_members('test-admin-code') where id=$1",[alice])).rows[0];
   assert.equal(completed.exact_latitude,55.3,'an already-started browser approval can finish after admin cancellation');
+  assert.equal(completed.exact_accuracy_m,5,'the latest received precise result replaces a previously received approximate result');
 });

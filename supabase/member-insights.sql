@@ -260,7 +260,7 @@ begin
       select q.latitude, q.longitude, q.accuracy_m, q.captured_at
       from public.location_requests q
       where q.member_id = p.id and q.status = 'approved'
-      order by q.requested_at desc
+      order by q.captured_at desc nulls last, q.requested_at desc, q.id desc
       limit 1
     ) approved on true
     order by p.nickname, p.id;
@@ -355,7 +355,7 @@ begin
   from public.profiles p
   left join public.member_presence mp on mp.member_id = p.id
   left join lateral (select q.status, q.requested_at, q.expires_at from public.location_requests q where q.member_id = p.id order by q.requested_at desc limit 1) lr on true
-  left join lateral (select q.latitude, q.longitude, q.accuracy_m, q.captured_at from public.location_requests q where q.member_id = p.id and q.status = 'approved' order by q.requested_at desc limit 1) approved on true
+  left join lateral (select q.latitude, q.longitude, q.accuracy_m, q.captured_at from public.location_requests q where q.member_id = p.id and q.status = 'approved' order by q.captured_at desc nulls last, q.requested_at desc, q.id desc limit 1) approved on true
   order by p.nickname, p.id;
 end;
 $$;

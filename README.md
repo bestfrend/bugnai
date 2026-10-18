@@ -51,6 +51,8 @@ Kiekvienas tikslios vietos prašymas ir atsakymas saugomas atskira istorijos eil
 Jei ankstesnis 10 sekundžių atnaujinimas jau įdiegtas, Supabase SQL Editor paleiskite
 visą [supabase/location-no-timeout.sql](supabase/location-no-timeout.sql).
 Ji pašalina automatinį galiojimo terminą ir išlaiko ankstesnes patvirtintas koordinates.
+Failą galima paleisti pakartotinai. Lentelė rodo paskutinio gauto patvirtinto atsakymo
+koordinates ir paklaidą, net jei jo prašymas buvo išsiųstas anksčiau.
 Prašyti vietos galima tik aktyviai prisijungusio vartotojo. Prašymas lieka aktyvus,
 kol vartotojas atsako arba administratorius jį atšaukia. Naršyklės leidimo lango
 programėlė negali uždaryti. Jei vartotojas jau paspaudė „Bendrinti“, jo vėlesnis

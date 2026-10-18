@@ -48,6 +48,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   let saves=0,emergencySaves=0,authRequests=0,sessionStarts=0;
   let locationRequest=null;
   let locationDecision=null;
+  let beginLocationAvailable=false;
   const locationOutcomes=new Map();
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
@@ -62,7 +63,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     if(url.pathname==='/rest/v1/rpc/start_member_session'){sessionStarts++;return reply(null);}
     if(url.pathname==='/rest/v1/rpc/touch_member_presence')return reply(null);
     if(url.pathname==='/rest/v1/rpc/member_pending_location_request')return reply(locationRequest?[locationRequest]:[]);
-    if(url.pathname==='/rest/v1/rpc/member_begin_location_request')return reply(null);
+    if(url.pathname==='/rest/v1/rpc/member_begin_location_request')return beginLocationAvailable?reply(null):reply({code:'PGRST202'},404);
     if(url.pathname==='/rest/v1/rpc/member_respond_location_request'){
       const decision=req.postDataJSON();
       if(locationOutcomes.has(decision.p_request_id))return reply({code:'P0002'},404);
@@ -164,6 +165,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.evaluate(()=>window.resolveLocation({coords:{latitude:54.68,longitude:25.28,accuracy:10}}));
   await wait(()=>locationDecision==='approved');
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  beginLocationAvailable=true;
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'successful sharing leaves the app status unchanged');
   locationRequest={id:'33333333-3333-4333-8333-333333333333',expires_at:null};
   await page.clock.runFor(2100);

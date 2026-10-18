@@ -167,10 +167,18 @@ export function pendingLocationRequest() {
   return rest('rpc/member_pending_location_request', { method: 'POST', body: '{}' });
 }
 
-export function beginLocationRequest(requestId) {
-  return rest('rpc/member_begin_location_request', {
-    method: 'POST', body: JSON.stringify({ p_request_id: requestId })
-  });
+export async function beginLocationRequest(requestId) {
+  try {
+    await rest('rpc/member_begin_location_request', {
+      method: 'POST', body: JSON.stringify({ p_request_id: requestId })
+    });
+    return true;
+  } catch (error) {
+    // Older projects can still collect a normal answer without the optional
+    // marker used to finish an approval after administrator cancellation.
+    if (error.code === 'PGRST202') return false;
+    throw error;
+  }
 }
 
 export function respondLocationRequest(requestId, decision, position = null) {
