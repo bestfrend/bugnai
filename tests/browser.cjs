@@ -47,6 +47,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   const recordings=new Map();
   let saves=0,emergencySaves=0,authRequests=0,sessionStarts=0;
   let locationRequest=null;
+  let locationDecision=null;
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
   await context.route('https://ipwho.is/**',route=>route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify({success:true,city:'Vilnius',region:'Vilniaus apskritis',country:'Lietuva'})}));
@@ -60,6 +61,11 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     if(url.pathname==='/rest/v1/rpc/start_member_session'){sessionStarts++;return reply(null);}
     if(url.pathname==='/rest/v1/rpc/touch_member_presence')return reply(null);
     if(url.pathname==='/rest/v1/rpc/member_pending_location_request')return reply(locationRequest?[locationRequest]:[]);
+    if(url.pathname==='/rest/v1/rpc/member_respond_location_request'){
+      locationDecision=req.postDataJSON().p_decision;
+      locationRequest=null;
+      return reply(null);
+    }
     if(url.pathname==='/rest/v1/profiles'){
       if(method==='POST'){profiles.push(req.postDataJSON());return reply(null,201);}
       const id=url.searchParams.get('id')?.slice(3);
@@ -147,6 +153,16 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.clock.runFor(600);
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'admin cancellation closes the request without a message');
+  await page.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{
+    getCurrentPosition(success,error){error({code:1,message:'User denied Geolocation'});}
+  }}));
+  locationRequest={id:'44444444-4444-4444-8444-444444444444',expires_at:new Date(await page.evaluate(()=>Date.now())+10000).toISOString()};
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  await wait(()=>locationDecision==='browser_denied');
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
+  assert.equal(await page.locator('#status').innerText(),'Naršyklės vietos leidimas atmestas.');
 
   assert.equal(await page.locator('#create-rhythm').count(),0);
   assert.equal(await page.locator('#strength-control').count(),0);
@@ -422,9 +438,10 @@ async function instrumentScenario(browser,file,kit,mobile=false){
 async function adminScenario(browser){
   const context=await browser.newContext();
   const page=await context.newPage();
+  let locationStatus='declined';
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',route=>{
     const rows=[
-      {id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:new Date().toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva',location_status:'declined',exact_latitude:54.680123,exact_longitude:25.280456,exact_accuracy_m:8,location_captured_at:'2026-10-15T12:30:00Z'},
+      {id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:new Date().toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva',location_status:locationStatus,exact_latitude:54.680123,exact_longitude:25.280456,exact_accuracy_m:8,location_captured_at:'2026-10-15T12:30:00Z'},
       {id:other,nickname:'Atsijungęs',created_at:new Date().toISOString(),last_seen_at:'2026-01-01T00:00:00Z',rhythm_count:0,location_status:null}
     ];
     route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify(rows)});
@@ -437,7 +454,7 @@ async function adminScenario(browser){
   const coordinates=page.locator('.coordinate-copy');
   assert.equal(await coordinates.innerText(),'54.680123, 25.280456');
   assert.equal(await coordinates.evaluate(element=>getComputedStyle(element).whiteSpace),'nowrap');
-  assert.match(await page.locator('.coordinate-state').innerText(),/Paskutinis prašymas: Atmesta/);
+  assert.match(await page.locator('.coordinate-state').innerText(),/Paskutinis prašymas: Atmesta programėlėje/);
   const map=page.locator('.coordinate-map');
   assert.equal(new URL(await map.getAttribute('href')).searchParams.get('query'),'54.680123, 25.280456');
   assert.equal(await map.getAttribute('target'),'_blank');
@@ -448,6 +465,9 @@ async function adminScenario(browser){
   const offlineRequest=page.locator('#member-rows tr').filter({hasText:'Atsijungęs'}).getByRole('button');
   assert.equal(await offlineRequest.innerText(),'Vartotojas neprisijungęs');
   assert(await offlineRequest.isDisabled());
+  locationStatus='browser_denied';
+  await page.locator('#admin-refresh').click();
+  await wait(()=>page.locator('.coordinate-state').innerText().then(text=>text.includes('Atmestas naršyklės leidimas')));
   console.log('PASS admin member list');
   await context.close();
 }

@@ -2,7 +2,7 @@ import { SUPABASE_URL, SUPABASE_KEY } from './supabase-config.js';
 
 const ONLINE_WINDOW_MS = 75_000;
 const $ = id => document.getElementById(id);
-const locationStates = { pending: 'Laukiama patvirtinimo', declined: 'Atmesta', error: 'Nepavyko nustatyti', expired: 'Pasibaigė' };
+const locationStates = { pending: 'Laukiama patvirtinimo', declined: 'Atmesta programėlėje', browser_denied: 'Atmestas naršyklės leidimas', error: 'Nepavyko nustatyti', expired: 'Pasibaigė' };
 let adminCode = '';
 let members = [];
 let refreshTimer;

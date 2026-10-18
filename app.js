@@ -567,13 +567,14 @@ async function shareRequestedLocation() {
     status('Vieta perduota administratoriui vieną kartą.');
   } catch (error) {
     const expired = !activeLocationRequest || new Date(request.expires_at).getTime() <= Date.now() || error.code === 'P0002';
+    const browserDenied = error.code === 1;
     if (!expired) {
-      try { await db.respondLocationRequest(request.id, 'error'); } catch {}
+      try { await db.respondLocationRequest(request.id, browserDenied ? 'browser_denied' : 'error'); } catch {}
     }
     $('location-request-dialog').close();
     clearTimeout(locationExpiryTimer);
     activeLocationRequest = null;
-    if (!expired) status(error.message || 'Vietos nustatyti nepavyko.', true);
+    if (!expired) status(browserDenied ? 'Naršyklės vietos leidimas atmestas.' : error.message || 'Vietos nustatyti nepavyko.', true);
   } finally {
     locationResponseBusy = false;
   }

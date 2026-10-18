@@ -97,7 +97,7 @@ create table if not exists public.location_requests (
   requested_at timestamptz not null default now(),
   responded_at timestamptz,
   status text not null default 'pending'
-    check (status in ('pending', 'approved', 'declined', 'error', 'expired')),
+    check (status in ('pending', 'approved', 'declined', 'browser_denied', 'error', 'expired')),
   latitude double precision check (latitude is null or latitude between -90 and 90),
   longitude double precision check (longitude is null or longitude between -180 and 180),
   accuracy_m double precision check (accuracy_m is null or accuracy_m between 0 and 100000),
@@ -105,6 +105,9 @@ create table if not exists public.location_requests (
 );
 create index if not exists location_requests_member_time
   on public.location_requests (member_id, requested_at desc);
+alter table public.location_requests drop constraint if exists location_requests_status_check;
+alter table public.location_requests add constraint location_requests_status_check
+  check (status in ('pending', 'approved', 'declined', 'browser_denied', 'error', 'expired'));
 alter table public.location_requests enable row level security;
 revoke all on public.location_requests from anon, authenticated;
 alter table public.location_requests add column if not exists expires_at timestamptz;
@@ -138,7 +141,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if (select auth.uid()) is null or p_decision not in ('approved', 'declined', 'error') then
+  if (select auth.uid()) is null or p_decision not in ('approved', 'declined', 'browser_denied', 'error') then
     raise exception 'Invalid location response' using errcode = '22023';
   end if;
   if p_decision = 'approved' and (
@@ -272,7 +275,7 @@ create or replace function public.member_respond_location_request(
 )
 returns void language plpgsql security definer set search_path = '' as $$
 begin
-  if (select auth.uid()) is null or p_decision not in ('approved', 'declined', 'error') then
+  if (select auth.uid()) is null or p_decision not in ('approved', 'declined', 'browser_denied', 'error') then
     raise exception 'Invalid location response' using errcode = '22023';
   end if;
   if p_decision = 'approved' and (p_latitude is null or p_latitude not between -90 and 90

@@ -3,6 +3,10 @@
 -- Safe to re-run.
 begin;
 
+alter table public.location_requests drop constraint if exists location_requests_status_check;
+alter table public.location_requests add constraint location_requests_status_check
+  check (status in ('pending', 'approved', 'declined', 'browser_denied', 'error', 'expired'));
+
 alter table public.location_requests add column if not exists expires_at timestamptz;
 update public.location_requests set expires_at = requested_at + interval '10 seconds' where expires_at is null;
 alter table public.location_requests alter column expires_at set not null;
@@ -28,7 +32,7 @@ create or replace function public.member_respond_location_request(
 )
 returns void language plpgsql security definer set search_path = '' as $$
 begin
-  if (select auth.uid()) is null or p_decision not in ('approved', 'declined', 'error') then
+  if (select auth.uid()) is null or p_decision not in ('approved', 'declined', 'browser_denied', 'error') then
     raise exception 'Invalid location response' using errcode = '22023';
   end if;
   if p_decision = 'approved' and (p_latitude is null or p_latitude not between -90 and 90

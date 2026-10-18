@@ -56,6 +56,12 @@ vartotojo, prašymas galioja 10 sekundžių ir administratorius gali jį atšauk
 Lentelėje apytikslė vietovė pagal IP rodoma atskirai nuo vienkartinės tikslios,
 vartotojo patvirtintos vietos; koordinates galima nukopijuoti arba atverti „Google Maps“.
 
+Jei 10 sekundžių prašymų atnaujinimas jau įdiegtas, paleiskite
+[supabase/location-permission-status.sql](supabase/location-permission-status.sql), kad
+panelė skirtų „Atmesta programėlėje“ nuo „Atmestas naršyklės leidimas“.
+Naršyklės atsisakymas taip pat gali reikšti anksčiau užblokuotą leidimą ar įrenginio
+vietos privatumo nustatymą; naršyklė nepateikia paties leidimo lango pasirinkimo istorijos.
+
 ### Įrašymo taisyklės
 
 - Vardas yra viešas slapyvardis, ne slaptažodis. Tapatybę suteikia Supabase Auth.

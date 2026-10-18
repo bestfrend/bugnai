@@ -276,6 +276,18 @@ test('private device data and consent-based location requests are admin-only',as
   const cancelled=(await db.query("select * from admin_list_members('test-admin-code') where id=$1",[alice])).rows[0];
   assert.equal(cancelled.location_status,'expired');
   assert.equal(cancelled.exact_latitude,55.1,'cancelling keeps the previous approved location');
+  await db.exec('reset role');
+  const permissionMigration=readFileSync('supabase/location-permission-status.sql','utf8');
+  await db.exec(permissionMigration);
+  await db.exec(permissionMigration);
+  await db.exec('set role anon');
+  const browserRequest=(await db.query("select admin_request_location('test-admin-code',$1) as id",[alice])).rows[0].id;
+  await user(alice);
+  await db.query("select member_respond_location_request($1,'browser_denied')",[browserRequest]);
+  await db.exec('reset role; set role anon');
+  const denied=(await db.query("select * from admin_list_members('test-admin-code') where id=$1",[alice])).rows[0];
+  assert.equal(denied.location_status,'browser_denied','browser permission refusal is distinct from in-app refusal');
+  assert.equal(denied.exact_latitude,55.1,'browser refusal preserves the last approved location');
   const expiredRequest=(await db.query("select admin_request_location('test-admin-code',$1) as id",[alice])).rows[0].id;
   await db.exec('reset role');
   await db.query("update location_requests set expires_at=now()-interval '1 second' where id=$1",[expiredRequest]);

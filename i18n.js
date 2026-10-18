@@ -56,6 +56,7 @@ const swedish = {
   'Vieta perduota administratoriui vieną kartą.': 'Din aktuella plats har delats med administratören en gång.',
   'Vietos nustatyti nepavyko.': 'Kunde inte fastställa platsen.',
   'Vietos bendrinimo prašymas atmestas.': 'Begäran om platsdelning avvisades.',
+  'Naršyklės vietos leidimas atmestas.': 'Webbläsaren nekade åtkomst till din plats.',
   'Ši naršyklė nepalaiko vietos nustatymo.': 'Den här webbläsaren stöder inte platsbestämning.',
   'Pasiektas 50 ritmų limitas. Gali perrašyti arba ištrinti vieną iš savo ritmų.': 'Gränsen på 50 rytmer har nåtts. Spela in igen eller ta bort en av dina rytmer.',
   'Pavadinimas turi būti nuo 1 iki 60 simbolių.': 'Namnet måste vara 1–60 tecken långt.',
