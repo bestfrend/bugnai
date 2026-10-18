@@ -97,8 +97,11 @@ vietos privatumo nustatymą; naršyklė nepateikia paties leidimo lango pasirink
   sąrašas atnaujinamas iš karto; užvertos grupės atnaujinamos jas išskleidus.
 - Įrašomas tik `{key, time}` masyvas: laikas milisekundėmis nuo pirmo smūgio.
   Pirmas smūgis prasideda ties 0, įrašo trukmė baigiasi paskutiniu smūgiu.
-- Po 120 sekundžių nuo pirmo smūgio arba pasiekus 6000 smūgių ribą įrašymas baigiamas.
-  Naujas ritmas automatiškai išsaugomas. Perrašomas ritmas pirmiausia pateikiamas
+- Bendros 2 minučių ribos nėra: įrašymas baigiamas praėjus 3 sekundėms po paskutinio
+  garso pabaigos arba pasiekus 6000 natų ribą. Trumpesnės pauzės bandymo nenutraukia.
+  Esamoje bazėje paleiskite [supabase/recordings-no-time-limit.sql](supabase/recordings-no-time-limit.sql)
+  po ankstesnių pianino migracijų; išsaugoti įrašai išlieka.
+  Naujas ir perrašomas ritmas pirmiausia pateikiamas
   perklausai: „Perklausyti bandymą“, „Atnaujinti ritmą“ arba „Pakartoti bandymą“.
   „Baigti“ perrašymo metu taip pat atveria šią perklausą. Senas ritmas pakeičiamas
   tik paspaudus „Atnaujinti ritmą“ ir sėkmingai išsaugojus.
@@ -139,7 +142,8 @@ CHROMIUM_PATH=/usr/bin/chromium npm run test:browser
 
 Testas paleidžia laikiną HTTP serverį ir naudoja izoliuotą Supabase HTTP imitaciją.
 Tikrinami pelės ir telefono lietimai, prisijungimas bei jo atnaujinimas, atkūrimas,
-2 minučių automatinis išsaugojimas, nesėkmingo išsaugojimo pakartojimas ir nebaigto
+ilgesnis nei 2 minučių grojimas su trumpomis pauzėmis, baigimas po tylos,
+nesėkmingo išsaugojimo pakartojimas ir nebaigto
 bandymo atmetimas. Tikrą Supabase Auth ir PostgREST ryšį reikia patikrinti atskirai.
 
 ### Profilio nuotraukos
@@ -258,7 +262,7 @@ išskleistos grupės ir periodinis atnaujinimas lieka aktyvūs. `pushState` ir
 Tiesioginės nuorodos ir atidarymas naujame skirtuke veikia kaip anksčiau.
 
 Pasirinkus kitą instrumentą sustabdomas atkūrimas, atleidžiamos laikomos natos,
-atmetamas nepatvirtintas bandymas ir išvalomi jo tylos / dviejų minučių laikmačiai.
+atmetamas nepatvirtintas bandymas ir išvalomi jo tylos bei laikrodžio laikmačiai.
 Perjungimas nesukelia `pagehide`, todėl neišsaugo juodraščio į avarinį pirmą slotą.
 Vartotojo jau patvirtinta, vykdoma išsaugojimo užklausa užbaigiama įprastai.
 Garsų krovimo metu klavišai neaktyvūs; nepavykus įkelti šablono lieka ankstesnis

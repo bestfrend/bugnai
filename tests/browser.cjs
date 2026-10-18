@@ -367,12 +367,18 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.locator('#restart-recording').click();
   assert(await page.locator('#recording-bar').isHidden());
   await strike(firstKey);
+  for(let i=0;i<61;i++){
+    await page.clock.fastForward(2000);
+    await strike(firstKey);
+    assert(await page.locator('#recording-bar').isHidden(),'short pauses keep recording beyond two minutes');
+  }
   await page.clock.fastForward(12000);
   await wait(()=>page.locator('#recording-bar').isVisible());
   await page.locator('#commit-recording').click();
   await wait(()=>saves===1);
   await wait(()=>page.locator('#recording-bar').isHidden());
   assert.equal(recordings.get(own+':1').kit,kit);
+  assert(recordings.get(own+':1').duration_ms>120000,'long recordings include notes and held lengths after two minutes');
   await page.locator('#language-select').selectOption('sv');
   assert.match(await page.locator('#rhythm-count').innerText(),/rytmer/);
   assert.equal(await page.locator('#community-title').innerText(),'Våra rytmer');

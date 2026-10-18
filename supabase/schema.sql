@@ -18,7 +18,7 @@ declare
   piano boolean;
   is_piano boolean;
 begin
-  if notes is null or duration is null or duration < 0 or duration > 120000
+  if notes is null or duration is null or duration < 0
      or jsonb_typeof(notes) <> 'array' then return false; end if;
   if jsonb_array_length(notes) < 1 or jsonb_array_length(notes) > 6000 then return false; end if;
   for note in select value from jsonb_array_elements(notes) loop
@@ -37,7 +37,7 @@ begin
       if note_time <> trunc(note_time) or note_time < 1 or note_time > 127 then return false; end if;
     end if;
     note_time := (note->>'time')::numeric;
-    if note_time <> trunc(note_time) or note_time < 0 or note_time > 120000
+    if note_time <> trunc(note_time) or note_time < 0 or note_time > duration
        or note_time < previous_time then return false; end if;
     if previous_time = -1 and note_time <> 0 then return false; end if;
     if is_piano then
@@ -45,7 +45,7 @@ begin
          or jsonb_typeof(note->'velocity') is distinct from 'number' then return false; end if;
       if (note->>'length')::numeric <> trunc((note->>'length')::numeric)
          or (note->>'length')::numeric < 0
-         or note_time + (note->>'length')::numeric > 120000 then return false; end if;
+         or note_time + (note->>'length')::numeric > duration then return false; end if;
       note_end := greatest(note_end, note_time + (note->>'length')::numeric);
     elsif note ? 'length' then return false;
     else note_end := note_time;

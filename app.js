@@ -4,7 +4,6 @@ import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KI
 import { t, setLanguage, applyPageTranslations, language } from './i18n.js';
 
 const $ = id => document.getElementById(id);
-const MAX_TIME = 120000;
 const MAX_NOTES = 6000;
 const MAX_RHYTHMS = 50;
 const EMERGENCY_DRAFT_KEY = 'bugnai.emergency-draft';
@@ -653,7 +652,6 @@ async function changeAvatar(file) {
 
 function clearRecordTimers() {
   if (!recording) return;
-  clearTimeout(recording.limitTimer);
   clearTimeout(recording.silenceTimer);
   clearInterval(recording.clockTimer);
 }
@@ -674,7 +672,7 @@ function updateRecordBar() {
   $('retry-recording').hidden = stage !== 'failed';
   $('restart-recording').disabled = $('cancel-recording').disabled = stage === 'saving';
   const elapsed = ['review', 'failed', 'saving'].includes(stage) ? (Math.max(0, ...recording.events.map(note => note.time + (note.length || 0))))
-    : recording.started === null ? 0 : Math.min(MAX_TIME, performance.now() - recording.started);
+    : recording.started === null ? 0 : performance.now() - recording.started;
   $('recording-clock').textContent = duration(elapsed);
 }
 
@@ -706,14 +704,9 @@ window.addEventListener('drumhit', event => {
   if (recording.started === null) {
     recording.started = now;
     recording.stage = 'recording';
-    recording.limitTimer = setTimeout(finishRecording, MAX_TIME);
     recording.clockTimer = setInterval(updateRecordBar, 250);
   }
   const time = Math.round(now - recording.started);
-  if (time > MAX_TIME) {
-    finishRecording();
-    return;
-  }
   recording.events.push({ key: event.detail.key, time,
     ...(recording.kit === DEFAULT_KIT ? {} : { velocity: event.detail.velocity }),
     ...(recording.kit === 'salamander-v1' ? { length: 0 } : {}) });
@@ -730,7 +723,7 @@ window.addEventListener('drumhit', event => {
 window.addEventListener('pianorelease', event => {
   if (!recording || recording.kit !== 'salamander-v1' || recording.stage !== 'recording') return;
   const note = recording.events.findLast(note => note.key === event.detail.key);
-  if (note) note.length = Math.max(0, Math.min(MAX_TIME - note.time, Math.round(performance.now() - recording.started) - note.time));
+  if (note) note.length = Math.max(0, Math.round(performance.now() - recording.started) - note.time);
   recording.heldPiano.delete(event.detail.key);
   if (!recording.heldPiano.size) {
     const releaseTail = note ? soundDuration(note.key, recording.kit, note.velocity || 127, note.length) - note.length : 200;

@@ -99,11 +99,11 @@ test('owners can overwrite and delete their own slots without affecting other us
   await db.query('delete from performances where owner_id=$1 and slot=1',[alice]);
   assert.equal((await db.query('select * from performances where owner_id=$1',[bob])).rows.length,1);
 });
-test('malformed, oversized, unsorted and over-two-minute recordings are rejected',async()=>{
+test('malformed, oversized and unsorted recordings are rejected',async()=>{
   await user(alice);
   const invalid = [
     [[],0], [[{key:'x',time:0}],0], [[{key:'w',time:1}],1],
-    [[{key:'w',time:0},{key:'w',time:120001}],120001],
+    [[{key:'w',time:0},{key:'w',time:120001}],120000],
     [[{key:'w',time:0},{key:'k',time:20},{key:'a',time:10}],10],
     [[{key:'w',time:0.5}],0], [[{key:'w',time:0}],10],
     [[{key:'w',time:'0'}],0], [[{key:'w'}],0],
@@ -111,7 +111,7 @@ test('malformed, oversized, unsorted and over-two-minute recordings are rejected
     [Array.from({length:6001},()=>({key:'w',time:0})),0]
   ];
   for(const [events,ms] of invalid) await assert.rejects(insert(alice,1,JSON.stringify(events),ms),{code:'23514'});
-  await insert(alice,1,JSON.stringify([{key:'w',time:0},{key:'k',time:120000}]),120000);
+  await insert(alice,1,JSON.stringify([{key:'w',time:0},{key:'k',time:360000}]),360000);
 });
 test('rhythm titles are editable only by their owner and migration preserves existing data',async()=>{
   await user(alice);
@@ -212,6 +212,23 @@ test('piano octave migration accepts C2 through C7 and preserves the original oc
   await user(alice);
   const saved=(await db.query('select events from performances where owner_id=$1 and slot=5',[bob])).rows[0].events;
   assert.deepEqual(saved,lowAndHigh);
+});
+test('recordings can exceed two minutes while preserving note validation and ownership',async()=>{
+  await db.exec('reset role');
+  const before=(await db.query('select events from performances where owner_id=$1 and slot=5',[bob])).rows[0].events;
+  const migration=readFileSync('supabase/recordings-no-time-limit.sql','utf8');
+  await db.exec(migration);
+  await db.exec(migration);
+  assert.deepEqual((await db.query('select events from performances where owner_id=$1 and slot=5',[bob])).rows[0].events,before);
+  await user(bob);
+  await insert(bob,6,JSON.stringify([{key:'w',time:0},{key:'l',time:360000}]),360000);
+  const piano=[{key:'c4',time:0,velocity:96,length:140000},{key:'c7',time:140500,velocity:96,length:200000}];
+  await db.query('insert into performances(owner_id,slot,events,duration_ms,kit) values($1,7,$2,340500,$3)',[bob,JSON.stringify(piano),'salamander-v1']);
+  await assert.rejects(db.query('update performances set duration_ms=340499 where owner_id=$1 and slot=7',[bob]),{code:'23514'});
+  await assert.rejects(insert(bob,8,JSON.stringify(Array.from({length:6001},()=>({key:'w',time:0}))),0),{code:'23514'});
+  await user(alice);
+  assert.equal((await db.query('update performances set duration_ms=340500 where owner_id=$1 and slot=7 returning *',[bob])).rows.length,0);
+  assert.equal((await db.query('select duration_ms from performances where owner_id=$1 and slot=7',[bob])).rows[0].duration_ms,340500);
 });
 test('private device data and consent-based location requests are admin-only',async()=>{
   await db.exec(`reset role;
