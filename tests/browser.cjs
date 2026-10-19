@@ -334,6 +334,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert(blackBox.width<whiteBox.width&&blackBox.x>whiteBox.x,'full-range black keys align between white keys');
     await page.keyboard.down('a');
     assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'middle octave keyboard shortcuts still work in full view');
+    assert.notEqual(await page.locator('[data-key="c4"]').evaluate(element=>getComputedStyle(element).transform),'none','a held piano key moves down like a physical key');
     await page.keyboard.up('a');
     for(let i=0;i<3;i++) await page.locator('[data-octave-shift="-1"]').click();
     assert.match(await page.locator('#piano-octave-label').innerText(),/C4–C5/);
