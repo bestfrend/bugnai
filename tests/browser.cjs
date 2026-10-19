@@ -351,17 +351,28 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     await page.keyboard.up('a');
     assert.equal(await page.locator('.piano-key.pressed').count(),0,'changing octave releases a held note');
     await page.locator('[data-octave-shift="1"]').click();
+    await page.locator('.piano-keyboard').scrollIntoViewIfNeeded();
     const keyCenter=async key=>{
       const box=await page.locator(`[data-key="${key}"]`).boundingBox();
       return {x:box.x+box.width/2,y:box.y+box.height*.72};
     };
-    const [c4,e4,g4]=await Promise.all(['c4','e4','g4'].map(keyCenter));
+    const [c4,e4,g4,a4,b4]=await Promise.all(['c4','e4','g4','a4','b4'].map(keyCenter));
+    assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('.piano-key')?.dataset.key,a4),'a4','a4 hit target stays reachable');
+    await page.evaluate(()=>{window.testPointerIds={};document.addEventListener('pointerdown',event=>{window.testPointerIds[event.target.closest('.piano-key')?.dataset.key]=event.pointerId;},true);});
     const input=await context.newCDPSession(page);
-    await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...c4,id:1},{...g4,id:2}]});
-    assert.equal(await page.locator('.piano-key.pressed').count(),2,'two piano keys can be held together');
-    await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...e4,id:1},{...g4,id:2}]});
-    assert(await page.locator('[data-key="e4"]').evaluate(element=>element.classList.contains('pressed')),'sliding a finger changes its note');
-    assert(await page.locator('[data-key="g4"]').evaluate(element=>element.classList.contains('pressed')),'the other held note remains active');
+    await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...c4,id:1},{...e4,id:2},{...g4,id:3},{...b4,id:4}]});
+    assert.equal(await page.locator('.piano-key.pressed').count(),4,'four piano keys can be held together');
+    await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...e4,x:e4.x-8,id:1},{...e4,x:e4.x+8,id:2},{...g4,id:3},{...b4,id:4}]});
+    assert.equal(await page.locator('.piano-key.pressed').count(),3,'two fingers can share a key while the other notes continue');
+    await page.evaluate(({x,y})=>document.dispatchEvent(new PointerEvent('pointermove',{pointerId:window.testPointerIds.e4,clientX:x,clientY:y,bubbles:true,cancelable:true})),a4);
+    assert(await page.locator('[data-key="e4"]').evaluate(element=>element.classList.contains('pressed')),'a shared note stays held when one finger slides away');
+    assert.deepEqual(await page.locator('.piano-key.pressed').evaluateAll(elements=>elements.map(element=>element.dataset.key).sort()),['a4','b4','e4','g4'],'changing one note preserves the four-key chord');
+    const keyboardBox=await page.locator('.piano-keyboard').boundingBox();
+    const gap={x:a4.x,y:keyboardBox.y+2};
+    await page.evaluate(({x,y})=>document.dispatchEvent(new PointerEvent('pointermove',{pointerId:window.testPointerIds.e4,clientX:x,clientY:y,bubbles:true,cancelable:true})),gap);
+    assert.equal(await page.locator('[data-key="a4"]').evaluate(element=>element.classList.contains('pressed')),false,'leaving a key releases its note');
+    await page.evaluate(({x,y})=>document.dispatchEvent(new PointerEvent('pointermove',{pointerId:window.testPointerIds.e4,clientX:x,clientY:y,bubbles:true,cancelable:true})),c4);
+    assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'returning across a gap plays a new note without lifting the finger');
     await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     assert.equal(await page.locator('.piano-key.pressed').count(),0,'lifting fingers releases all piano keys');
   }

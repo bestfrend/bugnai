@@ -130,15 +130,24 @@ function releaseVoice(voice) {
 }
 
 function pressPiano(key, owner) {
-  if (!window.drumAppReady || heldNotes.has(key)) return false;
+  if (!window.drumAppReady) return false;
+  const held = heldNotes.get(key);
+  if (held) {
+    held.owners.add(owner);
+    return true;
+  }
   const voice = hitDrum(key);
   if (!voice) return false;
-  heldNotes.set(key, { voice, owner });
+  heldNotes.set(key, { voice, owners: new Set([owner]) });
   return true;
 }
 function releasePiano(key, owner) {
   const held = heldNotes.get(key);
-  if (!held || (owner !== undefined && held.owner !== owner)) return;
+  if (!held || (owner !== undefined && !held.owners.has(owner))) return;
+  if (owner !== undefined) {
+    held.owners.delete(owner);
+    if (held.owners.size) return;
+  }
   heldNotes.delete(key);
   releaseVoice(held.voice);
   buttons.get(key)?.classList.remove('pressed');
@@ -150,10 +159,10 @@ export function releasePianoKeys() {
 }
 
 function releasePianoPointer(pointerId) {
+  if (!pianoPointers.has(pointerId)) return;
   const key = pianoPointers.get(pointerId);
-  if (!key) return;
   pianoPointers.delete(pointerId);
-  releasePiano(key, pointerId);
+  if (key) releasePiano(key, pointerId);
 }
 
 function bindInstrumentButtons() {
@@ -207,15 +216,11 @@ document.addEventListener('pointermove', event => {
   if (ACTIVE_KIT !== 'salamander-v1' || !pianoPointers.has(event.pointerId)) return;
   const previousKey = pianoPointers.get(event.pointerId);
   const nextKey = document.elementFromPoint(event.clientX, event.clientY)?.closest('.piano-key')?.dataset.key;
-  if (!nextKey) {
-    releasePianoPointer(event.pointerId);
-    return;
-  }
   if (nextKey === previousKey) return;
-  event.preventDefault();
-  releasePiano(previousKey, event.pointerId);
-  pianoPointers.set(event.pointerId, nextKey);
-  pressPiano(nextKey, event.pointerId);
+  if (nextKey) event.preventDefault();
+  if (previousKey) releasePiano(previousKey, event.pointerId);
+  pianoPointers.set(event.pointerId, nextKey || null);
+  if (nextKey) pressPiano(nextKey, event.pointerId);
 }, { passive: false });
 
 // Keep cleanup reliable even if capture ends outside the original pad.
