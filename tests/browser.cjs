@@ -453,6 +453,35 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     assert.equal(await page.locator('.piano-key.pressed').count(),3,'three simultaneous fingers remain held beyond the long-press threshold');
     assert(await page.evaluate(start=>window.testPianoSources.slice(start,start+3).every(source=>source.testStops.length===0),chordStart),'a simultaneous three-note chord does not stop its audio voices');
     await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    const edgeChord=await Promise.all(['e4','f4','g4'].map(async(key,index)=>{
+      const box=await page.locator(`[data-key="${key}"]`).boundingBox();
+      return {x:box.x+box.width/2,y:box.y+1,id:index+1};
+    }));
+    await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:edgeChord});
+    await new Promise(resolve=>setTimeout(resolve,120));
+    await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:edgeChord.map(point=>({...point,x:point.x+1}))});
+    assert.equal(await page.locator('.piano-key.pressed').count(),3,'Mi-Fa-Sol hit areas stay stable after the press animation');
+    await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    if(mobile){
+      const portrait=page.viewportSize();
+      await page.setViewportSize({width:915,height:412});
+      const chord=await Promise.all(['e4','f4','g4','a4','b4'].map(async(key,index)=>{
+        const box=await page.locator(`[data-key="${key}"]`).boundingBox();
+        return {x:box.x+box.width/2,y:box.y+box.height*.8,id:index+1};
+      }));
+      for(const count of [3,4,5]){
+        const points=chord.slice(0,count);
+        const sourceStart=await page.evaluate(()=>window.testPianoSources.length);
+        await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:points});
+        await new Promise(resolve=>setTimeout(resolve,150));
+        await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:points.map(point=>({...point,x:point.x+1}))});
+        assert.equal(await page.locator('.piano-key.pressed').count(),count,`${count} adjacent piano notes remain held in landscape`);
+        assert(await page.evaluate(start=>window.testPianoSources.slice(start).every(source=>source.testStops.length===0),sourceStart),'adjacent landscape notes retain all of their audio voices');
+        await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      }
+      await page.setViewportSize(portrait);
+      await page.locator('.piano-keyboard').scrollIntoViewIfNeeded();
+    }
     await page.keyboard.down('a');
     assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'held piano key starts a sample');
     await page.evaluate(()=>window.testPianoSources.at(-1).stop());

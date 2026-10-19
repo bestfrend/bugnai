@@ -206,6 +206,25 @@ function releasePianoPointer(pointerId) {
   if (key) releasePiano(key, pointerId);
 }
 
+function pianoKeyAtPoint(clientX, clientY) {
+  const keyboard = document.querySelector('.piano-keyboard');
+  if (!keyboard) return null;
+  const frame = keyboard.getBoundingClientRect();
+  const x = clientX - frame.left - keyboard.clientLeft;
+  const y = clientY - frame.top - keyboard.clientTop;
+  if (x < 0 || y < 0 || x >= keyboard.clientWidth || y >= keyboard.clientHeight) return null;
+  // Layout offsets stay fixed while the key surface tilts and moves on press.
+  // Black keys overlap white keys, so they take precedence in their own area.
+  for (const black of [true, false]) {
+    for (const [key, element] of buttons) {
+      if (element.disabled || element.classList.contains('black-key') !== black) continue;
+      if (x >= element.offsetLeft && x < element.offsetLeft + element.offsetWidth &&
+          y >= element.offsetTop && y < element.offsetTop + element.offsetHeight) return key;
+    }
+  }
+  return null;
+}
+
 function bindInstrumentButtons() {
   buttons.clear();
   keyboardShortcuts.clear();
@@ -265,7 +284,7 @@ document.addEventListener('pointermove', event => {
   }
   if (ACTIVE_KIT !== 'salamander-v1' || !pianoPointers.has(event.pointerId)) return;
   const previousKey = pianoPointers.get(event.pointerId);
-  const nextKey = document.elementFromPoint(event.clientX, event.clientY)?.closest('.piano-key')?.dataset.key;
+  const nextKey = pianoKeyAtPoint(event.clientX, event.clientY);
   if (nextKey === previousKey) return;
   if (nextKey) event.preventDefault();
   if (previousKey) releasePiano(previousKey, event.pointerId);
@@ -298,8 +317,8 @@ for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) {
           if (previous) releasePiano(previous, owner);
           continue;
         }
-        const target = type === 'touchstart' ? touch.target : document.elementFromPoint(touch.clientX, touch.clientY);
-        const key = target?.closest('.piano-key')?.dataset.key || null;
+        if (type === 'touchstart' && (!touch.target.closest('.piano-keyboard') || touch.target.closest('.lesson-start-overlay'))) continue;
+        const key = pianoKeyAtPoint(touch.clientX, touch.clientY);
         if (type === 'touchstart' && !key) continue;
         const previous = pianoTouches.get(id);
         if (previous === key) continue;

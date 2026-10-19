@@ -244,7 +244,8 @@ tikrą natos aukštį. Vienu metu galima liesti kelis klavišus; kompiuteryje na
 A W S E D F T G Y H U J K, „Pilnas“ režime jie valdo vidurinę C4–C5 oktavą.
 Telefone natas valdo atskiri `Touch.identifier`, todėl pelės žymeklio užfiksavimo
 praradimas nenutraukia laikomų pirštų natų. Pelei ir rašikliui naudojamas pointer
-capture. Atsarginis HTML Audio grotuvas pakartotinai naudoja laisvus balsus,
+capture. Natų lietimo sritys skaičiuojamos pagal neanimuotą klavišų išdėstymą:
+paspaudimo judesys nepastumia piršto į tarpą ar kitą natą. Atsarginis HTML Audio grotuvas pakartotinai naudoja laisvus balsus,
 neperimdamas kitų pirštų laikomų mėginių. Atšauktas lietimas, prarastas lango fokusas ir paslėptas
 puslapis taip pat atleidžia natas. Stiprumo slankiklis keičia garsumą, ne laikymo
 trukmę. Laikymas valdo natos trukmę, atleidimas turi 180 ms slopimo gaubtinę.
