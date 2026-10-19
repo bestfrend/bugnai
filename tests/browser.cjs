@@ -293,8 +293,19 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
   await wait(()=>page.locator('.lesson-cue').count().then(count=>count>0));
   assert(await page.locator('.lesson-card.is-playing').count(),'a lesson highlights the next instrument key');
+  const promptedKey=await page.locator('.lesson-cue').first().getAttribute('data-key');
+  if(mobile) await page.locator(`.kit .set [data-key="${promptedKey}"]`).tap();
+  else await page.locator(`.kit .set [data-key="${promptedKey}"]`).click();
+  assert(await page.locator(`.kit .set [data-key="${promptedKey}"]`).evaluate(button=>button.classList.contains('lesson-correct')),'an on-time note is green');
+  const wrongKey=kit==='salamander-v1'?'e4':'w';
+  if(mobile) await page.locator(`.kit .set [data-key="${wrongKey}"]`).tap();
+  else await page.locator(`.kit .set [data-key="${wrongKey}"]`).click();
+  assert(await page.locator(`.kit .set [data-key="${wrongKey}"]`).evaluate(button=>button.classList.contains('lesson-wrong')),'an off-time note is red');
+  await page.clock.fastForward(kit==='salamander-v1'?1450:750);
+  assert(await page.locator('.lesson-cue').count(),'the next cue follows its own clock after a user presses');
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   assert.equal(await page.locator('.lesson-cue').count(),0,'stopping a lesson clears every visual cue');
+  await page.clock.fastForward(12000);
 
   if(kit==='salamander-v1'){
     assert.equal(await page.locator('.piano-key').count(),13);

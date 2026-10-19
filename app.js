@@ -92,7 +92,9 @@ function action(label, handler, className = '') {
 }
 
 function clearLessonCues() {
-  for (const button of document.querySelectorAll('.lesson-cue')) button.classList.remove('lesson-cue');
+  for (const button of document.querySelectorAll('.lesson-cue, .lesson-correct, .lesson-wrong')) {
+    button.classList.remove('lesson-cue', 'lesson-correct', 'lesson-wrong');
+  }
 }
 
 function removeLessonStarter() {
@@ -104,6 +106,7 @@ function stopLesson() {
   document.querySelector('.kit')?.classList.remove('lesson-active');
   if (!lesson) return;
   cancelAnimationFrame(lesson.frame);
+  for (const timer of lesson.feedbackTimers.values()) clearTimeout(timer);
   clearLessonCues();
   lesson = null;
   renderLessons();
@@ -125,7 +128,7 @@ async function prepareLesson(definition, speed) {
   if (busy || lesson || recording?.stage === 'saving') return;
   if (recording) discardRecordingForLesson();
   pausedLesson = null;
-  lesson = { definition, speed, events: [...definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0 };
+  lesson = createLesson(definition, speed);
   if (ACTIVE_KIT !== 'salamander-v1') document.querySelector('.kit')?.classList.add('lesson-active');
   renderLessons();
   document.querySelector('.kit')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -144,28 +147,88 @@ async function prepareLesson(definition, speed) {
 function beginLesson() {
   if (!lesson || lesson.started !== null) return;
   removeLessonStarter();
-  lesson.started = performance.now();
+  const current = lesson;
+  current.started = performance.now();
   const tick = () => {
-    if (!lesson) return;
-    const elapsed = performance.now() - lesson.started;
-    while (lesson.next < lesson.events.length && lesson.events[lesson.next].beat * lesson.speed.beatMs <= elapsed) {
-      const note = lesson.events[lesson.next++];
-      const button = document.querySelector(`[data-key="${note.key}"]`);
-      if (button) {
-        button.classList.add('lesson-cue');
-        setTimeout(() => button.classList.remove('lesson-cue'), Math.min(360, lesson.speed.beatMs * .72));
-      }
+    if (lesson !== current) return;
+    const elapsed = performance.now() - current.started;
+    const cycleMs = lessonCycleMs(current);
+    while (true) {
+      const cycle = Math.floor(current.next / current.events.length);
+      const index = current.next % current.events.length;
+      const note = current.events[index];
+      const target = cycle * cycleMs + note.beat * current.speed.beatMs;
+      if (target > elapsed) break;
+      current.next++;
+      if (!current.judged.get(cycle)?.has(index)) current.pending.push({ key: note.key, target });
     }
-    if (lesson.next === lesson.events.length) {
-      const cycleMs = (lesson.events.at(-1).beat + 1) * lesson.speed.beatMs;
-      if (elapsed >= cycleMs) {
-        lesson.next = 0;
-        lesson.started += cycleMs;
-      }
-    }
-    lesson.frame = requestAnimationFrame(tick);
+    const windowMs = lessonTimingWindow(current);
+    current.pending = current.pending.filter(note => {
+      if (elapsed - note.target <= windowMs) return true;
+      flashLessonResult(current, note.key, false);
+      return false;
+    });
+    for (const button of document.querySelectorAll('.lesson-cue')) button.classList.remove('lesson-cue');
+    for (const note of current.pending) lessonButton(note.key)?.classList.add('lesson-cue');
+    const cycle = Math.floor(elapsed / cycleMs);
+    for (const previous of current.judged.keys()) if (previous < cycle - 1) current.judged.delete(previous);
+    current.frame = requestAnimationFrame(tick);
   };
   tick();
+}
+
+function createLesson(definition, speed) {
+  return { definition, speed, events: [...definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0, pending: [], judged: new Map(), feedbackTimers: new Map() };
+}
+
+function lessonCycleMs(current) {
+  return (current.events.at(-1).beat + 1) * current.speed.beatMs;
+}
+
+function lessonTimingWindow(current) {
+  return Math.min(320, Math.max(120, current.speed.beatMs * .3));
+}
+
+function lessonButton(key) {
+  return [...document.querySelectorAll('.kit .set [data-key]')].find(button => button.dataset.key === key);
+}
+
+function flashLessonResult(current, key, correct) {
+  const button = lessonButton(key);
+  if (!button) return;
+  clearTimeout(current.feedbackTimers.get(key));
+  button.classList.remove('lesson-correct', 'lesson-wrong');
+  button.classList.add(correct ? 'lesson-correct' : 'lesson-wrong');
+  current.feedbackTimers.set(key, setTimeout(() => {
+    button.classList.remove('lesson-correct', 'lesson-wrong');
+    current.feedbackTimers.delete(key);
+  }, 420));
+}
+
+function scoreLessonHit(key) {
+  const current = lesson;
+  if (!current || current.started === null) return;
+  const elapsed = performance.now() - current.started;
+  const cycleMs = lessonCycleMs(current);
+  const cycle = Math.floor(elapsed / cycleMs);
+  const windowMs = lessonTimingWindow(current);
+  let closest;
+  for (const candidateCycle of [cycle - 1, cycle, cycle + 1]) {
+    if (candidateCycle < 0) continue;
+    current.events.forEach((note, index) => {
+      if (note.key !== key || current.judged.get(candidateCycle)?.has(index)) return;
+      const distance = Math.abs(elapsed - (candidateCycle * cycleMs + note.beat * current.speed.beatMs));
+      if (distance <= windowMs && (!closest || distance < closest.distance)) closest = { cycle: candidateCycle, index, distance };
+    });
+  }
+  if (closest) {
+    if (!current.judged.has(closest.cycle)) current.judged.set(closest.cycle, new Set());
+    current.judged.get(closest.cycle).add(closest.index);
+    const target = closest.cycle * cycleMs + current.events[closest.index].beat * current.speed.beatMs;
+    current.pending = current.pending.filter(note => note.key !== key || note.target !== target);
+    if (!current.pending.some(note => note.key === key)) lessonButton(key)?.classList.remove('lesson-cue');
+  }
+  flashLessonResult(current, key, !!closest);
 }
 
 function pauseLessonForReview() {
@@ -178,7 +241,7 @@ function restorePausedLesson() {
   const saved = pausedLesson;
   pausedLesson = null;
   if (!saved || lesson) return;
-  lesson = { definition: saved.definition, speed: saved.speed, events: [...saved.definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0 };
+  lesson = createLesson(saved.definition, saved.speed);
   if (ACTIVE_KIT !== 'salamander-v1') document.querySelector('.kit')?.classList.add('lesson-active');
   renderLessons();
   showLessonStarter();
@@ -847,6 +910,7 @@ function scheduleRecordingReview(tail = 0) {
 }
 
 window.addEventListener('drumhit', event => {
+  scoreLessonHit(event.detail.key);
   stopPlayback();
   if (!recording) beginAutomaticRecording();
   if (!recording || !['armed', 'recording'].includes(recording.stage)) return;
