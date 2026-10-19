@@ -288,6 +288,8 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert(await page.locator('#recording-bar').isHidden());
   assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'each instrument shows its own lessons');
   await page.locator('.lesson-speed').first().click();
+  await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+  await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
   await wait(()=>page.locator('.lesson-cue').count().then(count=>count>0));
   assert(await page.locator('.lesson-card.is-playing').count(),'a lesson highlights the next instrument key');
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();

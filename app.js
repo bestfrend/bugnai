@@ -93,7 +93,12 @@ function clearLessonCues() {
   for (const button of document.querySelectorAll('.lesson-cue')) button.classList.remove('lesson-cue');
 }
 
+function removeLessonStarter() {
+  $('lesson-start')?.remove();
+}
+
 function stopLesson() {
+  removeLessonStarter();
   if (!lesson) return;
   cancelAnimationFrame(lesson.frame);
   clearLessonCues();
@@ -101,18 +106,39 @@ function stopLesson() {
   renderLessons();
 }
 
-async function startLesson(definition, speed) {
-  if (busy || recording) return;
-  stopLesson();
+function showLessonStarter() {
+  const set = document.querySelector('.kit .set');
+  if (!set || !lesson) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'lesson-start';
+  overlay.className = 'lesson-start-overlay';
+  const button = action('Pradėti pamoką', beginLesson, 'primary');
+  decorateAction(button, 'play');
+  overlay.append(button);
+  set.append(overlay);
+}
+
+async function prepareLesson(definition, speed) {
+  if (busy || recording || lesson) return;
+  lesson = { definition, speed, events: [...definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0 };
+  renderLessons();
+  document.querySelector('.kit')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   try {
     await prepareAudio(ACTIVE_KIT);
   } catch {
+    lesson = null;
+    renderLessons();
     status('Nepavyko paleisti garso. Paliesk būgną ir bandyk atkurti dar kartą.', true);
     return;
   }
-  const events = [...definition.events].sort((a, b) => a.beat - b.beat);
-  lesson = { definition, speed, events, next: 0, started: performance.now(), frame: 0 };
-  renderLessons();
+  if (!lesson || lesson.definition !== definition) return;
+  showLessonStarter();
+}
+
+function beginLesson() {
+  if (!lesson || lesson.started !== null) return;
+  removeLessonStarter();
+  lesson.started = performance.now();
   const tick = () => {
     if (!lesson) return;
     const elapsed = performance.now() - lesson.started;
@@ -152,7 +178,7 @@ function renderLessons() {
     const speeds = document.createElement('div');
     speeds.className = 'lesson-speeds';
     for (const speed of lessonSpeeds) {
-      const button = action(t(speed.label), () => startLesson(definition, speed));
+      const button = action(t(speed.label), () => prepareLesson(definition, speed));
       button.classList.add('lesson-speed');
       button.disabled = !!lesson || busy || !!recording;
       speeds.append(button);
