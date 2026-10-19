@@ -286,6 +286,12 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.equal(await page.locator('#create-rhythm').count(),0);
   assert.equal(await page.locator('#strength-control').count(),0);
   assert(await page.locator('#recording-bar').isHidden());
+  assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'each instrument shows its own lessons');
+  await page.locator('.lesson-speed').first().click();
+  await wait(()=>page.locator('.lesson-cue').count().then(count=>count>0));
+  assert(await page.locator('.lesson-card.is-playing').count(),'a lesson highlights the next instrument key');
+  await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+  assert.equal(await page.locator('.lesson-cue').count(),0,'stopping a lesson clears every visual cue');
 
   if(kit==='salamander-v1'){
     assert.equal(await page.locator('.piano-key').count(),13);

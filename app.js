@@ -2,6 +2,7 @@ import './navigation.js';
 import * as db from './database.js';
 import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit, releasePianoKeys } from './index.js';
 import { t, setLanguage, applyPageTranslations, language } from './i18n.js';
+import { lessonsForKit, lessonSpeeds } from './lessons.js';
 
 const $ = id => document.getElementById(id);
 const MAX_NOTES = 6000;
@@ -28,6 +29,7 @@ let renamingSlot = null;
 let renamingBusy = false;
 let avatarRemovalVisible = false;
 let activeStatus = { message: '', error: false };
+let lesson = null;
 
 const iconPaths = {
   play: ['M8 5v14l11-7z'],
@@ -85,6 +87,85 @@ function action(label, handler, className = '') {
   decorateAction(button);
   button.addEventListener('click', handler);
   return button;
+}
+
+function clearLessonCues() {
+  for (const button of document.querySelectorAll('.lesson-cue')) button.classList.remove('lesson-cue');
+}
+
+function stopLesson() {
+  if (!lesson) return;
+  cancelAnimationFrame(lesson.frame);
+  clearLessonCues();
+  lesson = null;
+  renderLessons();
+}
+
+async function startLesson(definition, speed) {
+  if (busy || recording) return;
+  stopLesson();
+  try {
+    await prepareAudio(ACTIVE_KIT);
+  } catch {
+    status('Nepavyko paleisti garso. Paliesk būgną ir bandyk atkurti dar kartą.', true);
+    return;
+  }
+  const events = [...definition.events].sort((a, b) => a.beat - b.beat);
+  lesson = { definition, speed, events, next: 0, started: performance.now(), frame: 0 };
+  renderLessons();
+  const tick = () => {
+    if (!lesson) return;
+    const elapsed = performance.now() - lesson.started;
+    while (lesson.next < lesson.events.length && lesson.events[lesson.next].beat * lesson.speed.beatMs <= elapsed) {
+      const note = lesson.events[lesson.next++];
+      const button = document.querySelector(`[data-key="${note.key}"]`);
+      if (button) {
+        button.classList.add('lesson-cue');
+        setTimeout(() => button.classList.remove('lesson-cue'), Math.min(360, lesson.speed.beatMs * .72));
+      }
+    }
+    if (lesson.next === lesson.events.length) {
+      const finalBeat = lesson.events.at(-1).beat * lesson.speed.beatMs + Math.min(360, lesson.speed.beatMs * .72);
+      if (elapsed >= finalBeat) {
+        stopLesson();
+        status('Pamoka baigta. Gali įrašyti savo ritmą.');
+        return;
+      }
+    }
+    lesson.frame = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function renderLessons() {
+  const list = $('lesson-list');
+  if (!list) return;
+  const piano = ACTIVE_KIT === 'salamander-v1';
+  $('lessons-title').textContent = t(piano ? 'Piano dainelės' : 'Būgnų pamokos');
+  $('lessons-hint').textContent = t('Pasirink greitį ir spausk šviečiančius mygtukus.');
+  list.replaceChildren();
+  for (const definition of lessonsForKit(ACTIVE_KIT)) {
+    const card = document.createElement('article');
+    card.className = 'lesson-card' + (lesson?.definition.id === definition.id ? ' is-playing' : '');
+    const title = document.createElement('h3');
+    title.textContent = t(definition.title);
+    const speeds = document.createElement('div');
+    speeds.className = 'lesson-speeds';
+    for (const speed of lessonSpeeds) {
+      const button = action(t(speed.label), () => startLesson(definition, speed));
+      button.classList.add('lesson-speed');
+      button.disabled = !!lesson || busy || !!recording;
+      speeds.append(button);
+    }
+    if (lesson?.definition.id === definition.id) {
+      const stop = action(t('Stabdyti pamoką'), stopLesson);
+      stop.dataset.icon = 'stop';
+      decorateAction(stop, 'stop');
+      speeds.append(stop);
+    }
+    card.append(title, speeds);
+    list.append(card);
+  }
 }
 
 function duration(ms) {
@@ -658,6 +739,7 @@ function clearRecordTimers() {
 
 function updateRecordBar() {
   const visible = recording && ['review', 'saving', 'failed'].includes(recording.stage);
+  if (visible) stopLesson();
   $('recording-bar').hidden = !visible;
   if (!recording) return;
   const stage = recording.stage;
@@ -681,6 +763,7 @@ function startRecording(slot, scroll = true) {
   const saved = members.get(me.id)?.performances.get(slot);
   mutationRevision++;
   stopPlayback();
+  if (scroll) stopLesson();
   prepareAudio().catch(() => {});
   recording = { slot, kit: ACTIVE_KIT, title: saved ? rhythmTitle(saved) : t('Ritmas') + ' ' + slot, replace: !!saved, stage: 'armed', started: null, events: [], heldPiano: new Set() };
   updateRecordBar();
@@ -832,6 +915,7 @@ function stopPlayback() {
 
 async function playPerformance(member, slot) {
   if (recording || busy) return;
+  stopLesson();
   await playSequence(member.performances.get(slot), member.profile.id, slot,
     `${member.profile.nickname} · ${rhythmTitle(member.performances.get(slot))}`);
 }
@@ -880,6 +964,7 @@ async function enter(profile) {
   $('workspace').hidden = false;
   $('welcome-name').textContent = t('Labas') + ', ' + profile.nickname + '!';
   window.drumAppReady = true;
+  renderLessons();
   addMember(profile);
   captureSessionContext().catch(() => {});
   await restoreEmergencyDraft();
@@ -976,6 +1061,7 @@ window.addEventListener('pageshow', event => {
 });
 // Instrument navigation keeps this module, identity and library alive.
 window.addEventListener('instrumentwillchange', () => {
+  stopLesson();
   const discarded = recording && recording.stage !== 'saving';
   if (discarded) {
     clearRecordTimers();
@@ -996,6 +1082,7 @@ window.addEventListener('pagehide', () => {
   clearInterval(locationRequestTimer);
   closeLocationRequest();
   clearRecordTimers();
+  stopLesson();
   if (recording?.events.length && recording.stage !== 'saving') {
     localStorage.setItem(EMERGENCY_DRAFT_KEY, JSON.stringify({ events: recording.events, kit: recording.kit }));
     db.saveEmergencyPerformance(recording.events, 'Ritmas 1', recording.kit);
@@ -1023,6 +1110,7 @@ window.addEventListener('storage', event => {
 });
 
 createLocationDialog();
+renderLessons();
 document.querySelectorAll('.action').forEach(button => decorateAction(button));
 decorateAction($('remove-avatar'), 'trash');
 applyPageTranslations();
@@ -1031,6 +1119,7 @@ window.addEventListener('languagechange', () => {
   if (me) updateProfile(members.get(me.id), me);
   refreshControls();
   updateRecordBar();
+  renderLessons();
   if (typeof activeStatus.message === 'function') status(activeStatus.message, activeStatus.error);
 });
 

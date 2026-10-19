@@ -315,6 +315,16 @@ footer { padding: 24px 0 32px; }
 .sound-credit { margin-top: 12px; font-size: 10px; }
 .sound-credit a { color: #a5b1c9; text-decoration: none; }
 .rhythm-kit { display: block; color: #a5b1c9; font-size: 9px; line-height: 12px; }
+.lessons { margin-top: 18px; }
+.lessons .section-heading { margin-bottom: 6px; }
+.lesson-list { display: grid; gap: 8px; }
+.lesson-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 9px 10px 9px 13px; border: 1px solid #53627c; border-radius: 12px; background: #182338; }
+.lesson-card.is-playing { border-color: #7ee7ff; box-shadow: inset 0 0 18px #5ed8ff22, 0 0 12px #5ed8ff22; }
+.lesson-card h3 { margin: 0; font-size: 14px; }
+.lesson-speeds { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.lesson-speed, .lesson-speeds .action { min-height: 29px; padding: 5px 8px; font-size: 11px; }
+.lesson-cue { position: relative; z-index: 3; animation: lesson-cue 360ms ease-out; outline: 3px solid #bff8ff; outline-offset: -3px; filter: brightness(1.25) saturate(1.15); box-shadow: inset 0 0 24px #eaffff, 0 0 13px 4px #61ddff !important; }
+@keyframes lesson-cue { from { transform: scale(.96); } 55% { transform: scale(1.02); } to { transform: scale(1); } }
 @media (max-width: 400px) {
   .kit .set:not(.piano-keyboard) { gap: 7px; }
   .drum .drum-name { font-size: 9px; padding: 2px 3px; }
@@ -350,7 +360,7 @@ footer { padding: 24px 0 32px; }
   html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
   body { padding: 0; }
   body > header, body > footer, main > #status,
-  #workspace > .welcome, #workspace > .playback-bar, #workspace > .community { display: none !important; }
+  #workspace > .welcome, #workspace > .playback-bar, #workspace > .community, #workspace > .lessons { display: none !important; }
   main, #workspace, .kit { width: 100%; max-width: none; height: 100%; margin: 0; padding: 0; }
   #workspace, .kit .set, .kit .drum, .kit .piano-key { touch-action: none; overscroll-behavior: none; }
   .kit > .hint, .kit > .sound-credit, .kit > .piano-author { display: none !important; }
