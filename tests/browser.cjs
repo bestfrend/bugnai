@@ -304,23 +304,36 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert(await page.locator('#recording-bar').isHidden());
   assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'each instrument shows its own lessons');
   assert.equal(await page.locator('.lesson-speed').count(),(kit==='salamander-v1'?1:4)*4,'lessons offer four increasingly faster speeds');
+  const lessonInput=kit==='salamander-v1'?await context.newCDPSession(page):null;
+  const pressLessonKey=async key=>{
+    const target=page.locator(`.kit .set [data-key="${key}"]`);
+    if(lessonInput){
+      await target.scrollIntoViewIfNeeded();
+      const box=await target.boundingBox();
+      await lessonInput.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width/2,y:box.y+box.height*.8,id:1}]});
+    }else if(mobile)await target.tap();
+    else await target.click();
+  };
+  const releaseLessonKey=async()=>{
+    if(lessonInput)await lessonInput.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  };
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
   await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
   const delayedKey=kit==='salamander-v1'?'c4':'l';
   await page.clock.fastForward(kit==='salamander-v1'?800:500);
   if(kit==='salamander-v1')assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('lesson-cue')),'a slow lesson cue remains visible during its response window');
-  if(mobile)await page.locator(`.kit .set [data-key="${delayedKey}"]`).tap();
-  else await page.locator(`.kit .set [data-key="${delayedKey}"]`).click();
+  await pressLessonKey(delayedKey);
   assert(await page.locator(`.kit .set [data-key="${delayedKey}"]`).evaluate(element=>element.classList.contains('lesson-correct')),'a delayed response before the next note and within one second is accepted');
+  await releaseLessonKey();
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
   await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
   await page.clock.fastForward(kit==='salamander-v1'?1050:750);
-  if(mobile)await page.locator(`.kit .set [data-key="${delayedKey}"]`).tap();
-  else await page.locator(`.kit .set [data-key="${delayedKey}"]`).click();
+  await pressLessonKey(delayedKey);
   assert(await page.locator(`.kit .set [data-key="${delayedKey}"]`).evaluate(element=>element.classList.contains('lesson-wrong')),'a response expires after one second or when the next note starts, whichever comes first');
+  await releaseLessonKey();
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   const lastNote=await page.evaluate(async kit=>{
     const {lessonsForKit,lessonSpeeds}=await import('./lessons.js');
@@ -341,21 +354,30 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await wait(()=>page.locator('.lesson-cue').count().then(count=>count>0));
   assert(await page.locator('.lesson-card.is-playing').count(),'a lesson highlights the next instrument key');
   const promptedKey=await page.locator('.lesson-cue').first().getAttribute('data-key');
-  if(mobile) await page.locator(`.kit .set [data-key="${promptedKey}"]`).tap();
-  else await page.locator(`.kit .set [data-key="${promptedKey}"]`).click();
+  if(lessonInput){
+    await page.locator('.piano-keyboard').scrollIntoViewIfNeeded();
+    const black=await page.locator('[data-key="cs4"]').boundingBox();
+    assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('.piano-key')?.dataset.key,{x:black.x+black.width*.2,y:black.y+black.height*.5}),'cs4','a glowing white cue remains behind its overlapping black key');
+  }
+  await pressLessonKey(promptedKey);
   assert(await page.locator(`.kit .set [data-key="${promptedKey}"]`).evaluate(button=>button.classList.contains('lesson-correct')),'an on-time note is green');
   if(kit==='salamander-v1'){
     assert.equal(await page.locator(`[data-key="${promptedKey}"]`).evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(140, 213, 189)','correct lesson feedback changes only the key background');
     assert.equal(await page.locator(`[data-key="${promptedKey}"]`).evaluate(button=>getComputedStyle(button).outlineStyle),'none','correct lesson feedback adds no outline');
+    await page.clock.runFor(600);
+    assert(await page.locator(`[data-key="${promptedKey}"]`).evaluate(button=>button.classList.contains('lesson-correct')),'green feedback stays visible while a piano key is held');
   }
+  await releaseLessonKey();
+  if(lessonInput)assert.equal(await page.locator('.lesson-correct').count(),0,'releasing the piano key clears its feedback immediately');
   const wrongKey=kit==='salamander-v1'?'e4':'w';
-  if(mobile) await page.locator(`.kit .set [data-key="${wrongKey}"]`).tap();
-  else await page.locator(`.kit .set [data-key="${wrongKey}"]`).click();
+  await pressLessonKey(wrongKey);
   assert(await page.locator(`.kit .set [data-key="${wrongKey}"]`).evaluate(button=>button.classList.contains('lesson-wrong')),'an off-time note is red');
   if(kit==='salamander-v1'){
     assert.equal(await page.locator(`[data-key="${wrongKey}"]`).evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(233, 147, 154)','wrong lesson feedback changes only the key background');
     assert.equal(await page.locator(`[data-key="${wrongKey}"]`).evaluate(button=>getComputedStyle(button).outlineStyle),'none','wrong lesson feedback adds no outline');
   }
+  await releaseLessonKey();
+  if(lessonInput)assert.equal(await page.locator('.lesson-wrong').count(),0,'releasing a wrong piano note clears its red background');
   await page.clock.fastForward(kit==='salamander-v1'?1450:750);
   assert(await page.locator('.lesson-cue').count(),'the next cue follows its own clock after a user presses');
   assert.equal(await page.locator('.lesson-wrong').count(),0,'missed lesson cues do not automatically flash red');

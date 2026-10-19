@@ -199,6 +199,7 @@ function flashLessonResult(current, key, correct) {
   clearTimeout(current.feedbackTimers.get(key));
   button.classList.remove('lesson-correct', 'lesson-wrong');
   button.classList.add(correct ? 'lesson-correct' : 'lesson-wrong');
+  if (ACTIVE_KIT === 'salamander-v1') return;
   current.feedbackTimers.set(key, setTimeout(() => {
     button.classList.remove('lesson-correct', 'lesson-wrong');
     current.feedbackTimers.delete(key);
@@ -936,6 +937,7 @@ window.addEventListener('drumhit', event => {
 });
 
 window.addEventListener('pianorelease', event => {
+  lessonButton(event.detail.key)?.classList.remove('lesson-correct', 'lesson-wrong');
   if (!recording || recording.kit !== 'salamander-v1' || recording.stage !== 'recording') return;
   const note = recording.events.findLast(note => note.key === event.detail.key);
   if (note) note.length = Math.max(0, Math.round(performance.now() - recording.started) - note.time);
