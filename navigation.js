@@ -64,7 +64,9 @@ async function navigate(id, push = true) {
     if (push && location.pathname !== destinations.get(id).pathname) {
       history.pushState(null, '', destinations.get(id));
     }
-    await mountInstrument(id);
+    const mounted = mountInstrument(id);
+    window.dispatchEvent(new CustomEvent('instrumentchanged', { detail: { kit: id } }));
+    await mounted;
   } catch {
     if (generation !== requestGeneration) return;
     // Keep the current instrument usable after a failed page fetch; never reload login.

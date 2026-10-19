@@ -401,10 +401,12 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.locator('[data-kit-link="salamander-v1"]').click();
   await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value==='salamander-v1'));
   assert.match(await page.locator('#title').innerText(),/Salamanderpiano/);
+  assert.equal(await page.locator('.lesson-card').count(),1,'switching to piano replaces drum lessons');
   assert.equal(await page.locator('html').getAttribute('lang'),'sv');
   assert.deepEqual(await untranslatedPublicText(page),[],'instrument switch keeps translations');
   await page.locator(`[data-kit-link="${kit}"]`).click();
   await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===kit));
+  assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'switching back restores this instrument’s lessons');
   await page.locator('#language-select').selectOption('lt');
 
   await strike(firstKey);

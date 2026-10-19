@@ -99,6 +99,7 @@ function removeLessonStarter() {
 
 function stopLesson() {
   removeLessonStarter();
+  document.querySelector('.kit')?.classList.remove('lesson-active');
   if (!lesson) return;
   cancelAnimationFrame(lesson.frame);
   clearLessonCues();
@@ -121,6 +122,7 @@ function showLessonStarter() {
 async function prepareLesson(definition, speed) {
   if (busy || recording || lesson) return;
   lesson = { definition, speed, events: [...definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0 };
+  if (ACTIVE_KIT !== 'salamander-v1') document.querySelector('.kit')?.classList.add('lesson-active');
   renderLessons();
   document.querySelector('.kit')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   try {
@@ -151,11 +153,10 @@ function beginLesson() {
       }
     }
     if (lesson.next === lesson.events.length) {
-      const finalBeat = lesson.events.at(-1).beat * lesson.speed.beatMs + Math.min(360, lesson.speed.beatMs * .72);
-      if (elapsed >= finalBeat) {
-        stopLesson();
-        status('Pamoka baigta. Gali įrašyti savo ritmą.');
-        return;
+      const cycleMs = (lesson.events.at(-1).beat + 1) * lesson.speed.beatMs;
+      if (elapsed >= cycleMs) {
+        lesson.next = 0;
+        lesson.started += cycleMs;
       }
     }
     lesson.frame = requestAnimationFrame(tick);
@@ -1101,6 +1102,7 @@ window.addEventListener('instrumentwillchange', () => {
   if (discarded) refreshControls();
   if (!recording) status(discarded ? 'Nebaigtas bandymas atmestas. Pasirinktas kitas instrumentas.' : '');
 });
+window.addEventListener('instrumentchanged', () => renderLessons());
 window.addEventListener('pagehide', () => {
   for (const cancel of locationAcquisitions.values()) cancel();
   clearInterval(pollTimer);

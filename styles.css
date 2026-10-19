@@ -329,6 +329,7 @@ footer { padding: 24px 0 32px; }
 .lesson-start-overlay { position: absolute; z-index: 20; inset: 0; display: grid; place-items: center; border-radius: inherit; background: #101a2a55; backdrop-filter: blur(2px); }
 .lesson-start-overlay .action { min-height: 58px; padding: 12px 18px; border: 1px solid #e4fbff; border-radius: 18px; box-shadow: 0 0 0 6px #75d9ff33, 0 10px 30px #08132299; font-size: 15px; }
 .lesson-start-overlay .button-icon { width: 22px; height: 22px; }
+.kit.lesson-active .set:not(.piano-keyboard) { touch-action: none; overscroll-behavior: none; }
 @media (max-width: 400px) {
   .kit .set:not(.piano-keyboard) { gap: 7px; }
   .drum .drum-name { font-size: 9px; padding: 2px 3px; }
