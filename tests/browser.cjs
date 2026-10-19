@@ -41,8 +41,9 @@ async function untranslatedPublicText(page){
   });
 }
 
-async function instrumentScenario(browser,file,kit,mobile=false){
+async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=false){
   const context=await browser.newContext(mobile?{...devices['Pixel 7']}:{viewport:{width:1280,height:850}});
+  if(forceFallback)await context.addInitScript(()=>{window.AudioContext=undefined;window.webkitAudioContext=undefined;});
   const profiles=[{id:other,nickname:'Kitas',created_at:new Date().toISOString()}];
   const recordings=new Map();
   let saves=0,emergencySaves=0,authRequests=0,sessionStarts=0;
@@ -373,10 +374,8 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     const [c4,e4,g4,a4,b4]=await Promise.all(['c4','e4','g4','a4','b4'].map(keyCenter));
     assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('.piano-key')?.dataset.key,a4),'a4','a4 hit target stays reachable');
     await page.evaluate(()=>{
-      window.testPointerIds={};
       window.pianoNativeTouchCancelled=false;
-      document.addEventListener('pointerdown',event=>{window.testPointerIds[event.target.closest('.piano-key')?.dataset.key]=event.pointerId;},true);
-      document.addEventListener('pointerdown',event=>{if(event.pointerType==='touch'&&event.target.closest('.piano-key'))window.pianoNativeTouchCancelled=event.defaultPrevented;});
+      document.addEventListener('touchstart',event=>{if(event.target.closest('.piano-key'))window.pianoNativeTouchCancelled=event.defaultPrevented;});
     });
     const input=await context.newCDPSession(page);
     await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...c4,id:1},{...e4,id:2},{...g4,id:3},{...b4,id:4}]});
@@ -384,36 +383,76 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert.equal(await page.locator('.piano-key.pressed').count(),4,'four piano keys can be held together');
     await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...e4,x:e4.x-8,id:1},{...e4,x:e4.x+8,id:2},{...g4,id:3},{...b4,id:4}]});
     assert.equal(await page.locator('.piano-key.pressed').count(),3,'two fingers can share a key while the other notes continue');
-    await page.evaluate(({x,y})=>document.dispatchEvent(new PointerEvent('pointermove',{pointerId:window.testPointerIds.e4,clientX:x,clientY:y,bubbles:true,cancelable:true})),a4);
+    await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...e4,x:e4.x-8,id:1},{...a4,id:2},{...g4,id:3},{...b4,id:4}]});
+    await wait(()=>page.locator('[data-key="a4"]').evaluate(element=>element.classList.contains('pressed')));
     assert(await page.locator('[data-key="e4"]').evaluate(element=>element.classList.contains('pressed')),'a shared note stays held when one finger slides away');
     assert.deepEqual(await page.locator('.piano-key.pressed').evaluateAll(elements=>elements.map(element=>element.dataset.key).sort()),['a4','b4','e4','g4'],'changing one note preserves the four-key chord');
     const keyboardBox=await page.locator('.piano-keyboard').boundingBox();
     const gap={x:a4.x,y:keyboardBox.y+2};
-    await page.evaluate(({x,y})=>document.dispatchEvent(new PointerEvent('pointermove',{pointerId:window.testPointerIds.e4,clientX:x,clientY:y,bubbles:true,cancelable:true})),gap);
+    await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...e4,x:e4.x-8,id:1},{...gap,id:2},{...g4,id:3},{...b4,id:4}]});
+    await wait(()=>page.locator('[data-key="a4"]').evaluate(element=>!element.classList.contains('pressed')));
     assert.equal(await page.locator('[data-key="a4"]').evaluate(element=>element.classList.contains('pressed')),false,'leaving a key releases its note');
-    await page.evaluate(({x,y})=>document.dispatchEvent(new PointerEvent('pointermove',{pointerId:window.testPointerIds.e4,clientX:x,clientY:y,bubbles:true,cancelable:true})),c4);
+    await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...e4,x:e4.x-8,id:1},{...c4,id:2},{...g4,id:3},{...b4,id:4}]});
+    await wait(()=>page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')));
     assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'returning across a gap plays a new note without lifting the finger');
     await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     assert.equal(await page.locator('.piano-key.pressed').count(),0,'lifting fingers releases all piano keys');
+    await page.evaluate(()=>{
+      window.testPianoSources=[];
+      if(!window.AudioContext){
+        const play=HTMLMediaElement.prototype.play;
+        const pause=HTMLMediaElement.prototype.pause;
+        HTMLMediaElement.prototype.play=function(...args){
+          const audio=this;
+          const source={audio,testStops:[],stop(){audio.pause();audio.dispatchEvent(new Event('ended'));}};
+          audio.testSource=source;
+          window.testPianoSources.push(source);
+          return play.apply(audio,args);
+        };
+        HTMLMediaElement.prototype.pause=function(...args){
+          this.testSource?.testStops.push(args);
+          return pause.apply(this,args);
+        };
+        return;
+      }
+      const original=AudioContext.prototype.createBufferSource;
+      AudioContext.prototype.createBufferSource=function(...args){
+        const source=original.apply(this,args);
+        const stop=source.stop.bind(source);
+        source.testStops=[];
+        source.stop=(...args)=>{source.testStops.push(args);return stop(...args);};
+        window.testPianoSources.push(source);
+        return source;
+      };
+    });
+    await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...c4,id:1},{...e4,id:2}]});
+    assert.equal(await page.evaluate(()=>window.testPianoSources.length),2,'two held notes have independent audio voices');
     await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...c4,id:1},{...e4,id:2},{...g4,id:3}]});
     const gestureScroll=await page.evaluate(()=>window.scrollY);
     const gestureScale=await page.evaluate(()=>window.visualViewport.scale);
     for(const [note,moving] of [['a4',a4],['b4',b4],['g4',g4],['a4',a4],['b4',b4],['g4',g4]]){
       await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...c4,id:1},{...e4,id:2},{...moving,id:3}]});
       await wait(()=>page.locator('.piano-key.pressed').evaluateAll((elements,note)=>elements.length===3&&['c4','e4',note].every(key=>elements.some(element=>element.dataset.key===key)),note));
+      assert(await page.evaluate(()=>window.testPianoSources.slice(0,2).every(source=>source.testStops.length===0)),'changing the third note never stops either held audio voice');
     }
     assert.equal(await page.evaluate(()=>window.scrollY),gestureScroll,'changing a third note does not scroll the instrument');
     assert.equal(await page.evaluate(()=>window.visualViewport.scale),gestureScale,'changing a third note does not zoom the page');
     await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-    await page.evaluate(()=>{
-      const original=AudioContext.prototype.createBufferSource;
-      window.testPianoSources=[];
-      AudioContext.prototype.createBufferSource=function(...args){
-        const source=original.apply(this,args);
-        window.testPianoSources.push(source);
-        return source;
-      };
-    });
+    const heldStart=await page.evaluate(()=>window.testPianoSources.length);
+    await page.keyboard.down('a');
+    await page.keyboard.down('d');
+    for(const shortcut of ['w','s','e','w','s','e','w','s','e'])await page.keyboard.press(shortcut);
+    assert(await page.evaluate(start=>window.testPianoSources.slice(start,start+2).every(source=>source.testStops.length===0),heldStart),'repeated notes sharing samples never steal a held voice');
+    assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'the first shared sample stays held');
+    assert(await page.locator('[data-key="e4"]').evaluate(element=>element.classList.contains('pressed')),'the second shared sample stays held');
+    await page.keyboard.up('a');
+    await page.keyboard.up('d');
+    const chordStart=await page.evaluate(()=>window.testPianoSources.length);
+    await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...c4,id:1},{...e4,id:2},{...g4,id:3}]});
+    await new Promise(resolve=>setTimeout(resolve,650));
+    assert.equal(await page.locator('.piano-key.pressed').count(),3,'three simultaneous fingers remain held beyond the long-press threshold');
+    assert(await page.evaluate(start=>window.testPianoSources.slice(start,start+3).every(source=>source.testStops.length===0),chordStart),'a simultaneous three-note chord does not stop its audio voices');
+    await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     await page.keyboard.down('a');
     assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'held piano key starts a sample');
     await page.evaluate(()=>window.testPianoSources.at(-1).stop());
@@ -696,7 +735,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await wait(()=>emergencySaves>=1);
   assert.equal(recordings.get(own+':1').events[0].key,firstKey,'closing overwrites the emergency first slot');
   assert.deepEqual(errors,[]);
-  console.log('PASS',file,mobile?'mobile landscape':'desktop','automatic recording, touch chords/glissando, scrolling, save/repeat/exit, seamless tabs, draft discard, history, fetch failure/race and emergency slot');
+  console.log('PASS',file,mobile?'mobile landscape':'desktop',forceFallback?'HTML Audio fallback':'Web Audio','automatic recording, touch chords/glissando, scrolling, save/repeat/exit, seamless tabs, draft discard, history, fetch failure/race and emergency slot');
   await context.close();
 }
 
@@ -801,6 +840,7 @@ async function adminScenario(browser){
       await instrumentScenario(browser,file,kit,false);
       await instrumentScenario(browser,file,kit,true);
     }
+    await instrumentScenario(browser,'piano.html','salamander-v1',true,true);
     await adminScenario(browser);
   }finally{if(browser)await browser.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

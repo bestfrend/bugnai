@@ -241,8 +241,11 @@ rodomi tokie, kokius juos įvedė vartotojai.
 Po C6–C7 esantis „Pilnas“ režimas viename ekrane sutalpina visą turimą C2–C7
 diapazoną (61 natą), todėl telefone klavišai labai siauri. Kiekvienas įrašas saugo
 tikrą natos aukštį. Vienu metu galima liesti kelis klavišus; kompiuteryje naudojami
-A W S E D F T G Y H U J K, „Pilnas“ režime jie valdo vidurinę C4–C5 oktavą. Pointer capture užtikrina atleidimą ir pirštą
-pakėlus už klavišo ribų; atšauktas lietimas, prarastas lango fokusas ir paslėptas
+A W S E D F T G Y H U J K, „Pilnas“ režime jie valdo vidurinę C4–C5 oktavą.
+Telefone natas valdo atskiri `Touch.identifier`, todėl pelės žymeklio užfiksavimo
+praradimas nenutraukia laikomų pirštų natų. Pelei ir rašikliui naudojamas pointer
+capture. Atsarginis HTML Audio grotuvas pakartotinai naudoja laisvus balsus,
+neperimdamas kitų pirštų laikomų mėginių. Atšauktas lietimas, prarastas lango fokusas ir paslėptas
 puslapis taip pat atleidžia natas. Stiprumo slankiklis keičia garsumą, ne laikymo
 trukmę. Laikymas valdo natos trukmę, atleidimas turi 180 ms slopimo gaubtinę.
 Jei mėginys pasibaigia dar laikant klavišą, klavišas automatiškai atleidžiamas,

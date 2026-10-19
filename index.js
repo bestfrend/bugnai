@@ -10,6 +10,7 @@ const fallbackSounds = new Map();
 const activeSources = new Set();
 const heldNotes = new Map();
 const pianoPointers = new Map();
+const pianoTouches = new Map();
 const drumPointers = new Map();
 const keyboardShortcuts = new Map();
 const loading = new Map();
@@ -58,9 +59,15 @@ function playFallback(path, volume, rate = 1) {
     pool = { voices: [], next: 0 };
     fallbackSounds.set(path, pool);
   }
-  if (pool.voices.length < 4) pool.voices.push(new Audio(path));
-  const audio = pool.voices[pool.next % pool.voices.length];
-  pool.next++;
+  // Reuse an idle player, never a sample still held by another finger.
+  let audio = pool.voices.find(player => player.paused || player.ended);
+  if (!audio && pool.voices.length >= 64) {
+    audio = pool.voices.find(player => ![...heldNotes.values()].some(held => held.voice === player.currentVoice));
+  }
+  if (!audio) {
+    audio = new Audio(path);
+    pool.voices.push(audio);
+  }
   const previous = audio.currentVoice;
   if (previous) {
     previous.cleanup();
@@ -189,6 +196,7 @@ function releasePiano(key, owner) {
 export function releasePianoKeys() {
   for (const key of heldNotes.keys()) releasePiano(key);
   pianoPointers.clear();
+  pianoTouches.clear();
 }
 
 function releasePianoPointer(pointerId) {
@@ -211,7 +219,10 @@ function bindInstrumentButtons() {
     button.addEventListener('pointerdown', event => {
       if (event.button !== 0 || !window.drumAppReady) return;
       if (ACTIVE_KIT === 'salamander-v1') {
-        if (event.pointerType === 'touch') event.preventDefault();
+        if (event.pointerType === 'touch') {
+          event.preventDefault();
+          return; // Touch identifiers own touchscreen notes, not pointer capture.
+        }
         button.setPointerCapture(event.pointerId);
         pianoPointers.set(event.pointerId, key);
         pressPiano(key, event.pointerId);
@@ -273,10 +284,31 @@ for (const type of ['contextmenu', 'dragstart']) {
 }
 // Cancel native touch handling before a browser can claim a musical gesture.
 // Pointer events still drive notes; lesson controls keep their normal clicks.
-for (const type of ['touchstart', 'touchmove']) {
+for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) {
   document.addEventListener(type, event => {
-    if (!window.drumAppReady || !event.target.closest('.kit .set') || event.target.closest('.action')) return;
-    if (event.cancelable) event.preventDefault();
+    if (!window.drumAppReady) return;
+    if (ACTIVE_KIT === 'salamander-v1') {
+      for (const touch of event.changedTouches) {
+        const id = touch.identifier;
+        const owner = `touch:${id}`;
+        if (type !== 'touchstart' && !pianoTouches.has(id)) continue;
+        if (type === 'touchend' || type === 'touchcancel') {
+          const previous = pianoTouches.get(id);
+          pianoTouches.delete(id);
+          if (previous) releasePiano(previous, owner);
+          continue;
+        }
+        const target = type === 'touchstart' ? touch.target : document.elementFromPoint(touch.clientX, touch.clientY);
+        const key = target?.closest('.piano-key')?.dataset.key || null;
+        if (type === 'touchstart' && !key) continue;
+        const previous = pianoTouches.get(id);
+        if (previous === key) continue;
+        if (previous) releasePiano(previous, owner);
+        pianoTouches.set(id, key);
+        if (key) pressPiano(key, owner);
+      }
+    }
+    if (event.target.closest('.kit .set') && !event.target.closest('.action') && event.cancelable) event.preventDefault();
   }, { passive: false });
 }
 function clearInstrumentPointers() {
