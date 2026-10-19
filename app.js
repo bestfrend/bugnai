@@ -161,10 +161,10 @@ function beginLesson() {
       const target = cycle * cycleMs + note.beat * current.speed.beatMs;
       if (target > elapsed) break;
       current.next++;
-      if (!current.judged.get(cycle)?.has(index)) current.pending.push({ key: note.key, target });
+      if (!current.judged.get(cycle)?.has(index)) current.pending.push({ key: note.key, target,
+        expires: target + lessonResponseWindow(current, index) });
     }
-    const windowMs = lessonTimingWindow(current);
-    current.pending = current.pending.filter(note => elapsed - note.target <= windowMs);
+    current.pending = current.pending.filter(note => elapsed < note.expires);
     for (const button of document.querySelectorAll('.lesson-cue')) button.classList.remove('lesson-cue');
     for (const note of current.pending) lessonButton(note.key)?.classList.add('lesson-cue');
     const cycle = Math.floor(elapsed / cycleMs);
@@ -182,8 +182,10 @@ function lessonCycleMs(current) {
   return (current.events.at(-1).beat + 1) * current.speed.beatMs;
 }
 
-function lessonTimingWindow(current) {
-  return Math.min(320, Math.max(120, current.speed.beatMs * .3));
+function lessonResponseWindow(current, index) {
+  const beat = current.events[index].beat;
+  const next = current.events.find(note => note.beat > beat);
+  return next ? Math.min(1000, (next.beat - beat) * current.speed.beatMs) : 1000;
 }
 
 function lessonButton(key) {
@@ -208,14 +210,15 @@ function scoreLessonHit(key) {
   const elapsed = performance.now() - current.started;
   const cycleMs = lessonCycleMs(current);
   const cycle = Math.floor(elapsed / cycleMs);
-  const windowMs = lessonTimingWindow(current);
   let closest;
-  for (const candidateCycle of [cycle - 1, cycle, cycle + 1]) {
+  for (const candidateCycle of [cycle - 1, cycle]) {
     if (candidateCycle < 0) continue;
     current.events.forEach((note, index) => {
       if (note.key !== key || current.judged.get(candidateCycle)?.has(index)) return;
-      const distance = Math.abs(elapsed - (candidateCycle * cycleMs + note.beat * current.speed.beatMs));
-      if (distance <= windowMs && (!closest || distance < closest.distance)) closest = { cycle: candidateCycle, index, distance };
+      const delay = elapsed - (candidateCycle * cycleMs + note.beat * current.speed.beatMs);
+      const lateWindow = lessonResponseWindow(current, index);
+      if (delay < 0 || delay >= lateWindow) return;
+      if (!closest || delay < closest.distance) closest = { cycle: candidateCycle, index, distance: delay };
     });
   }
   if (closest) {
