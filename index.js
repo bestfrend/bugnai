@@ -53,13 +53,28 @@ function playFallback(path, volume, rate = 1) {
   if (pool.voices.length < 4) pool.voices.push(new Audio(path));
   const audio = pool.voices[pool.next % pool.voices.length];
   pool.next++;
+  const previous = audio.currentVoice;
+  if (previous) {
+    previous.cleanup();
+    if (!previous.released) previous.onFinished?.();
+    previous.released = true;
+  }
+  const voice = { audio };
+  audio.currentVoice = voice;
+  const onEnded = () => {
+    if (audio.currentVoice !== voice) return;
+    audio.currentVoice = null;
+    if (!voice.released) voice.onFinished?.();
+  };
+  voice.cleanup = () => audio.removeEventListener('ended', onEnded);
+  audio.addEventListener('ended', onEnded, { once: true });
   audio.currentTime = 0;
   audio.volume = volume;
   audio.playbackRate = rate;
   audio.preservesPitch = false;
   const playback = audio.play();
   if (playback) playback.catch(() => {});
-  return { audio };
+  return voice;
 }
 
 function playBuffer(path, volume, rate = 1) {
@@ -82,6 +97,7 @@ function playBuffer(path, volume, rate = 1) {
     activeSources.delete(voice);
     source.disconnect();
     gain.disconnect();
+    if (!voice.released) voice.onFinished?.();
   };
   source.start();
   return voice;
@@ -119,7 +135,11 @@ function releaseVoice(voice) {
   clearTimeout(voice.releaseTimer);
   if (voice.audio) {
     // Legacy HTML Audio fallback cannot expose a per-voice gain envelope.
-    voice.audio.pause();
+    voice.cleanup();
+    if (voice.audio.currentVoice === voice) {
+      voice.audio.currentVoice = null;
+      voice.audio.pause();
+    }
     return;
   }
   const now = audioContext.currentTime;
@@ -138,8 +158,16 @@ function pressPiano(key, owner) {
   }
   const voice = hitDrum(key);
   if (!voice) return false;
+  voice.onFinished = () => finishPianoHold(key, voice);
   heldNotes.set(key, { voice, owners: new Set([owner]) });
   return true;
+}
+function finishPianoHold(key, voice, stopVoice = false) {
+  if (heldNotes.get(key)?.voice !== voice) return;
+  heldNotes.delete(key);
+  if (stopVoice) releaseVoice(voice);
+  buttons.get(key)?.classList.remove('pressed');
+  window.dispatchEvent(new CustomEvent('pianorelease', { detail: { key } }));
 }
 function releasePiano(key, owner) {
   const held = heldNotes.get(key);
@@ -148,10 +176,7 @@ function releasePiano(key, owner) {
     held.owners.delete(owner);
     if (held.owners.size) return;
   }
-  heldNotes.delete(key);
-  releaseVoice(held.voice);
-  buttons.get(key)?.classList.remove('pressed');
-  window.dispatchEvent(new CustomEvent('pianorelease', { detail: { key } }));
+  finishPianoHold(key, held.voice, true);
 }
 export function releasePianoKeys() {
   for (const key of heldNotes.keys()) releasePiano(key);

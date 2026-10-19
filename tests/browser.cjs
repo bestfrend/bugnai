@@ -375,6 +375,23 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'returning across a gap plays a new note without lifting the finger');
     await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     assert.equal(await page.locator('.piano-key.pressed').count(),0,'lifting fingers releases all piano keys');
+    await page.evaluate(()=>{
+      const original=AudioContext.prototype.createBufferSource;
+      window.testPianoSources=[];
+      AudioContext.prototype.createBufferSource=function(...args){
+        const source=original.apply(this,args);
+        window.testPianoSources.push(source);
+        return source;
+      };
+    });
+    await page.keyboard.down('a');
+    assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'held piano key starts a sample');
+    await page.evaluate(()=>window.testPianoSources.at(-1).stop());
+    await wait(()=>page.locator('[data-key="c4"]').evaluate(element=>!element.classList.contains('pressed')));
+    const beforeReplay=await page.evaluate(()=>window.testPianoSources.length);
+    await page.locator('[data-key="c4"]').click();
+    assert(await page.evaluate(count=>window.testPianoSources.length>count,beforeReplay),'another touch can replay a note while the original key is still held');
+    await page.keyboard.up('a');
   }
 
   const strike=async key=>{

@@ -244,6 +244,8 @@ A W S E D F T G Y H U J K, „Pilnas“ režime jie valdo vidurinę C4–C5 okta
 pakėlus už klavišo ribų; atšauktas lietimas, prarastas lango fokusas ir paslėptas
 puslapis taip pat atleidžia natas. Stiprumo slankiklis keičia garsumą, ne laikymo
 trukmę. Laikymas valdo natos trukmę, atleidimas turi 180 ms slopimo gaubtinę.
+Jei mėginys pasibaigia dar laikant klavišą, klavišas automatiškai atleidžiamas,
+kad kitą kartą būtų galima groti iškart.
 
 Autorius **Alexander Holm**, **Salamander Grand Piano**, licencija **CC BY 3.0**.
 Autorius, šaltinis, licencija ir pritaikymo aprašymas matomi puslapyje. 21
