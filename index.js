@@ -22,6 +22,14 @@ try {
   if (AudioContextClass) audioContext = new AudioContextClass({ latencyHint: 'interactive' });
 } catch {}
 
+function setInstrumentDisabled(element, disabled) {
+  element.disabled = disabled;
+  if (element.classList.contains('piano-key')) {
+    element.setAttribute('aria-disabled', String(disabled));
+    element.tabIndex = disabled ? -1 : 0;
+  }
+}
+
 export function loadKit(id = ACTIVE_KIT) {
   if (loading.has(id)) return loading.get(id);
   const promise = Promise.all([...new Set(Object.values(getKit(id).sounds).flat())].map(async path => {
@@ -197,7 +205,7 @@ function bindInstrumentButtons() {
     const key = button.dataset.key || button.textContent.trim();
     buttons.set(key, button);
     if (button.dataset.shortcut) keyboardShortcuts.set(button.dataset.shortcut, key);
-    button.disabled = !readyKits.has(ACTIVE_KIT);
+    setInstrumentDisabled(button, !readyKits.has(ACTIVE_KIT));
     if (boundButtons.has(button)) continue;
     boundButtons.add(button);
     button.addEventListener('pointerdown', event => {
@@ -225,6 +233,11 @@ function bindInstrumentButtons() {
         pressPiano(key, 'accessibility');
         setTimeout(() => releasePiano(key, 'accessibility'), 250);
       } else hitDrum(key);
+    });
+    if (button.classList.contains('piano-key')) button.addEventListener('keydown', event => {
+      if ((event.key !== 'Enter' && event.key !== ' ') || event.repeat || button.disabled) return;
+      event.preventDefault();
+      button.click();
     });
   }
 }
@@ -273,7 +286,7 @@ function pianoKeyboardMarkup(octave) {
     const shortcut = full ? pianoShortcuts[index - 24] : pianoShortcuts[index];
     const position = (full ? (Number(key.at(-1)) - PIANO_OCTAVES[0]) * 7 : 0) + (({ cs: 1, ds: 2, fs: 4, gs: 5, as: 6 })[note] ?? 0);
     const label = full ? (note === 'c' ? key.toUpperCase() : '') : t(pianoNames[note]);
-    return `<button type="button" class="piano-key ${note.endsWith('s') ? 'black-key' : 'white-key'}" data-key="${key}"${shortcut ? ` data-shortcut="${shortcut}"` : ''} style="--position:${position}" aria-label="${t(pianoNames[note])}, ${key.toUpperCase()}${shortcut ? `, ${t('klavišas')} ${shortcut.toUpperCase()}` : ''}"><span>${label}</span>${!full && shortcut ? `<small>${shortcut.toUpperCase()}</small>` : ''}</button>`;
+    return `<div role="button" tabindex="0" class="piano-key ${note.endsWith('s') ? 'black-key' : 'white-key'}" data-key="${key}"${shortcut ? ` data-shortcut="${shortcut}"` : ''} style="--position:${position}" aria-label="${t(pianoNames[note])}, ${key.toUpperCase()}${shortcut ? `, ${t('klavišas')} ${shortcut.toUpperCase()}` : ''}"><span>${label}</span>${!full && shortcut ? `<small>${shortcut.toUpperCase()}</small>` : ''}</div>`;
   }).join('');
 }
 function updatePianoOctave(octave) {
@@ -309,7 +322,7 @@ let instrumentGeneration = 0;
 export function suspendInstrument() {
   instrumentGeneration++;
   stopAudio();
-  for (const button of buttons.values()) button.disabled = true;
+  for (const button of buttons.values()) setInstrumentDisabled(button, true);
 }
 export async function mountInstrument(id = ACTIVE_KIT) {
   suspendInstrument();
@@ -324,7 +337,7 @@ export async function mountInstrument(id = ACTIVE_KIT) {
   try {
     await loadKit(id);
     if (generation !== instrumentGeneration) return;
-    for (const button of buttons.values()) button.disabled = false;
+    for (const button of buttons.values()) setInstrumentDisabled(button, false);
     message.hidden = true;
   } catch {
     if (generation !== instrumentGeneration) return;

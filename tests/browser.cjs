@@ -321,6 +321,9 @@ async function instrumentScenario(browser,file,kit,mobile=false){
 
   if(kit==='salamander-v1'){
     assert.equal(await page.locator('.piano-key').count(),13);
+    assert.equal(await page.locator('.piano-key').first().evaluate(element=>element.tagName),'DIV','piano keys use a touch surface instead of native phone buttons');
+    assert.equal(await page.locator('[data-key="c4"]').getAttribute('role'),'button','piano keys remain accessible as buttons');
+    assert.equal(await page.locator('[data-key="c4"]').getAttribute('aria-disabled'),'false','loaded piano keys are accessible');
     assert.equal(await page.locator('.black-key').count(),5);
     await page.locator('#language-select').selectOption('sv');
     assert.equal(await page.locator('[data-key="c4"] span').innerText(),'C');
@@ -349,6 +352,11 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert.notEqual(await page.locator('[data-key="c4"]').evaluate(element=>getComputedStyle(element).transform),'none','a held piano key moves down like a physical key');
     assert.equal(await page.locator('[data-key="c4"]').evaluate(element=>getComputedStyle(element).borderLeftColor),'rgb(130, 146, 165)','a normal piano press darkens the side borders');
     await page.keyboard.up('a');
+    await page.locator('[data-key="c4"]').focus();
+    await page.keyboard.press('Enter');
+    assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'Enter activates a focused piano key');
+    await page.clock.runFor(260);
+    assert.equal(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),false,'accessible piano activation releases automatically');
     for(let i=0;i<3;i++) await page.locator('[data-octave-shift="-1"]').click();
     assert.match(await page.locator('#piano-octave-label').innerText(),/C4–C5/);
     await page.keyboard.down('a');
