@@ -316,7 +316,7 @@ footer { padding: 24px 0 32px; }
 .sound-credit { margin-top: 12px; font-size: 10px; }
 .sound-credit a { color: #a5b1c9; text-decoration: none; }
 .rhythm-kit { display: block; color: #a5b1c9; font-size: 9px; line-height: 12px; }
-.lessons { margin-top: 18px; }
+.lessons { margin: 0 0 18px; }
 .lessons .section-heading { margin-bottom: 6px; }
 .lesson-list { display: grid; gap: 8px; }
 .lesson-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 9px 10px 9px 13px; border: 1px solid #53627c; border-radius: 12px; background: #182338; }

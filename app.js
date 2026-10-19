@@ -122,7 +122,8 @@ function showLessonStarter() {
 }
 
 async function prepareLesson(definition, speed) {
-  if (busy || recording || lesson) return;
+  if (busy || lesson || recording?.stage === 'saving') return;
+  if (recording) discardRecordingForLesson();
   pausedLesson = null;
   lesson = { definition, speed, events: [...definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0 };
   if (ACTIVE_KIT !== 'salamander-v1') document.querySelector('.kit')?.classList.add('lesson-active');
@@ -200,7 +201,7 @@ function renderLessons() {
     for (const speed of lessonSpeeds) {
       const button = action(t(speed.label), () => prepareLesson(definition, speed));
       button.classList.add('lesson-speed');
-      button.disabled = !!lesson || busy || !!recording;
+      button.disabled = !!lesson || busy || recording?.stage === 'saving';
       speeds.append(button);
     }
     if (lesson?.definition.id === definition.id) {
@@ -825,6 +826,18 @@ function startRecording(slot, scroll = true, automatic = false) {
   status(automatic ? '' : saved ? 'Grok naują bandymą. Senas ritmas liks, kol nepatvirtinsi pakeitimo.'
     : 'Įrašymas prasidėjo nuo pirmo smūgio.');
   if (scroll) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+}
+
+function discardRecordingForLesson() {
+  if (!recording || recording.stage === 'saving') return;
+  clearRecordTimers();
+  stopPlayback();
+  recording = null;
+  pausedLesson = null;
+  stopAudio();
+  updateRecordBar();
+  refreshControls();
+  status('');
 }
 
 function scheduleRecordingReview(tail = 0) {

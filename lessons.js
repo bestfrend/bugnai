@@ -26,9 +26,10 @@ const drumLessons = [
 ];
 
 export const lessonSpeeds = [
-  { id: 'slow', label: 'Lėtas', beatMs: 700 },
-  { id: 'medium', label: 'Vidutinis', beatMs: 500 },
-  { id: 'fast', label: 'Greitas', beatMs: 340 }
+  { id: 'very-slow', label: 'Labai lėtas', beatMs: 1400 },
+  { id: 'slow', label: 'Lėtas', beatMs: 1000 },
+  { id: 'medium', label: 'Vidutinis', beatMs: 720 },
+  { id: 'fast', label: 'Greitas', beatMs: 520 }
 ];
 
 export function lessonsForKit(kit) {

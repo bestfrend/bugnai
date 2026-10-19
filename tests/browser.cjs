@@ -287,6 +287,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.equal(await page.locator('#strength-control').count(),0);
   assert(await page.locator('#recording-bar').isHidden());
   assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'each instrument shows its own lessons');
+  assert.equal(await page.locator('.lesson-speed').count(),(kit==='salamander-v1'?1:4)*4,'lessons offer four increasingly faster speeds');
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
   await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
@@ -357,6 +358,11 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   };
 
   const firstKey=kit==='salamander-v1'?'c4':'w';
+  await strike(firstKey);
+  await page.locator('.lesson-speed').first().click();
+  await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+  assert(await page.locator('#recording-bar').isHidden(),'choosing a lesson discards an unfinished take immediately');
+  await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   await strike(firstKey);
   assert(await page.locator('#recording-bar').isHidden(),'modal stays hidden while recording');
   if(kit==='salamander-v1'){
