@@ -18,11 +18,11 @@ if (toolbar) {
     'play-help-menu-label': 'Meniu',
     'open-play-help': 'Prieš grojant',
     'play-help-title': 'Prieš grojant',
-    'play-help-intro': 'Kad galėtum groti keliais pirštais vienu metu, telefono nustatymuose išjunk:',
+    'play-help-intro': 'Jei groji keliais pirštais, įrenginio nustatymuose išjunk šiuos gestus, jei jie įjungti:',
     'play-help-partial': 'Dalinę ekrano kopiją laikant tris pirštus.',
     'play-help-screenshot': 'Ekrano kopiją braukiant trimis pirštais žemyn.',
-    'play-help-path': 'POCO / Xiaomi: Nustatymai → Papildomi nustatymai → Gestų spartieji klavišai.',
-    'play-help-reason': 'Šie telefono gestai gali perimti prisilietimus ir nutraukti natas.',
+    'play-help-path': 'Nustatymuose ieškok „Gestai“ arba „Ekrano kopija“. Pavadinimai priklauso nuo įrenginio.',
+    'play-help-reason': 'Šie sistemos gestai gali perimti prisilietimus ir nutraukti natas.',
     'close-play-help': 'Uždaryti'
   };
   const translate = () => {

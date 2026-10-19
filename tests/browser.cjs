@@ -130,6 +130,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert(await page.locator('#play-help-dialog').evaluate(dialog=>dialog.open),'the header dropdown opens playing instructions');
   assert.match(await page.locator('#play-help-dialog').innerText(),/Dalinę ekrano kopiją laikant tris pirštus/);
   assert.match(await page.locator('#play-help-dialog').innerText(),/braukiant trimis pirštais žemyn/);
+  assert.doesNotMatch(await page.locator('#play-help-dialog').innerText(),/POCO|Xiaomi|telefono/,'playing help applies to any touch device');
   await page.locator('#close-play-help').click();
   assert.equal(await page.locator('#play-help-dialog').evaluate(dialog=>dialog.open),false,'playing instructions can be dismissed');
   await page.locator('#login-button').click();
@@ -303,7 +304,17 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert.equal(await page.locator('#strength-control').count(),0);
   assert(await page.locator('#recording-bar').isHidden());
   assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'each instrument shows its own lessons');
-  assert.equal(await page.locator('.lesson-speed').count(),(kit==='salamander-v1'?1:4)*4,'lessons offer four increasingly faster speeds');
+  assert.equal(await page.locator('.lesson-speed').count(),(kit==='salamander-v1'?1:4)*3,'lessons offer three speeds');
+  assert.deepEqual(await page.locator('.lesson-card').first().locator('.lesson-speed').allTextContents(),['Lėtas','Vidutinis','Greitas']);
+  for(const [label,beatMs] of [['Vidutinis',520],['Greitas',350]]){
+    await page.locator('.lesson-card').first().getByRole('button',{name:label,exact:true}).click();
+    await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
+    await page.clock.fastForward((kit==='salamander-v1'?2:1)*beatMs+25);
+    const expected=kit==='salamander-v1'?'g4':'j';
+    assert(await page.locator(`.kit .set [data-key="${expected}"]`).evaluate(element=>element.classList.contains('lesson-cue')),`${label} shows notes at the new tempo`);
+    await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+  }
   const lessonInput=kit==='salamander-v1'?await context.newCDPSession(page):null;
   const pressLessonKey=async key=>{
     const target=page.locator(`.kit .set [data-key="${key}"]`);
