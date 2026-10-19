@@ -625,8 +625,14 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert(setBox.width>=910&&setBox.height>=407,'keys or drums use the full instrument area');
     assert.equal(await page.locator('.drum, .piano-key').first().evaluate(e=>getComputedStyle(e).touchAction),'none','landscape gestures belong to the instrument');
     if(kit==='salamander-v1'){
-      const [keyboard,black]=await Promise.all([page.locator('.piano-keyboard').boundingBox(),page.locator('.black-key').first().boundingBox()]);
-      assert(black.height<=keyboard.height*.47,'black piano keys are shorter in landscape');
+      const blackKey=page.locator('.black-key').first();
+      const [black,white]=await Promise.all([blackKey.boundingBox(),page.locator('.white-key').first().boundingBox()]);
+      assert(Math.abs(black.height/white.height-.4)<.01,'black piano keys are 40% of white-key height in landscape');
+      await blackKey.evaluate(element=>element.classList.add('pressed'));
+      await new Promise(resolve=>setTimeout(resolve,90));
+      const pressedBlack=await blackKey.boundingBox();
+      assert(Math.abs(pressedBlack.y-black.y)<1,'a pressed black key keeps its top edge hidden in place');
+      await blackKey.evaluate(element=>element.classList.remove('pressed'));
       for(let i=0;i<3;i++) await page.locator('[data-octave-shift="1"]').click();
       const fullBox=await page.locator('.piano-keyboard').boundingBox();
       assert.equal(await page.locator('.piano-key').count(),61);
