@@ -283,26 +283,6 @@ footer { padding: 24px 0 32px; }
 .studio-kit .set:not(.piano-keyboard) {
   grid-template-areas: "low low floor floor crash crash" "high high high mid mid mid" "snare snare snare kick kick kick";
 }
-.stage-kit .set:not(.piano-keyboard) {
-  grid-template-areas: "crash hihat hihat ride ride ride" "high high high low low low" "snare snare snare kick kick kick";
-  width: min(100%, 760px);
-  height: clamp(310px, 75vw, 480px);
-  padding: clamp(8px, 2vw, 16px);
-  border: 1px solid #6f5b35;
-  border-radius: 50% 50% 28px 28px;
-  background: radial-gradient(ellipse at 50% 8%, #48566a 0 8%, transparent 8.5%), linear-gradient(145deg, #1a2231, #303c50 58%, #19202d);
-  box-shadow: inset 0 0 0 5px #131a26, 0 16px 30px #1119;
-}
-.stage-kit .drum.s { grid-area: hihat; }
-.stage-kit .drum.d { grid-area: ride; }
-.stage-kit .drum.a { grid-area: low; }
-.stage-kit .set:not(.piano-keyboard) .drum { border-radius: 50%; border-color: #1d2635; background-image: radial-gradient(circle at 35% 28%, #d6e1ed, #8da1b7 56%, #4a5d74 58%, #172232 70%); box-shadow: inset 0 0 0 5px #c4d0dc55, inset 0 -10px 16px #172232aa, 0 5px 8px #060a11aa; }
-.stage-kit .drum.l { transform: scale(1.15); background-image: radial-gradient(circle at 35% 28%, #dce6ef, #71849b 55%, #253347 57%, #111927 72%); }
-.stage-kit .drum.j { background-image: radial-gradient(circle at 35% 28%, #fff, #d9e2e8 47%, #a33038 49%, #a33038 58%, #263445 60%, #111927 72%); }
-.stage-kit .drum.s, .stage-kit .drum.d, .stage-kit .drum.k { border-color: #7d6225; background-image: radial-gradient(circle at 35% 28%, #fff0a8, #d7a83b 48%, #9a6c19 50%, #4c3411 66%); box-shadow: inset 0 0 0 5px #fff2a344, inset 0 -10px 16px #624410aa, 0 5px 8px #060a11aa; }
-.stage-kit .drum.pressed { transform: scale(.94); filter: brightness(1.24); }
-.stage-kit .drum.l.pressed { transform: scale(1.08); }
-.stage-kit .drum-name { background: #121b2bd9; }
 .kit .set:not(.piano-keyboard) .drum { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 4px; border-width: 6px; border-radius: 20px; background-size: cover; background-position: center; }
 .drum.w { grid-area: high; }
 .drum.a { grid-area: mid; }
@@ -311,10 +291,17 @@ footer { padding: 24px 0 32px; }
 .drum.j { grid-area: snare; }
 .drum.k { grid-area: crash; }
 .drum.l { grid-area: kick; }
-.stage-kit .set:not(.piano-keyboard) .drum { border-radius: 50%; border-color: #1d2635; background-image: radial-gradient(circle at 35% 28%, #d6e1ed, #8da1b7 56%, #4a5d74 58%, #172232 70%); box-shadow: inset 0 0 0 5px #c4d0dc55, inset 0 -10px 16px #172232aa, 0 5px 8px #060a11aa; }
-.stage-kit .set:not(.piano-keyboard) .drum.l { transform: scale(1.15); background-image: radial-gradient(circle at 35% 28%, #dce6ef, #71849b 55%, #253347 57%, #111927 72%); }
-.stage-kit .set:not(.piano-keyboard) .drum.j { background-image: radial-gradient(circle at 35% 28%, #fff, #d9e2e8 47%, #a33038 49%, #a33038 58%, #263445 60%, #111927 72%); }
-.stage-kit .set:not(.piano-keyboard) .drum.s, .stage-kit .set:not(.piano-keyboard) .drum.d, .stage-kit .set:not(.piano-keyboard) .drum.k { border-color: #7d6225; background-image: radial-gradient(circle at 35% 28%, #fff0a8, #d7a83b 48%, #9a6c19 50%, #4c3411 66%); box-shadow: inset 0 0 0 5px #fff2a344, inset 0 -10px 16px #624410aa, 0 5px 8px #060a11aa; }
+.stage-kit .set:not(.piano-keyboard) { position: relative; display: block; width: min(100%, 760px); height: clamp(330px, 75vw, 480px); padding: 0; border: 1px solid #59677a; border-radius: 42% 42% 24px 24px; background: radial-gradient(ellipse at 50% 16%, #4b5d73 0 12%, transparent 12.5%), linear-gradient(150deg, #131b29, #34445a 55%, #141b28); box-shadow: inset 0 0 0 5px #101724, 0 16px 30px #1119; }
+.stage-kit .set:not(.piano-keyboard) .drum { position: absolute; z-index: 2; display: flex; margin: 0; padding: 4px; border: 6px solid #1d2635; border-radius: 50%; background-image: radial-gradient(circle at 35% 28%, #dbe6f0, #8da1b7 56%, #4a5d74 58%, #172232 70%); box-shadow: inset 0 0 0 5px #d7e3ed55, inset 0 -10px 16px #172232aa, 0 5px 8px #060a11aa; grid-area: auto; }
+.stage-kit .set:not(.piano-keyboard) .drum.k { left: 2%; top: 3%; width: 23%; height: 23%; border-color: #7d6225; background-image: radial-gradient(ellipse at 35% 28%, #fff0a8, #d7a83b 48%, #9a6c19 50%, #4c3411 66%); }
+.stage-kit .set:not(.piano-keyboard) .drum.s { left: 25%; top: 4%; width: 24%; height: 22%; border-color: #7d6225; background-image: radial-gradient(ellipse at 35% 28%, #fff0a8, #d7a83b 48%, #9a6c19 50%, #4c3411 66%); }
+.stage-kit .set:not(.piano-keyboard) .drum.d { right: 2%; top: 3%; width: 29%; height: 23%; border-color: #7d6225; background-image: radial-gradient(ellipse at 35% 28%, #fff0a8, #d7a83b 48%, #9a6c19 50%, #4c3411 66%); }
+.stage-kit .set:not(.piano-keyboard) .drum.w { left: 29%; top: 29%; width: 23%; height: 23%; }
+.stage-kit .set:not(.piano-keyboard) .drum.a { left: 51%; top: 29%; width: 24%; height: 24%; }
+.stage-kit .set:not(.piano-keyboard) .drum.j { left: 8%; top: 56%; width: 30%; height: 32%; background-image: radial-gradient(circle at 35% 28%, #fff, #d9e2e8 47%, #a33038 49%, #a33038 58%, #263445 60%, #111927 72%); }
+.stage-kit .set:not(.piano-keyboard) .drum.l { left: 39%; top: 51%; width: 28%; height: 40%; background-image: radial-gradient(circle at 35% 28%, #dce6ef, #71849b 55%, #253347 57%, #111927 72%); }
+.stage-kit .set:not(.piano-keyboard) .drum.pressed { transform: scale(.94); filter: brightness(1.24); }
+.stage-kit .drum-name { background: #121b2bd9; }
 .drum .drum-key { font-size: clamp(1.8rem, 5vw, 2.8rem); line-height: 1; }
 .drum .drum-name { max-width: 100%; padding: 3px 4px; border-radius: 6px; font: 600 10px/1.2 system-ui, sans-serif; color: #f2f6ff; background: #172238dc; text-shadow: none; }
 .studio-kit .a { background-image: url('images/tom4.png'); }
