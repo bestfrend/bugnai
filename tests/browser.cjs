@@ -303,6 +303,12 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert(await page.locator(`.kit .set [data-key="${wrongKey}"]`).evaluate(button=>button.classList.contains('lesson-wrong')),'an off-time note is red');
   await page.clock.fastForward(kit==='salamander-v1'?1450:750);
   assert(await page.locator('.lesson-cue').count(),'the next cue follows its own clock after a user presses');
+  if(kit==='salamander-v1'){
+    assert(await page.locator('.kit').evaluate(element=>element.classList.contains('lesson-active')),'piano lesson uses its lesson key style');
+    await page.keyboard.down('a');
+    assert.equal(await page.locator('[data-key="c4"]').evaluate(element=>getComputedStyle(element).borderLeftColor),'rgb(96, 165, 141)','a held piano lesson key restores its green press feedback');
+    await page.keyboard.up('a');
+  }
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   assert.equal(await page.locator('.lesson-cue').count(),0,'stopping a lesson clears every visual cue');
   await page.clock.fastForward(12000);
@@ -335,6 +341,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     await page.keyboard.down('a');
     assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'middle octave keyboard shortcuts still work in full view');
     assert.notEqual(await page.locator('[data-key="c4"]').evaluate(element=>getComputedStyle(element).transform),'none','a held piano key moves down like a physical key');
+    assert.equal(await page.locator('[data-key="c4"]').evaluate(element=>getComputedStyle(element).borderLeftColor),'rgb(130, 146, 165)','a normal piano press darkens the side borders');
     await page.keyboard.up('a');
     for(let i=0;i<3;i++) await page.locator('[data-octave-shift="-1"]').click();
     assert.match(await page.locator('#piano-octave-label').innerText(),/C4–C5/);

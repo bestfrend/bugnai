@@ -129,13 +129,14 @@ async function prepareLesson(definition, speed) {
   if (recording) discardRecordingForLesson();
   pausedLesson = null;
   lesson = createLesson(definition, speed);
-  if (ACTIVE_KIT !== 'salamander-v1') document.querySelector('.kit')?.classList.add('lesson-active');
+  document.querySelector('.kit')?.classList.add('lesson-active');
   renderLessons();
   document.querySelector('.kit')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   try {
     await prepareAudio(ACTIVE_KIT);
   } catch {
     lesson = null;
+    document.querySelector('.kit')?.classList.remove('lesson-active');
     renderLessons();
     status('Nepavyko paleisti garso. Paliesk būgną ir bandyk atkurti dar kartą.', true);
     return;
@@ -242,7 +243,7 @@ function restorePausedLesson() {
   pausedLesson = null;
   if (!saved || lesson) return;
   lesson = createLesson(saved.definition, saved.speed);
-  if (ACTIVE_KIT !== 'salamander-v1') document.querySelector('.kit')?.classList.add('lesson-active');
+  document.querySelector('.kit')?.classList.add('lesson-active');
   renderLessons();
   showLessonStarter();
 }
