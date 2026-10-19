@@ -364,6 +364,16 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert(await page.locator('#recording-bar').isHidden(),'piano waits three seconds after its release tail');
     await page.clock.fastForward(20);
   }else await page.clock.fastForward(12000);
+  assert(await page.locator('#recording-bar').isHidden(),'a short accidental hit is discarded without a recording modal');
+  const playLongEnough=async strikeNote=>{
+    await strike(strikeNote);
+    for(let i=0;i<8;i++) {
+      await page.clock.fastForward(2000);
+      await strike(strikeNote);
+    }
+  };
+  await playLongEnough(firstKey);
+  await page.clock.fastForward(12000);
   await wait(()=>page.locator('#recording-bar').isVisible());
   assert.match(await page.locator('#recording-title').textContent(),/Ritmas 1 · Pabaiga/);
   assert.equal(await page.locator('#recording-bar .actions button:visible').count(),3);
@@ -409,7 +419,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'switching back restores this instrument’s lessons');
   await page.locator('#language-select').selectOption('lt');
 
-  await strike(firstKey);
+  await playLongEnough(firstKey);
   await page.clock.fastForward(12000);
   await wait(()=>page.locator('#recording-bar').isVisible());
   assert.match(await page.locator('#recording-title').textContent(),/Ritmas 2 · Pabaiga/);
@@ -443,6 +453,13 @@ async function instrumentScenario(browser,file,kit,mobile=false){
       await page.keyboard.down('a');await page.clock.runFor(220);await page.keyboard.up('a');
     }else if(mobile)await page.locator('.drum').first().tap();
     else await page.locator('.drum').first().click();
+  };
+  const playCurrentLongEnough=async()=>{
+    await playCurrent();
+    for(let i=0;i<8;i++) {
+      await page.clock.fastForward(2000);
+      await playCurrent();
+    }
   };
   // A failed fragment fetch leaves the current instrument usable and does not reload login.
   await context.route(base+'/'+alternateFile,route=>route.abort());
@@ -483,7 +500,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.clock.fastForward(12000);
   assert(await page.locator('#recording-bar').isHidden(),'old silence timers are cleared');
   // Switching from the review overlay also discards, rather than saving, the draft.
-  await playCurrent();
+  await playCurrentLongEnough();
   await page.clock.fastForward(12000);
   await wait(()=>page.locator('#recording-bar').isVisible());
   await choose(alternate);
@@ -507,7 +524,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.equal(emergencySaves,0);
   // A recording after navigation uses the new instrument and its note schema.
   await choose('salamander-v1');
-  await playCurrent();
+  await playCurrentLongEnough();
   await page.clock.fastForward(12000);
   await wait(()=>page.locator('#recording-bar').isVisible());
   await page.locator('#commit-recording').click();
@@ -572,8 +589,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
       assert.equal(await page.evaluate(()=>window.scrollY),initialScroll,'playing in landscape does not scroll the page');
       assert.equal(await page.locator('.set').evaluate(e=>{const event=new MouseEvent('contextmenu',{bubbles:true,cancelable:true});return e.dispatchEvent(event);}),false,'playing surface suppresses the long-press context menu');
       await page.clock.fastForward(12000);
-      await wait(()=>page.locator('#recording-bar').isVisible());
-      await page.locator('#cancel-recording').click();
+      assert(await page.locator('#recording-bar').isHidden(),'a short landscape gesture is not offered as a recording');
     }
   }
 

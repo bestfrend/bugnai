@@ -7,6 +7,7 @@ import { lessonsForKit, lessonSpeeds } from './lessons.js';
 const $ = id => document.getElementById(id);
 const MAX_NOTES = 6000;
 const MAX_RHYTHMS = 50;
+const MIN_AUTOMATIC_RECORDING_MS = 15000;
 const EMERGENCY_DRAFT_KEY = 'bugnai.emergency-draft';
 const members = new Map();
 let me;
@@ -238,7 +239,7 @@ function beginAutomaticRecording() {
     status('Pasiektas 50 ritmų limitas. Gali perrašyti arba ištrinti vieną iš savo ritmų.');
     return;
   }
-  startRecording(slot, false);
+  startRecording(slot, false, true);
 }
 
 function updateCreateControl() {
@@ -785,17 +786,17 @@ function updateRecordBar() {
   $('recording-clock').textContent = duration(elapsed);
 }
 
-function startRecording(slot, scroll = true) {
+function startRecording(slot, scroll = true, automatic = false) {
   if (recording || busy) return;
   const saved = members.get(me.id)?.performances.get(slot);
   mutationRevision++;
   stopPlayback();
   if (scroll) stopLesson();
   prepareAudio().catch(() => {});
-  recording = { slot, kit: ACTIVE_KIT, title: saved ? rhythmTitle(saved) : t('Ritmas') + ' ' + slot, replace: !!saved, stage: 'armed', started: null, events: [], heldPiano: new Set() };
+  recording = { slot, kit: ACTIVE_KIT, title: saved ? rhythmTitle(saved) : t('Ritmas') + ' ' + slot, replace: !!saved, automatic, stage: 'armed', started: null, events: [], heldPiano: new Set() };
   updateRecordBar();
   refreshControls();
-  status(saved ? 'Grok naują bandymą. Senas ritmas liks, kol nepatvirtinsi pakeitimo.'
+  status(automatic ? '' : saved ? 'Grok naują bandymą. Senas ritmas liks, kol nepatvirtinsi pakeitimo.'
     : 'Įrašymas prasidėjo nuo pirmo smūgio.');
   if (scroll) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 }
@@ -848,6 +849,15 @@ async function finishRecording() {
   if (!recording.events.length) {
     cancelRecording();
     status('Tuščias bandymas neišsaugotas. Ankstesnis grojimas nepakeistas.');
+    return;
+  }
+  const recordedMs = Math.max(...recording.events.map(note => note.time + (note.length || 0)));
+  if (recording.automatic && recordedMs < MIN_AUTOMATIC_RECORDING_MS) {
+    recording = null;
+    stopAudio();
+    updateRecordBar();
+    refreshControls();
+    status('');
     return;
   }
   recording.stage = 'review';
