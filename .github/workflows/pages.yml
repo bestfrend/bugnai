@@ -38,7 +38,8 @@ jobs:
         run: |
           mkdir -p _site
           python3 scripts/build-studio.py
-          cp index.html classic.html studio.html stage.html piano.html admin.html index.js kits.js lessons.js navigation.js i18n.js app.js admin.js admin-live.js database.js supabase-config.js styles.css _site/
+          cp index.html classic.html studio.html stage.html piano.html admin.html styles.css _site/
+          cp ./*.js _site/
           cp -R images sounds _site/
           python3 - <<'PY'
           import os
@@ -79,6 +80,7 @@ jobs:
               module.write_text(module_import.sub(lambda match: f'{match[1]}{match[2]}?v={version}{match[3]}', module.read_text()))
           print(f'Publishing version {version}')
           PY
+          python3 scripts/check-site.py _site
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site
