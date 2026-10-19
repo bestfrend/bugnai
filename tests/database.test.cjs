@@ -213,6 +213,17 @@ test('piano octave migration accepts C2 through C7 and preserves the original oc
   const saved=(await db.query('select events from performances where owner_id=$1 and slot=5',[bob])).rows[0].events;
   assert.deepEqual(saved,lowAndHigh);
 });
+test('visual stage kit accepts its own saved recordings and preserves existing kits',async()=>{
+  await db.exec('reset role');
+  const migration=readFileSync('supabase/visual-stage-kit.sql','utf8');
+  await db.exec(migration);
+  await db.exec(migration);
+  await user(bob);
+  const visualEvents=[{key:'s',time:0,velocity:70},{key:'j',time:80,velocity:96},{key:'l',time:120,velocity:127}];
+  await db.query('insert into performances(owner_id,slot,events,duration_ms,kit) values($1,8,$2,120,$3)',[bob,JSON.stringify(visualEvents),'stage-v1']);
+  assert.deepEqual((await db.query('select events,kit from performances where owner_id=$1 and slot=8',[bob])).rows[0],{events:visualEvents,kit:'stage-v1'});
+  await assert.rejects(db.query("update performances set kit='unknown-stage' where owner_id=$1 and slot=8",[bob]),{code:'23514'});
+});
 test('recordings can exceed two minutes while preserving note validation and ownership',async()=>{
   await db.exec('reset role');
   const before=(await db.query('select events from performances where owner_id=$1 and slot=5',[bob])).rows[0].events;

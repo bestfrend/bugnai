@@ -2,6 +2,7 @@ const STORAGE_KEY = 'bugnai.language';
 const swedish = {
   'Instrumentai': 'Instrument', 'Pianinas · Salamander': 'Piano · Salamander',
   'Klasikiniai būgnai': 'Klassiska trummor', 'Virtuosity būgnai': 'Virtuosity-trummor',
+  'Scena': 'Scen', 'Scenos būgnai': 'Scenkit',
   'Būgnų 🥁 komplektas': 'Trumset 🥁', 'Salamander pianinas': 'Salamanderpiano',
   'Būgnai': 'Trummor',
   'Jungiamasi…': 'Ansluter…', 'Įvesk vardą': 'Ange ditt namn',
@@ -40,7 +41,7 @@ const swedish = {
   'Pervadinti': 'Byt namn', 'Labas': 'Hej', 'Išsaugotas ritmas': 'Rytmen har sparats',
   'Jį gali perklausyti visi prisijungę vartotojai.': 'Alla inloggade användare kan lyssna på den.',
   'Ištrinti ritmą': 'Radera rytmen',
-  'Klasikiniai': 'Klassiska trummor', 'Virtuosity': 'Virtuosity-trummor',
+  'Klasikiniai': 'Klassiska trummor', 'Virtuosity': 'Virtuosity-trummor', 'Scena': 'Scen',
   'Do': 'C', 'Do♯': 'C♯', 'Re': 'D', 'Re♯': 'D♯', 'Mi': 'E',
   'Fa': 'F', 'Fa♯': 'F♯', 'Sol': 'G', 'Sol♯': 'G♯', 'La': 'A',
   'La♯': 'A♯', 'Si': 'B',
@@ -82,6 +83,7 @@ const swedish = {
   'Antram būgnų rinkiniui Supabase SQL Editor paleisk drum-kits.sql.': 'Kör drum-kits.sql i Supabase SQL Editor för det andra trumsetet.',
   'Duomenų bazę reikia atnaujinti pagal naujausią Supabase SQL papildymą.': 'Databasen måste uppdateras med den senaste Supabase SQL-migreringen.',
   'Papildomoms pianino oktavoms Supabase SQL Editor paleisk piano-octaves.sql.': 'Kör piano-octaves.sql i Supabase SQL Editor för fler pianooktaver.',
+  'Scenos būgnų įrašams Supabase SQL Editor paleisk visual-stage-kit.sql.': 'Kör visual-stage-kit.sql i Supabase SQL Editor för scenkitets inspelningar.',
   'Šią vietą jau užėmė įrašas kitame lange. Ankstesnis ritmas nepakeistas.': 'Platsen upptas redan av en inspelning i ett annat fönster. Den tidigare rytmen är kvar.',
   'Supabase nustatymuose reikia įjungti anoniminį prisijungimą.': 'Aktivera anonym inloggning i Supabase.',
   'Per daug bandymų. Palauk ir bandyk dar kartą.': 'För många försök. Vänta och försök igen.',
@@ -107,6 +109,7 @@ const staticText = {
   '[data-kit-link="salamander-v1"]': 'Pianinas · Salamander',
   '[data-kit-link="classic-v1"]': 'Klasikiniai būgnai',
   '[data-kit-link="virtuosity-v1"]': 'Virtuosity būgnai',
+  '[data-kit-link="stage-v1"]': 'Scena',
   '#login-title': 'Įvesk vardą',
   '#login-form label': 'Vardas',
   '#remove-avatar': 'Pašalinti nuotrauką',
@@ -153,9 +156,9 @@ export function applyPageTranslations() {
   if (welcome) welcome.title = t('Dukart paspausk, kad tvarkytum nuotrauką');
   for (const [selector, source] of Object.entries(staticText)) setText(document.querySelector(selector), source);
   const kit = document.body.dataset.kit;
-  const title = kit === 'salamander-v1' ? 'Salamander pianinas' : 'Būgnų 🥁 komplektas';
+  const title = kit === 'salamander-v1' ? 'Salamander pianinas' : kit === 'stage-v1' ? 'Scenos būgnai' : 'Būgnų 🥁 komplektas';
   setText(document.getElementById('title'), title);
-  document.title = t(kit === 'salamander-v1' ? 'Salamander pianinas' : kit === 'virtuosity-v1' ? 'Virtuosity būgnai' : 'Būgnai');
+  document.title = t(kit === 'salamander-v1' ? 'Salamander pianinas' : kit === 'virtuosity-v1' ? 'Virtuosity būgnai' : kit === 'stage-v1' ? 'Scenos būgnai' : 'Būgnai');
   const version = document.querySelector('.version');
   if (version?.firstChild?.nodeType === Node.TEXT_NODE) version.firstChild.textContent = t('Versija') + ' ';
   for (const button of document.querySelectorAll('.action[data-i18n-source], .avatar-remove[data-i18n-source]')) {

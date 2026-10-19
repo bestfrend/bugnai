@@ -144,7 +144,7 @@ $$;
 alter table public.performances add column if not exists kit text not null default 'classic-v1';
 alter table public.performances drop constraint if exists performances_kit_check;
 alter table public.performances add constraint performances_kit_check
-  check (kit in ('classic-v1', 'virtuosity-v1', 'salamander-v1'));
+  check (kit in ('classic-v1', 'virtuosity-v1', 'stage-v1', 'salamander-v1'));
 alter table public.performances drop constraint if exists performances_piano_check;
 alter table public.performances add constraint performances_piano_check check (
   (kit = 'salamander-v1') = (events->0->>'key' ~ '^((c|cs|d|ds|e|f|fs|g|gs|a|as|b)[2-6]|c7)$')

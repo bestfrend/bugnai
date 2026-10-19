@@ -14,6 +14,21 @@ page, count = re.subn(r'<div class="set">.*?</div>', '<div class="set">\n'+butto
 if count != 1: raise SystemExit('Missing shared drum kit markup')
 (root / 'studio.html').write_text(page, encoding='utf-8')
 
+# The visual stage kit uses the same fixed, CC0 Virtuosity recordings, with a
+# top-down drum-set layout and its own saved kit ID.
+page = (root / 'classic.html').read_text(encoding='utf-8')
+page = page.replace('<title>Būgnai</title>', '<title>Scenos būgnai</title>')
+page = page.replace('<body data-kit="classic-v1">', '<body data-kit="stage-v1" class="stage-kit">')
+page = page.replace('data-kit-link="classic-v1" aria-current="page"', 'data-kit-link="classic-v1"')
+page = page.replace('data-kit-link="stage-v1"', 'data-kit-link="stage-v1" aria-current="page"')
+page = page.replace('Būgnų 🥁 komplektas', 'Scenos būgnai')
+page = page.replace('class="sound-credit" hidden', 'class="sound-credit"')
+names = {'w':'Aukštas tomas', 'a':'Žemas tomas', 's':'Užd. hi-hat', 'd':'Ride lėkštė', 'j':'Mažasis būgnas', 'k':'Crash lėkštė', 'l':'Bosinis būgnas'}
+buttons = '\n'.join(f'          <button type="button" class="{key} drum" data-key="{key}" aria-label="{name}, {key.upper()}"><span class="drum-key">{key}</span><span class="drum-name">{name}</span></button>' for key,name in names.items())
+page, count = re.subn(r'<div class="set">.*?</div>', '<div class="set">\n'+buttons+'\n        </div>', page, count=1, flags=re.S)
+if count != 1: raise SystemExit('Missing visual stage kit markup')
+(root / 'stage.html').write_text(page, encoding='utf-8')
+
 # Piano shares the complete login/library/recording UI with both drum pages.
 page = (root / 'classic.html').read_text(encoding='utf-8')
 page = page.replace('<title>Būgnai</title>', '<title>Salamander pianinas · Alexander Holm</title>')

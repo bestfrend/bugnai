@@ -38,7 +38,7 @@ jobs:
         run: |
           mkdir -p _site
           python3 scripts/build-studio.py
-          cp index.html classic.html studio.html piano.html admin.html index.js kits.js navigation.js i18n.js app.js admin.js admin-live.js database.js supabase-config.js styles.css _site/
+          cp index.html classic.html studio.html stage.html piano.html admin.html index.js kits.js navigation.js i18n.js app.js admin.js admin-live.js database.js supabase-config.js styles.css _site/
           cp -R images sounds _site/
           python3 - <<'PY'
           import os
@@ -49,7 +49,7 @@ jobs:
           # Re-running an existing workflow preserves that release's version.
           version = f"1.{int(os.environ['GITHUB_RUN_NUMBER']):02d}"
           marker = '<span id="app-version">1.01</span>'
-          for name in ['index.html', 'classic.html', 'studio.html', 'piano.html']:
+          for name in ['index.html', 'classic.html', 'studio.html', 'stage.html', 'piano.html']:
               page = Path('_site') / name
               html = page.read_text()
               if html.count(marker) != 1:
@@ -65,7 +65,7 @@ jobs:
           admin.write_text(html)
           # A fresh entry script must also load fresh dependencies; otherwise a
           # phone can combine new HTML with a cached database/navigation module.
-          for name in ['index.html', 'classic.html', 'studio.html', 'piano.html']:
+          for name in ['index.html', 'classic.html', 'studio.html', 'stage.html', 'piano.html']:
               page = Path('_site') / name
               html = page.read_text()
               for asset in ['styles.css', 'app.js']:

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="lt" dir="ltr" translate="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#283149">
+  <meta name="google" content="notranslate">
+  <title>Scenos būgnai</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css?family=Arvo" rel="stylesheet">
+</head>
+<body data-kit="stage-v1" class="stage-kit">
+  <header>
+    <div class="language-switch"><select id="language-select" aria-label="Language"><option value="lt">🇱🇹 Lietuvių</option><option value="sv">🇸🇪 Svenska</option></select></div>
+    <nav class="kit-tabs" aria-label="Instrumentai" hidden>
+      <a href="piano.html" data-kit-link="salamander-v1">Pianinas · Salamander</a>
+      <a href="classic.html" data-kit-link="classic-v1">Klasikiniai būgnai</a>
+      <a href="studio.html" data-kit-link="virtuosity-v1">Virtuosity būgnai</a>
+      <a href="stage.html" data-kit-link="stage-v1" aria-current="page">Scena</a>
+    </nav>
+    <h1 id="title">Scenos būgnai</h1>
+  </header>
+  <main>
+    <p id="status" class="status" role="status" aria-live="polite" data-source=""></p>
+    <section id="login" class="panel login-panel" aria-labelledby="login-title">
+      <h2 id="login-title">Įvesk vardą</h2>
+      <form id="login-form">
+        <label for="nickname" class="sr-only">Vardas</label>
+        <div class="login-fields">
+          <input id="nickname" name="nickname" autocomplete="nickname" maxlength="24" required placeholder="Įvesk vardą">
+          <button type="submit" class="action primary" id="login-button">Pradėti groti</button>
+        </div>
+      </form>
+    </section>
+
+    <div id="workspace" hidden>
+      <div class="welcome">
+        <div class="profile-heading">
+          <button type="button" id="upload-avatar" class="avatar avatar-upload" aria-label="Įkelti arba pakeisti profilio nuotrauką" title="Įkelti arba pakeisti nuotrauką"><span id="my-avatar" class="avatar" aria-hidden="true"></span></button>
+          <div class="profile-name"><button type="button" id="welcome-name" class="nickname-control" aria-expanded="false" aria-controls="remove-avatar" title="Dukart paspausk, kad tvarkytum nuotrauką"></button><button type="button" id="remove-avatar" class="avatar-remove" hidden aria-label="Pašalinti profilio nuotrauką">Pašalinti nuotrauką</button></div>
+        </div>
+        <div class="library-tools">
+          <span id="rhythm-count" class="hint rhythm-count"></span>
+        </div>
+        <input id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+      </div>
+      <section id="recording-bar" class="recording-bar" hidden aria-label="Įrašymo valdymas">
+        <div class="recording-card">
+          <div><strong id="recording-title"></strong><span id="recording-clock" class="recording-clock"></span></div>
+          <div class="actions">
+            <button id="commit-recording" class="action primary" data-icon="save" type="button">Įrašyti</button>
+            <button id="retry-recording" class="action primary" data-icon="save" type="button" hidden>Išsaugoti dar kartą</button>
+            <button id="restart-recording" class="action" data-icon="repeat" type="button">Pakartoti bandymą</button>
+            <button id="cancel-recording" class="action" data-icon="close" type="button">Išeiti</button>
+          </div>
+        </div>
+      </section>
+      <section class="kit" aria-label="Būgnai">
+        <p class="hint">Paliesk būgnus arba grok klavišais W A S D J K L.</p>
+        <p id="audio-status" class="hint" role="status">Įkeliami būgnų garsai…</p>
+        <div class="set">
+          <button type="button" class="w drum" data-key="w" aria-label="Aukštas tomas, W"><span class="drum-key">w</span><span class="drum-name">Aukštas tomas</span></button>
+          <button type="button" class="a drum" data-key="a" aria-label="Žemas tomas, A"><span class="drum-key">a</span><span class="drum-name">Žemas tomas</span></button>
+          <button type="button" class="s drum" data-key="s" aria-label="Užd. hi-hat, S"><span class="drum-key">s</span><span class="drum-name">Užd. hi-hat</span></button>
+          <button type="button" class="d drum" data-key="d" aria-label="Ride lėkštė, D"><span class="drum-key">d</span><span class="drum-name">Ride lėkštė</span></button>
+          <button type="button" class="j drum" data-key="j" aria-label="Mažasis būgnas, J"><span class="drum-key">j</span><span class="drum-name">Mažasis būgnas</span></button>
+          <button type="button" class="k drum" data-key="k" aria-label="Crash lėkštė, K"><span class="drum-key">k</span><span class="drum-name">Crash lėkštė</span></button>
+          <button type="button" class="l drum" data-key="l" aria-label="Bosinis būgnas, L"><span class="drum-key">l</span><span class="drum-name">Bosinis būgnas</span></button>
+        </div>
+      </section>
+      <div id="playback-bar" class="playback-bar" hidden>
+        <span id="playback-title"></span>
+        <button id="stop-playback" type="button" class="action">Stabdyti atkūrimą</button>
+      </div>
+      <section class="community panel" aria-labelledby="community-title">
+        <div class="section-heading"><h2 id="community-title">Mūsų ritmai</h2></div>
+        <p class="hint">Kitų įrašus galite tik paklausyti.</p>
+        <div id="users"></div>
+        <button type="button" id="more-users" class="action" hidden>Rodyti daugiau vartotojų</button>
+      </section>
+    </div>
+    <noscript>Šiai programai reikia įjungti JavaScript.</noscript>
+  </main>
+  <dialog id="rename-dialog" aria-labelledby="rename-heading">
+    <form id="rename-form">
+      <h2 id="rename-heading">Ritmo pavadinimas</h2>
+      <label for="rhythm-title-input">Pavadinimas</label>
+      <input id="rhythm-title-input" class="text-input" maxlength="60" required autocomplete="off">
+      <p id="rename-error" role="alert"></p>
+      <div class="actions">
+        <button id="save-title" type="submit" class="action primary">Išsaugoti pavadinimą</button>
+        <button id="cancel-title" type="button" class="action">Atšaukti</button>
+      </div>
+    </form>
+  </dialog>
+  <footer>
+    <div>Kurta su ❤️ Londone</div>
+    <div class="sound-credit"><a href="sounds/virtuosity-v1/LICENSE.txt" target="_blank" rel="noopener">Garsai: Virtuosity Drums · CC0</a></div>
+    <div class="version">Versija <span id="app-version">1.01</span></div>
+  </footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

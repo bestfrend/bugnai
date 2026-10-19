@@ -146,6 +146,9 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert.equal(await page.locator('.drum').first().getAttribute('aria-label'),'Tom 1, W');
   }else if(kit==='virtuosity-v1'){
     assert.equal(await page.locator('.drum-name').first().innerText(),'Hög tom-tom');
+  }else if(kit==='stage-v1'){
+    assert.equal(await page.locator('#title').innerText(),'Scenkit');
+    assert.equal(await page.locator('.stage-kit .drum.s').count(),1,'visual kit keeps a distinct hi-hat pad');
   }
   assert.deepEqual(await untranslatedPublicText(page),[],'login screen is fully translated');
   await page.reload();
@@ -453,7 +456,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   await page.clock.runFor(100);
   assert.equal(await page.locator('body').getAttribute('data-kit'),kit);
 
-  for(const next of [alternate,'salamander-v1','classic-v1','virtuosity-v1',kit]){
+  for(const next of [alternate,'salamander-v1','classic-v1','virtuosity-v1','stage-v1',kit]){
     if(await page.locator('body').getAttribute('data-kit')===next)continue;
     await playCurrent();
     await choose(next);
@@ -465,7 +468,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert(await page.evaluate(()=>window.libraryNode===document.getElementById('users')));
     assert(await page.locator(`[data-owner="${other}"]`).evaluate(e=>e.open));
     assert.equal(await page.locator('.kit-tabs [aria-current]').getAttribute('data-kit-link'),next);
-    assert.equal(new URL(page.url()).pathname.split('/').at(-1),next==='salamander-v1'?'piano.html':next==='virtuosity-v1'?'studio.html':'classic.html');
+    assert.equal(new URL(page.url()).pathname.split('/').at(-1),next==='salamander-v1'?'piano.html':next==='virtuosity-v1'?'studio.html':next==='stage-v1'?'stage.html':'classic.html');
   }
   await page.clock.fastForward(12000);
   assert(await page.locator('#recording-bar').isHidden(),'old silence timers are cleared');
@@ -679,7 +682,7 @@ async function adminScenario(browser){
   let browser;
   try{
     browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
-    for(const [file,kit] of [['index.html','salamander-v1'],['classic.html','classic-v1'],['studio.html','virtuosity-v1'],['piano.html','salamander-v1']]){
+    for(const [file,kit] of [['index.html','salamander-v1'],['classic.html','classic-v1'],['studio.html','virtuosity-v1'],['stage.html','stage-v1'],['piano.html','salamander-v1']]){
       await instrumentScenario(browser,file,kit,false);
       await instrumentScenario(browser,file,kit,true);
     }

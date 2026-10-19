@@ -221,6 +221,15 @@ vertikalus braukimas leidžia slinkti puslapiu. Pasuktame telefono vaizde grojim
 sritis perima gestus ir neleidžia slinkti ar keisti mastelio; ilgo paspaudimo
 meniu ir elementų vilkimas grojimo srityje išjungti.
 
+### Vizualus „Scena“ komplektas
+
+`stage.html` pateikia būgnus kaip 2D komplektą iš viršaus. Jo garsai yra tie patys
+fiksuoti, trijų stiprumo lygių **Virtuosity Drums** CC0 įrašai: hi-hat, ride ir crash
+lėkštės, aukštas ir žemas tomai, mažasis bei bosinis būgnai. Todėl kiekvienas
+matomas instrumentas turi jam tinkamą garso įrašą, o senų Virtuosity įrašų garsas
+nekeičiamas. Kad naujo komplekto įrašai būtų išsaugomi, Supabase SQL Editor paleisk
+[supabase/visual-stage-kit.sql](supabase/visual-stage-kit.sql).
+
 ### Pianinas telefonui: Salamander · Alexander Holm
 
 Puslapio viršuje galima pasirinkti lietuvių arba švedų kalbą. Pasirinkimas
