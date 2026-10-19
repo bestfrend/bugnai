@@ -1,4 +1,5 @@
 import './navigation.js';
+import './play-help.js';
 import * as db from './database.js';
 import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit, releasePianoKeys } from './index.js';
 import { t, setLanguage, applyPageTranslations, language } from './i18n.js';

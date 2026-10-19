@@ -1,5 +1,11 @@
 const STORAGE_KEY = 'bugnai.language';
 const swedish = {
+  'Meniu': 'Meny', 'Prieš grojant': 'Innan du spelar', 'Uždaryti': 'Stäng',
+  'Kad galėtum groti keliais pirštais vienu metu, telefono nustatymuose išjunk:': 'För att kunna spela med flera fingrar samtidigt behöver du stänga av följande gester i telefonens inställningar:',
+  'Dalinę ekrano kopiją laikant tris pirštus.': 'Ta en skärmbild av en del av skärmen genom att hålla ned tre fingrar.',
+  'Ekrano kopiją braukiant trimis pirštais žemyn.': 'Ta en skärmbild genom att svepa nedåt med tre fingrar.',
+  'POCO / Xiaomi: Nustatymai → Papildomi nustatymai → Gestų spartieji klavišai.': 'POCO / Xiaomi: Inställningar → Ytterligare inställningar → Genvägar med gester.',
+  'Šie telefono gestai gali perimti prisilietimus ir nutraukti natas.': 'De här systemgesterna kan ta över pekinmatningen och avbryta tonerna.',
   'Instrumentai': 'Instrument', 'Pianinas · Salamander': 'Piano · Salamander',
   'Klasikiniai būgnai': 'Klassiska trummor', 'Virtuosity būgnai': 'Virtuosity-trummor',
   'Scena': 'Scen', 'Scenos būgnai': 'Scenkit',
