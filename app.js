@@ -31,6 +31,7 @@ let renamingBusy = false;
 let avatarRemovalVisible = false;
 let activeStatus = { message: '', error: false };
 let lesson = null;
+let pausedLesson = null;
 
 const iconPaths = {
   play: ['M8 5v14l11-7z'],
@@ -122,6 +123,7 @@ function showLessonStarter() {
 
 async function prepareLesson(definition, speed) {
   if (busy || recording || lesson) return;
+  pausedLesson = null;
   lesson = { definition, speed, events: [...definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0 };
   if (ACTIVE_KIT !== 'salamander-v1') document.querySelector('.kit')?.classList.add('lesson-active');
   renderLessons();
@@ -163,6 +165,22 @@ function beginLesson() {
     lesson.frame = requestAnimationFrame(tick);
   };
   tick();
+}
+
+function pauseLessonForReview() {
+  if (!lesson) return;
+  pausedLesson = { definition: lesson.definition, speed: lesson.speed };
+  stopLesson();
+}
+
+function restorePausedLesson() {
+  const saved = pausedLesson;
+  pausedLesson = null;
+  if (!saved || lesson) return;
+  lesson = { definition: saved.definition, speed: saved.speed, events: [...saved.definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0 };
+  if (ACTIVE_KIT !== 'salamander-v1') document.querySelector('.kit')?.classList.add('lesson-active');
+  renderLessons();
+  showLessonStarter();
 }
 
 function renderLessons() {
@@ -775,7 +793,7 @@ function clearRecordTimers() {
 
 function updateRecordBar() {
   const visible = recording && ['review', 'saving', 'failed'].includes(recording.stage);
-  if (visible) stopLesson();
+  if (visible) pauseLessonForReview();
   $('recording-bar').hidden = !visible;
   if (!recording) return;
   const stage = recording.stage;
@@ -887,8 +905,10 @@ async function persistRecording() {
     if (recording !== draft) return;
     members.get(me.id).performances.set(draft.slot, saved);
     recording = null;
+    pausedLesson = null;
     updateRecordBar();
     refreshControls();
+    renderLessons();
     status(() => language === 'sv'
       ? `”${rhythmTitle(saved)}” har sparats. Alla inloggade kan lyssna på inspelningen.`
       : `„${rhythmTitle(saved)}“ išsaugotas. Jį gali perklausyti visi prisijungę vartotojai.`);
@@ -910,6 +930,7 @@ function repeatRecording() {
   recording = { slot, title, replace, kit: ACTIVE_KIT, stage: 'armed', started: null, events: [], heldPiano: new Set() };
   updateRecordBar();
   refreshControls();
+  restorePausedLesson();
   status('Bandymas pradėtas iš naujo. Įrašymas prasidės nuo pirmo smūgio.');
 }
 
@@ -918,9 +939,11 @@ function cancelRecording() {
   clearRecordTimers();
   stopPlayback();
   recording = null;
+  pausedLesson = null;
   stopAudio();
   updateRecordBar();
   refreshControls();
+  renderLessons();
   status('Bandymas atmestas. Ankstesni įrašai nepakeisti.');
 }
 
@@ -1106,6 +1129,7 @@ window.addEventListener('pageshow', event => {
 // Instrument navigation keeps this module, identity and library alive.
 window.addEventListener('instrumentwillchange', () => {
   stopLesson();
+  pausedLesson = null;
   const discarded = recording && recording.stage !== 'saving';
   if (discarded) {
     clearRecordTimers();
@@ -1128,6 +1152,7 @@ window.addEventListener('pagehide', () => {
   closeLocationRequest();
   clearRecordTimers();
   stopLesson();
+  pausedLesson = null;
   if (recording?.events.length && recording.stage !== 'saving' && keepsAutomaticRecording(recording)) {
     localStorage.setItem(EMERGENCY_DRAFT_KEY, JSON.stringify({ events: recording.events, kit: recording.kit }));
     db.saveEmergencyPerformance(recording.events, 'Ritmas 1', recording.kit);

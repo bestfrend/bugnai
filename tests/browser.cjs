@@ -425,6 +425,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   assert.match(await page.locator('#recording-title').textContent(),/Ritmas 2 · Pabaiga/);
   await page.locator('#cancel-recording').click();
   assert(await page.locator('#recording-bar').isHidden());
+  assert(!(await page.locator('.lesson-speed').first().isDisabled()),'leaving a recording restores lesson controls');
   assert.equal(saves,1);
 
   // Tabs keep the document, authentication, library nodes and open member groups alive.
