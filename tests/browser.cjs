@@ -593,8 +593,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     }
   }
 
-  await strike(firstKey);
-  await page.clock.runFor(250);
+  await playLongEnough(firstKey);
   await page.goto(base+'/'+file);
   await wait(()=>page.locator('#audio-status').isHidden());
   if(await page.locator('#login').isVisible()){

@@ -200,6 +200,14 @@ function duration(ms) {
   return (ms / 1000).toFixed(1) + ' s';
 }
 
+function recordingDuration(record) {
+  return Math.max(0, ...record.events.map(note => note.time + (note.length || 0)));
+}
+
+function keepsAutomaticRecording(record) {
+  return !record.automatic || recordingDuration(record) >= MIN_AUTOMATIC_RECORDING_MS;
+}
+
 function markPlayButton(button, owner, slot) {
   const active = playback?.owner === owner && playback.slot === slot;
   button.classList.toggle('is-playing', active);
@@ -851,8 +859,7 @@ async function finishRecording() {
     status('Tuščias bandymas neišsaugotas. Ankstesnis grojimas nepakeistas.');
     return;
   }
-  const recordedMs = Math.max(...recording.events.map(note => note.time + (note.length || 0)));
-  if (recording.automatic && recordedMs < MIN_AUTOMATIC_RECORDING_MS) {
+  if (!keepsAutomaticRecording(recording)) {
     recording = null;
     stopAudio();
     updateRecordBar();
@@ -1121,7 +1128,7 @@ window.addEventListener('pagehide', () => {
   closeLocationRequest();
   clearRecordTimers();
   stopLesson();
-  if (recording?.events.length && recording.stage !== 'saving') {
+  if (recording?.events.length && recording.stage !== 'saving' && keepsAutomaticRecording(recording)) {
     localStorage.setItem(EMERGENCY_DRAFT_KEY, JSON.stringify({ events: recording.events, kit: recording.kit }));
     db.saveEmergencyPerformance(recording.events, 'Ritmas 1', recording.kit);
   }
