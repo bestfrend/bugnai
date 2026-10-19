@@ -324,9 +324,10 @@ footer { padding: 24px 0 32px; }
 .lesson-card h3 { margin: 0; font-size: 14px; }
 .lesson-speeds { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
 .lesson-speed, .lesson-speeds .action { min-height: 29px; padding: 5px 8px; font-size: 11px; }
-.kit .set [data-key].lesson-cue { position: relative; z-index: 3; outline: 3px solid #bff8ff; outline-offset: -3px; filter: brightness(1.25) saturate(1.15); box-shadow: inset 0 0 24px #eaffff, 0 0 13px 4px #61ddff !important; }
-.kit .set [data-key].lesson-correct { z-index: 4; outline: 4px solid #8affb4; outline-offset: -4px; filter: brightness(1.2); box-shadow: inset 0 0 24px #9fffc0, 0 0 16px 5px #37db74 !important; }
-.kit .set [data-key].lesson-wrong { z-index: 4; outline: 4px solid #ff7380; outline-offset: -4px; filter: brightness(1.15); box-shadow: inset 0 0 24px #ff98a0, 0 0 16px 5px #ef405b !important; }
+.kit .set [data-key].lesson-cue:not(.lesson-correct):not(.lesson-wrong) { position: relative; z-index: 3; outline: 3px solid #bff8ff; outline-offset: -3px; filter: brightness(1.25) saturate(1.15); box-shadow: inset 0 0 24px #eaffff, 0 0 13px 4px #61ddff !important; }
+.kit .set [data-key].lesson-correct, .kit .set [data-key].lesson-wrong { transition: none; }
+.kit .set [data-key].lesson-correct { background: #8cd5bd !important; }
+.kit .set [data-key].lesson-wrong { background: #e9939a !important; }
 .lesson-start-overlay { position: absolute; z-index: 20; inset: 0; display: grid; place-items: center; border-radius: inherit; background: #101a2a55; backdrop-filter: blur(2px); }
 .lesson-start-overlay .action { min-height: 58px; padding: 12px 18px; border: 1px solid #e4fbff; border-radius: 18px; box-shadow: 0 0 0 6px #75d9ff33, 0 10px 30px #08132299; font-size: 15px; }
 .lesson-start-overlay .button-icon { width: 22px; height: 22px; }
@@ -354,8 +355,6 @@ footer { padding: 24px 0 32px; }
 .piano-keyboard.full-range .black-key { padding-bottom: 0; }
 .white-key.pressed { transform: perspective(500px) rotateX(-3deg) translateY(3px); border-color: #8292a5; background: linear-gradient(#d8e0e9, #f2f5f8 65%, #d8e0e9); box-shadow: inset 3px 0 5px #63788b88, inset -3px 0 5px #63788b88, inset 0 3px 7px #68778b55, inset 0 -2px #9aaaba; }
 .black-key.pressed { transform: perspective(500px) rotateX(-4deg) translateY(3px); border-color: #42526a; background: linear-gradient(100deg, #28354a, #0c1421); box-shadow: inset 3px 0 5px #000b, inset -3px 0 5px #000b, inset 0 3px 8px #02050bbb, inset 0 -2px #060c16; }
-.kit.lesson-active .white-key.pressed { background: linear-gradient(#8cd5bd, #c2f1e0); border-color: #60a58d; }
-.kit.lesson-active .black-key.pressed { background: #387c68; border-color: #1f5141; }
 @media (prefers-reduced-motion: reduce) { .piano-key { transition: none; } }
 .piano-key:focus-visible { outline: 3px solid #de4a90; outline-offset: -4px; }
 .piano-key:disabled { opacity: .55; cursor: wait; }

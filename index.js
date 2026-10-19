@@ -203,6 +203,7 @@ function bindInstrumentButtons() {
     button.addEventListener('pointerdown', event => {
       if (event.button !== 0 || !window.drumAppReady) return;
       if (ACTIVE_KIT === 'salamander-v1') {
+        if (event.pointerType === 'touch') event.preventDefault();
         button.setPointerCapture(event.pointerId);
         pianoPointers.set(event.pointerId, key);
         pressPiano(key, event.pointerId);

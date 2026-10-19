@@ -164,11 +164,7 @@ function beginLesson() {
       if (!current.judged.get(cycle)?.has(index)) current.pending.push({ key: note.key, target });
     }
     const windowMs = lessonTimingWindow(current);
-    current.pending = current.pending.filter(note => {
-      if (elapsed - note.target <= windowMs) return true;
-      flashLessonResult(current, note.key, false);
-      return false;
-    });
+    current.pending = current.pending.filter(note => elapsed - note.target <= windowMs);
     for (const button of document.querySelectorAll('.lesson-cue')) button.classList.remove('lesson-cue');
     for (const note of current.pending) lessonButton(note.key)?.classList.add('lesson-cue');
     const cycle = Math.floor(elapsed / cycleMs);

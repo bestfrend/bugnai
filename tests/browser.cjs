@@ -297,17 +297,23 @@ async function instrumentScenario(browser,file,kit,mobile=false){
   if(mobile) await page.locator(`.kit .set [data-key="${promptedKey}"]`).tap();
   else await page.locator(`.kit .set [data-key="${promptedKey}"]`).click();
   assert(await page.locator(`.kit .set [data-key="${promptedKey}"]`).evaluate(button=>button.classList.contains('lesson-correct')),'an on-time note is green');
+  if(kit==='salamander-v1'){
+    assert.equal(await page.locator(`[data-key="${promptedKey}"]`).evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(140, 213, 189)','correct lesson feedback changes only the key background');
+    assert.equal(await page.locator(`[data-key="${promptedKey}"]`).evaluate(button=>getComputedStyle(button).outlineStyle),'none','correct lesson feedback adds no outline');
+  }
   const wrongKey=kit==='salamander-v1'?'e4':'w';
   if(mobile) await page.locator(`.kit .set [data-key="${wrongKey}"]`).tap();
   else await page.locator(`.kit .set [data-key="${wrongKey}"]`).click();
   assert(await page.locator(`.kit .set [data-key="${wrongKey}"]`).evaluate(button=>button.classList.contains('lesson-wrong')),'an off-time note is red');
+  if(kit==='salamander-v1'){
+    assert.equal(await page.locator(`[data-key="${wrongKey}"]`).evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(233, 147, 154)','wrong lesson feedback changes only the key background');
+    assert.equal(await page.locator(`[data-key="${wrongKey}"]`).evaluate(button=>getComputedStyle(button).outlineStyle),'none','wrong lesson feedback adds no outline');
+  }
   await page.clock.fastForward(kit==='salamander-v1'?1450:750);
   assert(await page.locator('.lesson-cue').count(),'the next cue follows its own clock after a user presses');
+  assert.equal(await page.locator('.lesson-wrong').count(),0,'missed lesson cues do not automatically flash red');
   if(kit==='salamander-v1'){
     assert(await page.locator('.kit').evaluate(element=>element.classList.contains('lesson-active')),'piano lesson uses its lesson key style');
-    await page.keyboard.down('a');
-    assert.equal(await page.locator('[data-key="c4"]').evaluate(element=>getComputedStyle(element).borderLeftColor),'rgb(96, 165, 141)','a held piano lesson key restores its green press feedback');
-    await page.keyboard.up('a');
   }
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   assert.equal(await page.locator('.lesson-cue').count(),0,'stopping a lesson clears every visual cue');
@@ -358,9 +364,15 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     };
     const [c4,e4,g4,a4,b4]=await Promise.all(['c4','e4','g4','a4','b4'].map(keyCenter));
     assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('.piano-key')?.dataset.key,a4),'a4','a4 hit target stays reachable');
-    await page.evaluate(()=>{window.testPointerIds={};document.addEventListener('pointerdown',event=>{window.testPointerIds[event.target.closest('.piano-key')?.dataset.key]=event.pointerId;},true);});
+    await page.evaluate(()=>{
+      window.testPointerIds={};
+      window.pianoNativeTouchCancelled=false;
+      document.addEventListener('pointerdown',event=>{window.testPointerIds[event.target.closest('.piano-key')?.dataset.key]=event.pointerId;},true);
+      document.addEventListener('pointerdown',event=>{if(event.pointerType==='touch'&&event.target.closest('.piano-key'))window.pianoNativeTouchCancelled=event.defaultPrevented;});
+    });
     const input=await context.newCDPSession(page);
     await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...c4,id:1},{...e4,id:2},{...g4,id:3},{...b4,id:4}]});
+    assert(await page.evaluate(()=>window.pianoNativeTouchCancelled),'touch piano playing suppresses the native button action');
     assert.equal(await page.locator('.piano-key.pressed').count(),4,'four piano keys can be held together');
     await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...e4,x:e4.x-8,id:1},{...e4,x:e4.x+8,id:2},{...g4,id:3},{...b4,id:4}]});
     assert.equal(await page.locator('.piano-key.pressed').count(),3,'two fingers can share a key while the other notes continue');
