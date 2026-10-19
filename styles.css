@@ -291,17 +291,21 @@ footer { padding: 24px 0 32px; }
 .drum.j { grid-area: snare; }
 .drum.k { grid-area: crash; }
 .drum.l { grid-area: kick; }
-.stage-kit .set:not(.piano-keyboard) { position: relative; display: block; width: min(100%, 760px); height: clamp(330px, 75vw, 480px); padding: 0; border: 1px solid #59677a; border-radius: 42% 42% 24px 24px; background: radial-gradient(ellipse at 50% 16%, #4b5d73 0 12%, transparent 12.5%), linear-gradient(150deg, #131b29, #34445a 55%, #141b28); box-shadow: inset 0 0 0 5px #101724, 0 16px 30px #1119; }
-.stage-kit .set:not(.piano-keyboard) .drum { position: absolute; z-index: 2; display: flex; margin: 0; padding: 4px; border: 6px solid #1d2635; border-radius: 50%; background-image: radial-gradient(circle at 35% 28%, #dbe6f0, #8da1b7 56%, #4a5d74 58%, #172232 70%); box-shadow: inset 0 0 0 5px #d7e3ed55, inset 0 -10px 16px #172232aa, 0 5px 8px #060a11aa; grid-area: auto; }
-.stage-kit .set:not(.piano-keyboard) .drum.k { left: 2%; top: 3%; width: 23%; height: 23%; border-color: #7d6225; background-image: radial-gradient(ellipse at 35% 28%, #fff0a8, #d7a83b 48%, #9a6c19 50%, #4c3411 66%); }
-.stage-kit .set:not(.piano-keyboard) .drum.s { left: 25%; top: 4%; width: 24%; height: 22%; border-color: #7d6225; background-image: radial-gradient(ellipse at 35% 28%, #fff0a8, #d7a83b 48%, #9a6c19 50%, #4c3411 66%); }
-.stage-kit .set:not(.piano-keyboard) .drum.d { right: 2%; top: 3%; width: 29%; height: 23%; border-color: #7d6225; background-image: radial-gradient(ellipse at 35% 28%, #fff0a8, #d7a83b 48%, #9a6c19 50%, #4c3411 66%); }
-.stage-kit .set:not(.piano-keyboard) .drum.w { left: 29%; top: 29%; width: 23%; height: 23%; }
-.stage-kit .set:not(.piano-keyboard) .drum.a { left: 51%; top: 29%; width: 24%; height: 24%; }
-.stage-kit .set:not(.piano-keyboard) .drum.j { left: 8%; top: 56%; width: 30%; height: 32%; background-image: radial-gradient(circle at 35% 28%, #fff, #d9e2e8 47%, #a33038 49%, #a33038 58%, #263445 60%, #111927 72%); }
-.stage-kit .set:not(.piano-keyboard) .drum.l { left: 39%; top: 51%; width: 28%; height: 40%; background-image: radial-gradient(circle at 35% 28%, #dce6ef, #71849b 55%, #253347 57%, #111927 72%); }
+.stage-kit .set:not(.piano-keyboard) { position: relative; display: block; width: min(100%, 760px); height: clamp(330px, 75vw, 480px); padding: 0; overflow: hidden; border: 1px solid #59677a; border-radius: 42% 42% 24px 24px; background: radial-gradient(ellipse at 50% 15%, #687a91 0 9%, transparent 9.5%), linear-gradient(180deg, #1b2638 0 62%, #121923 63%); box-shadow: inset 0 0 0 5px #101724, 0 16px 30px #1119; }
+.stage-kit .set:not(.piano-keyboard)::before { position: absolute; z-index: 0; left: 10%; right: 10%; bottom: 5%; height: 24%; border: 2px solid #8591a0; border-top: 0; border-radius: 0 0 48% 48%; content: ''; opacity: .38; }
+.stage-kit .set:not(.piano-keyboard) .drum { position: absolute; z-index: 2; display: flex; width: 20%; height: auto; aspect-ratio: 1; margin: 0; padding: 4px; border: 6px solid #223044; border-radius: 50%; background-image: radial-gradient(circle at 35% 27%, #f2f6f7, #a9bac9 50%, #3b5574 53%, #172232 68%); box-shadow: inset 0 0 0 4px #f7fbff77, inset 0 -11px 16px #172232bb, 0 7px 10px #060a11aa; grid-area: auto; }
+.stage-kit .set:not(.piano-keyboard) .drum::before { position: absolute; z-index: -1; left: 19%; right: 19%; top: calc(100% + 3px); height: 28%; border: 3px solid #aebccb; border-top: 0; border-radius: 0 0 50% 50%; content: ''; opacity: .65; pointer-events: none; }
+.stage-kit .set:not(.piano-keyboard) .drum::after { position: absolute; top: 45%; left: 45%; width: 10%; aspect-ratio: 1; border: 2px solid #6c5420; border-radius: 50%; background: #f4d36d; box-shadow: 0 0 0 3px #ffe8a433; content: ''; pointer-events: none; }
+.stage-kit .set:not(.piano-keyboard) .drum.k { left: 2%; top: 7%; width: 25%; aspect-ratio: 1.18; border-color: #927128; background-image: repeating-radial-gradient(ellipse at center, #edca65 0 4%, #b6872b 4.8% 6%, #d9a844 6.8% 8.2%); }
+.stage-kit .set:not(.piano-keyboard) .drum.s { left: 3%; top: 55%; width: 20%; aspect-ratio: 1.15; border-color: #927128; background-image: repeating-radial-gradient(ellipse at center, #edca65 0 4%, #b6872b 4.8% 6%, #d9a844 6.8% 8.2%); }
+.stage-kit .set:not(.piano-keyboard) .drum.d { right: 2%; top: 8%; width: 28%; aspect-ratio: 1.2; border-color: #927128; background-image: repeating-radial-gradient(ellipse at center, #f0d276 0 4%, #b9882d 4.8% 6%, #dfb34e 6.8% 8.2%); }
+.stage-kit .set:not(.piano-keyboard) .drum.w { left: 32%; top: 18%; width: 21%; border-color: #294b78; }
+.stage-kit .set:not(.piano-keyboard) .drum.a { right: 20%; top: 41%; width: 24%; border-color: #294b78; }
+.stage-kit .set:not(.piano-keyboard) .drum.j { left: 20%; top: 55%; width: 22%; border-color: #8a303a; background-image: radial-gradient(circle at 35% 27%, #fff, #e2e7ea 47%, #c74a55 49%, #8b2833 59%, #1b2839 62%, #111927 72%); }
+.stage-kit .set:not(.piano-keyboard) .drum.l { left: 40%; top: 52%; width: 23%; border-color: #27425e; background-image: radial-gradient(circle at 35% 27%, #e7eef2, #8296ab 52%, #3d638b 54%, #172232 70%); }
 .stage-kit .set:not(.piano-keyboard) .drum.pressed { transform: scale(.94); filter: brightness(1.24); }
-.stage-kit .drum-name { background: #121b2bd9; }
+.stage-kit .drum .drum-key { font-size: clamp(1.25rem, 3.6vw, 2rem); opacity: .78; }
+.stage-kit .drum-name { background: #101827d9; }
 .drum .drum-key { font-size: clamp(1.8rem, 5vw, 2.8rem); line-height: 1; }
 .drum .drum-name { max-width: 100%; padding: 3px 4px; border-radius: 6px; font: 600 10px/1.2 system-ui, sans-serif; color: #f2f6ff; background: #172238dc; text-shadow: none; }
 .studio-kit .a { background-image: url('images/tom4.png'); }
@@ -354,6 +358,7 @@ footer { padding: 24px 0 32px; }
   .kit .set:not(.piano-keyboard) { max-width: none; height: 100%; gap: 4px; padding: 4px; }
   .stage-kit .set:not(.piano-keyboard) { width: 100%; height: 100%; border-radius: 0; border: 0; box-shadow: none; }
   .kit .set:not(.piano-keyboard) .drum { border-width: 5px; border-radius: 14px; }
+  .stage-kit .set:not(.piano-keyboard) .drum { border-radius: 50%; }
   .piano-keyboard { max-width: none; height: 100%; border-radius: 0; }
   .piano-keyboard .black-key { height: 38%; }
   .piano-kit .piano-octave-controls { position: absolute; z-index: 2; top: 4px; left: 50%; transform: translateX(-50%); margin: 0; padding: 2px 4px; border-radius: 9px; background: #151c2bdb; }
