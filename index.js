@@ -271,6 +271,14 @@ for (const type of ['contextmenu', 'dragstart']) {
     if (window.drumAppReady && event.target.closest('.kit .set')) event.preventDefault();
   });
 }
+// Cancel native touch handling before a browser can claim a musical gesture.
+// Pointer events still drive notes; lesson controls keep their normal clicks.
+for (const type of ['touchstart', 'touchmove']) {
+  document.addEventListener(type, event => {
+    if (!window.drumAppReady || !event.target.closest('.kit .set') || event.target.closest('.action')) return;
+    if (event.cancelable) event.preventDefault();
+  }, { passive: false });
+}
 function clearInstrumentPointers() {
   releasePianoKeys();
   drumPointers.clear();

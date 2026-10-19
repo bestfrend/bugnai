@@ -395,6 +395,16 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('pressed')),'returning across a gap plays a new note without lifting the finger');
     await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     assert.equal(await page.locator('.piano-key.pressed').count(),0,'lifting fingers releases all piano keys');
+    await input.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...c4,id:1},{...e4,id:2},{...g4,id:3}]});
+    const gestureScroll=await page.evaluate(()=>window.scrollY);
+    const gestureScale=await page.evaluate(()=>window.visualViewport.scale);
+    for(const [note,moving] of [['a4',a4],['b4',b4],['g4',g4],['a4',a4],['b4',b4],['g4',g4]]){
+      await input.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...c4,id:1},{...e4,id:2},{...moving,id:3}]});
+      await wait(()=>page.locator('.piano-key.pressed').evaluateAll((elements,note)=>elements.length===3&&['c4','e4',note].every(key=>elements.some(element=>element.dataset.key===key)),note));
+    }
+    assert.equal(await page.evaluate(()=>window.scrollY),gestureScroll,'changing a third note does not scroll the instrument');
+    assert.equal(await page.evaluate(()=>window.visualViewport.scale),gestureScale,'changing a third note does not zoom the page');
+    await input.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     await page.evaluate(()=>{
       const original=AudioContext.prototype.createBufferSource;
       window.testPianoSources=[];
@@ -624,7 +634,7 @@ async function instrumentScenario(browser,file,kit,mobile=false){
     await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
     assert(await page.evaluate(()=>window.scrollY>0),'a vertical phone page remains scrollable');
     await page.evaluate(()=>window.scrollTo(0,0));
-    assert.equal(await page.locator('.drum, .piano-key').first().evaluate(e=>getComputedStyle(e).touchAction),'pan-y','portrait playing keeps vertical page scrolling available');
+    assert.equal(await page.locator('.drum, .piano-key').first().evaluate(e=>getComputedStyle(e).touchAction),'none','portrait instrument blocks browser gestures while the page outside remains scrollable');
     await page.setViewportSize({width:915,height:412});
     assert.equal(await page.locator('body > header').evaluate(e=>getComputedStyle(e).display),'none');
     const kitBox=await page.locator('.kit').boundingBox();

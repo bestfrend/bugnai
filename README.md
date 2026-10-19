@@ -216,10 +216,11 @@ FFmpeg ar SFZ grotuvo. Keisdami patį rinkinį ateityje naudokite naują versijo
 kad senų įrašų skambesys nepasikeistų.
 
 Abu būgnų rinkiniai palaiko kelis pirštus ir grojimą braukiant per mygtukus:
-garsas suveikia įėjus į kitą mygtuką arba grįžus į jį per tarpą. Stačiame telefone
-vertikalus braukimas leidžia slinkti puslapiu. Pasuktame telefono vaizde grojimo
-sritis perima gestus ir neleidžia slinkti ar keisti mastelio; ilgo paspaudimo
-meniu ir elementų vilkimas grojimo srityje išjungti.
+garsas suveikia įėjus į kitą mygtuką arba grįžus į jį per tarpą. Visų instrumentų
+grojimo srityse abiem telefono padėtimis naršyklės slinkimas, mastelio keitimas,
+ilgo paspaudimo meniu ir elementų vilkimas išjungti. Stačiame telefone puslapį
+galima slinkti už grojimo srities. Telefono sistemos gestus, pavyzdžiui, trijų
+pirštų ekrano kopiją, reikia išjungti paties telefono nustatymuose.
 
 ### Vizualus „Scena“ komplektas
 
