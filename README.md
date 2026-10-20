@@ -222,6 +222,12 @@ ilgo paspaudimo meniu ir elementų vilkimas išjungti. Stačiame telefone puslap
 galima slinkti už grojimo srities. Telefono sistemos gestus, pavyzdžiui, trijų
 pirštų ekrano kopiją, reikia išjungti paties telefono nustatymuose.
 
+Pasirinkus pamokos greitį, po „Pradėti pamoką“ rodomas mažesnis „Klausyti“
+mygtukas. Jis vieną kartą sugroja pasirinktos pamokos pavyzdį tuo pačiu instrumentu
+ir pasirinktu tempu. Perklausą galima sustabdyti, o jai pasibaigus pradėti pamoką
+ar klausyti dar kartą. Pavyzdys neregistruojamas kaip vartotojo atlikimas;
+pradėjus pamoką arba pakeitus instrumentą, perklausa nutraukiama.
+
 ### Vizualus „Scena“ komplektas
 
 `stage.html` pateikia būgnus kaip 2D komplektą iš viršaus. Jo garsai yra tie patys

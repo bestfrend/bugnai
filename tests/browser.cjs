@@ -306,15 +306,77 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'each instrument shows its own lessons');
   assert.equal(await page.locator('.lesson-speed').count(),(kit==='salamander-v1'?1:4)*3,'lessons offer three speeds');
   assert.deepEqual(await page.locator('.lesson-card').first().locator('.lesson-speed').allTextContents(),['Lėtas','Vidutinis','Greitas']);
-  for(const [label,beatMs] of [['Vidutinis',520],['Greitas',350]]){
+  await page.evaluate(()=>{
+    window.lessonDemoSounds=[];
+    window.lessonDemoLiveHits=0;
+    window.addEventListener('drumhit',()=>window.lessonDemoLiveHits++);
+    if(window.AudioContext){
+      const create=AudioContext.prototype.createBufferSource;
+      AudioContext.prototype.createBufferSource=function(...args){
+        const source=create.apply(this,args),start=source.start.bind(source);
+        source.start=(...args)=>{window.lessonDemoSounds.push(performance.now());return start(...args);};
+        return source;
+      };
+    }else{
+      const play=HTMLMediaElement.prototype.play;
+      HTMLMediaElement.prototype.play=function(...args){window.lessonDemoSounds.push(performance.now());return play.apply(this,args);};
+    }
+  });
+  for(const [label,beatMs] of [['Lėtas',1400],['Vidutinis',520],['Greitas',350]]){
     await page.locator('.lesson-card').first().getByRole('button',{name:label,exact:true}).click();
     await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    const before=await page.evaluate(()=>window.lessonDemoSounds.length);
+    await page.locator('#listen-lesson').click();
+    await wait(()=>page.evaluate(count=>window.lessonDemoSounds.length>count,before));
+    assert.equal(await page.locator('#listen-lesson').getAttribute('aria-pressed'),'true','listening has an active stop control');
+    const interval=kit==='salamander-v1'?beatMs:beatMs*.5;
+    const elapsed=await page.evaluate(index=>performance.now()-window.lessonDemoSounds[index],before);
+    await page.clock.fastForward(Math.max(0,interval-elapsed-40));
+    assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),before+1,'a preview waits for the selected tempo before its second note');
+    await page.clock.fastForward(80);
+    assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),before+2,'the next preview note sounds at the selected tempo');
+    assert.equal(await page.evaluate(()=>window.lessonDemoLiveHits),0,'demo notes are not recorded as user input');
+    if(label==='Lėtas'){
+      await page.locator('#language-select').selectOption('sv');
+      assert.equal(await page.locator('#listen-lesson').innerText(),'Stoppa provlyssningen','active listening controls translate into Swedish');
+      await page.locator('#language-select').selectOption('lt');
+    }
+    await page.clock.fastForward(120000);
+    await page.clock.runFor(25);
+    await wait(()=>page.locator('#listen-lesson').getAttribute('aria-pressed').then(value=>value==='false'));
+    assert(await page.locator('#recording-bar').isHidden(),'listening to a complete piece never opens recording review');
+    await page.locator('#listen-lesson').click();
+    await wait(()=>page.locator('#listen-lesson').getAttribute('aria-pressed').then(value=>value==='true'));
+    await page.locator('#listen-lesson').click();
+    const stoppedCount=await page.evaluate(()=>window.lessonDemoSounds.length);
+    await page.clock.fastForward(beatMs*2);
+    assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),stoppedCount,'stopping a preview cancels its remaining notes');
+    await page.locator('#listen-lesson').click();
+    await wait(()=>page.evaluate(count=>window.lessonDemoSounds.length>count,stoppedCount));
     await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
+    const startedCount=await page.evaluate(()=>window.lessonDemoSounds.length);
     await page.clock.fastForward((kit==='salamander-v1'?2:1)*beatMs+25);
+    assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),startedCount,'starting a lesson stops the demo audio');
     const expected=kit==='salamander-v1'?'g4':'j';
     assert(await page.locator(`.kit .set [data-key="${expected}"]`).evaluate(element=>element.classList.contains('lesson-cue')),`${label} shows notes at the new tempo`);
     await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   }
+  await page.locator('.lesson-speed').first().click();
+  await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+  const beforeNavigationPreview=await page.evaluate(()=>window.lessonDemoSounds.length);
+  await page.locator('#listen-lesson').click();
+  await wait(()=>page.evaluate(count=>window.lessonDemoSounds.length>count,beforeNavigationPreview));
+  const previewAlternate=kit==='salamander-v1'?'classic-v1':'salamander-v1';
+  await page.locator(`[data-kit-link="${previewAlternate}"]`).click();
+  await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===previewAlternate));
+  await wait(()=>page.locator('#audio-status').isHidden());
+  const afterNavigationPreview=await page.evaluate(()=>window.lessonDemoSounds.length);
+  await page.clock.fastForward(3000);
+  assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),afterNavigationPreview,'changing instruments cancels the lesson demo');
+  assert.equal(await page.locator('#lesson-start').count(),0,'a demo starter does not leak into another instrument');
+  await page.locator(`[data-kit-link="${kit}"]`).click();
+  await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===kit));
+  await wait(()=>page.locator('#audio-status').isHidden());
   const lessonInput=kit==='salamander-v1'?await context.newCDPSession(page):null;
   const pressLessonKey=async key=>{
     const target=page.locator(`.kit .set [data-key="${key}"]`);

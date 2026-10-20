@@ -36,6 +36,7 @@ let pausedLesson = null;
 
 const iconPaths = {
   play: ['M8 5v14l11-7z'],
+  listen: ['M11 5L6 9H3v6h3l5 4z', 'M15 8a6 6 0 0 1 0 8', 'M18 5a10 10 0 0 1 0 14'],
   stop: ['M6 6h12v12H6z'],
   repeat: ['M3 11a9 9 0 1 1 2.9 6.9', 'M3 4v7h7'],
   check: ['M5 12l4 4L19 6'],
@@ -103,6 +104,7 @@ function removeLessonStarter() {
 }
 
 function stopLesson() {
+  stopLessonPreview();
   removeLessonStarter();
   document.querySelector('.kit')?.classList.remove('lesson-active');
   if (!lesson) return;
@@ -121,8 +123,84 @@ function showLessonStarter() {
   overlay.className = 'lesson-start-overlay';
   const button = action('Pradėti pamoką', beginLesson, 'primary');
   decorateAction(button, 'play');
-  overlay.append(button);
+  const listen = action('Klausyti', toggleLessonPreview, 'lesson-listen');
+  listen.id = 'listen-lesson';
+  const controls = document.createElement('div');
+  controls.className = 'lesson-start-actions';
+  controls.append(button, listen);
+  overlay.append(controls);
   set.append(overlay);
+  updateLessonListenButton();
+}
+
+function updateLessonListenButton() {
+  const button = $('listen-lesson');
+  if (!button) return;
+  const active = !!lesson?.preview;
+  const label = active ? 'Stabdyti perklausą' : 'Klausyti';
+  button.textContent = label;
+  decorateAction(button, active ? 'stop' : 'listen');
+  button.querySelector('.button-label').textContent = t(label);
+  button.classList.toggle('is-listening', active);
+  button.setAttribute('aria-pressed', String(active));
+}
+
+function stopLessonPreview(current = lesson) {
+  if (!current?.preview) return;
+  clearInterval(current.preview.timer);
+  clearTimeout(current.preview.endTimer);
+  current.preview = null;
+  stopAudio();
+  if (lesson === current) updateLessonListenButton();
+}
+
+async function toggleLessonPreview() {
+  const current = lesson;
+  if (!current || current.started !== null) return;
+  if (current.preview) {
+    stopLessonPreview(current);
+    return;
+  }
+  stopPlayback();
+  stopAudio();
+  const preview = {};
+  current.preview = preview;
+  updateLessonListenButton();
+  const kit = ACTIVE_KIT;
+  try {
+    await prepareAudio(kit);
+    if (lesson !== current || current.preview !== preview || current.started !== null) return;
+    const velocity = kit === DEFAULT_KIT ? 127 : 96;
+    const notes = current.events.map(note => {
+      const next = current.events.find(candidate => candidate.beat > note.beat);
+      const interval = (next ? next.beat - note.beat : 1) * current.speed.beatMs;
+      return { key: note.key, time: note.beat * current.speed.beatMs,
+        length: kit === 'salamander-v1' ? Math.max(60, Math.round(interval * .85)) : undefined };
+    });
+    const started = performance.now();
+    const endsAt = Math.max(...notes.map(note => note.time + soundDuration(note.key, kit, velocity, note.length)));
+    let index = 0;
+    const tick = () => {
+      if (lesson !== current || current.preview !== preview) return;
+      const elapsed = performance.now() - started;
+      while (index < notes.length && notes[index].time <= elapsed) {
+        const note = notes[index++];
+        hitDrum(note.key, false, velocity, kit, note.length);
+      }
+      if (index === notes.length) {
+        clearInterval(preview.timer);
+        preview.endTimer = setTimeout(() => {
+          if (current.preview === preview) stopLessonPreview(current);
+        }, Math.max(0, endsAt - elapsed));
+      }
+    };
+    preview.timer = setInterval(tick, 8);
+    tick();
+  } catch {
+    if (lesson !== current || current.preview !== preview) return;
+    stopLessonPreview(current);
+    status('Nepavyko paleisti garso. Paliesk būgną ir bandyk atkurti dar kartą.', true);
+  }
 }
 
 async function prepareLesson(definition, speed) {
@@ -148,6 +226,7 @@ async function prepareLesson(definition, speed) {
 
 function beginLesson() {
   if (!lesson || lesson.started !== null) return;
+  stopLessonPreview();
   removeLessonStarter();
   const current = lesson;
   current.started = performance.now();
@@ -176,7 +255,7 @@ function beginLesson() {
 }
 
 function createLesson(definition, speed) {
-  return { definition, speed, events: [...definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0, pending: [], judged: new Map(), feedbackTimers: new Map() };
+  return { definition, speed, events: [...definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0, preview: null, pending: [], judged: new Map(), feedbackTimers: new Map() };
 }
 
 function lessonCycleMs(current) {
@@ -912,6 +991,7 @@ function scheduleRecordingReview(tail = 0) {
 }
 
 window.addEventListener('drumhit', event => {
+  stopLessonPreview();
   scoreLessonHit(event.detail.key);
   stopPlayback();
   if (!recording) beginAutomaticRecording();
@@ -1270,6 +1350,10 @@ window.addEventListener('languagechange', () => {
   refreshControls();
   updateRecordBar();
   renderLessons();
+  if (lesson?.started === null) {
+    removeLessonStarter();
+    showLessonStarter();
+  }
   if (typeof activeStatus.message === 'function') status(activeStatus.message, activeStatus.error);
 });
 
