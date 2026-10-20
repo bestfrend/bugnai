@@ -259,6 +259,7 @@ function beginLesson() {
     for (const note of current.pending) lessonButton(note.key)?.classList.add('lesson-cue');
     const cycle = Math.floor(elapsed / cycleMs);
     for (const previous of current.judged.keys()) if (previous < cycle - 1) current.judged.delete(previous);
+    for (const position of current.outcomes.keys()) if (position < (cycle - 1) * current.events.length) current.outcomes.delete(position);
     renderLessonSequence(current, elapsed);
     current.frame = requestAnimationFrame(tick);
   };
@@ -266,7 +267,15 @@ function beginLesson() {
 }
 
 function createLesson(definition, speed) {
-  return { definition, speed, events: [...definition.events].sort((a, b) => a.beat - b.beat), next: 0, started: null, frame: 0, preview: null, pending: [], judged: new Map(), feedbackTimers: new Map() };
+  const events = [...definition.events].sort((a, b) => a.beat - b.beat);
+  const groups = [];
+  events.forEach((note, index) => {
+    let group = groups.at(-1);
+    if (!group || group.beat !== note.beat) groups.push(group = { beat: note.beat, keys: [], indices: [] });
+    group.keys.push(note.key);
+    group.indices.push(index);
+  });
+  return { definition, speed, events, groups, outcomes: new Map(), next: 0, started: null, frame: 0, preview: null, pending: [], judged: new Map(), feedbackTimers: new Map() };
 }
 
 function lessonCycleMs(current) {
@@ -294,51 +303,68 @@ function nextLessonBeat(current, elapsed) {
   }
 }
 
+function lessonSequenceLabel(key) {
+  if (ACTIVE_KIT !== 'salamander-v1') return key.toUpperCase();
+  const button = lessonButton(key);
+  const name = button?.getAttribute('aria-label')?.split(',')[0] || key.toUpperCase();
+  const shortcut = button?.dataset.shortcut?.toUpperCase();
+  if (language === 'lt') return button?.classList.contains('black-key') ? shortcut || name : name;
+  return shortcut ? `${name} · ${shortcut}` : name;
+}
+
 function renderLessonSequence(current, elapsed) {
+  const set = document.querySelector('.kit .set');
+  if (!set) return;
+  // Set to "glow" to restore the original piano lesson cue, retained in styles.css.
+  if (ACTIVE_KIT === 'salamander-v1') set.dataset.lessonCueStyle ||= 'soft';
   let strip = $('lesson-sequence');
   if (!strip) {
-    const set = document.querySelector('.kit .set');
-    if (!set) return;
     strip = document.createElement('div');
     strip.id = 'lesson-sequence';
     strip.className = 'lesson-sequence';
     set.append(strip);
   }
-  const groups = [];
-  const append = (key, target) => {
-    let group = groups.find(group => group.target === target);
-    if (!group) groups.push(group = { target, keys: [] });
-    group.keys.push(key);
-  };
-  for (const note of current.pending) append(note.key, note.target);
+  const available = ACTIVE_KIT !== 'salamander-v1' || current.events.every(note => lessonButton(note.key));
+  strip.hidden = !available;
+  if (!available) return;
+  const cycleMs = lessonCycleMs(current);
   const next = nextLessonBeat(current, elapsed);
-  if (next) {
-    for (let offset = 0; offset < current.events.length * 2 && groups.length < 7; offset++) {
-      const position = next.index + offset;
-      const cycle = next.cycle + Math.floor(position / current.events.length);
-      const index = position % current.events.length;
-      const note = current.events[index];
-      if (!current.judged.get(cycle)?.has(index)) append(note.key, cycle * lessonCycleMs(current) + note.beat * current.speed.beatMs);
-    }
+  const target = current.pending[0]?.target ?? next?.target;
+  if (target === undefined) return;
+  const cycle = Math.floor(target / cycleMs);
+  const groupIndex = current.groups.findIndex(group => Math.abs(cycle * cycleMs + group.beat * current.speed.beatMs - target) < .01);
+  if (groupIndex === -1) return;
+  const center = cycle * current.groups.length + groupIndex;
+  const cells = [];
+  for (let position = center - 3; position <= center + 3; position++) {
+    if (position < 0) { cells.push(null); continue; }
+    const group = current.groups[position % current.groups.length];
+    const groupCycle = Math.floor(position / current.groups.length);
+    const past = position < center;
+    const results = group.indices.map(index => current.outcomes.get(groupCycle * current.events.length + index));
+    const result = !past ? '' : results.some(value => !value || value === 'wrong') ? 'wrong'
+      : results.includes('early') ? 'early' : 'correct';
+    const target = groupCycle * cycleMs + group.beat * current.speed.beatMs;
+    cells.push({ keys: group.keys, labels: group.keys.map(lessonSequenceLabel), past, result,
+      current: position === center, due: position === center && target <= elapsed });
   }
-  const visible = groups.slice(0, 6);
-  const signature = JSON.stringify([language, visible, elapsed >= 0 && visible[0]?.target <= elapsed]);
+  const signature = JSON.stringify([language, cells]);
   if (strip.dataset.sequence === signature) return;
   strip.dataset.sequence = signature;
-  const label = document.createElement('span');
-  label.className = 'lesson-sequence-label';
-  label.textContent = t('Toliau');
-  strip.replaceChildren(label);
-  for (const group of visible) {
+  strip.replaceChildren();
+  for (const cell of cells) {
     const item = document.createElement('span');
-    item.className = 'lesson-sequence-note' + (group.target <= elapsed ? ' is-current' : '');
-    item.textContent = group.keys.map(key => {
-      const button = lessonButton(key);
-      return ACTIVE_KIT === 'salamander-v1'
-        ? `${button?.querySelector('span')?.textContent || key} · ${(button?.dataset.shortcut || key).toUpperCase()}`
-        : key.toUpperCase();
-    }).join(' + ');
-    item.dataset.notes = group.keys.join(',');
+    item.className = 'lesson-sequence-note';
+    if (!cell) item.classList.add('is-empty');
+    else {
+      item.classList.toggle('is-current', cell.current);
+      item.classList.toggle('is-due', cell.due);
+      item.classList.toggle('is-past', cell.past);
+      if (cell.result) item.classList.add('result-' + cell.result);
+      item.textContent = cell.labels.join(' + ');
+      item.dataset.notes = cell.keys.join(',');
+      if (cell.current) item.setAttribute('aria-current', 'step');
+    }
     strip.append(item);
   }
 }
@@ -399,6 +425,7 @@ function scoreLessonHit(key) {
   if (closest) {
     if (!current.judged.has(closest.cycle)) current.judged.set(closest.cycle, new Set());
     current.judged.get(closest.cycle).add(closest.index);
+    current.outcomes.set(closest.cycle * current.events.length + closest.index, result);
     const target = closest.cycle * cycleMs + current.events[closest.index].beat * current.speed.beatMs;
     current.pending = current.pending.filter(note => note.key !== key || note.target !== target);
     if (!current.pending.some(note => note.key === key)) lessonButton(key)?.classList.remove('lesson-cue');
