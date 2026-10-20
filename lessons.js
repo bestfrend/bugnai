@@ -27,7 +27,7 @@ const drumLessons = [
 
 export const lessonSpeeds = [
   { id: 'slow', label: 'Lėtas', beatMs: 1400 },
-  { id: 'medium', label: 'Vidutinis', beatMs: 520 },
+  { id: 'medium', label: 'Normalus', beatMs: 520 },
   { id: 'fast', label: 'Greitas', beatMs: 350 }
 ];
 

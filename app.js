@@ -127,7 +127,11 @@ function showLessonStarter() {
   listen.id = 'listen-lesson';
   const controls = document.createElement('div');
   controls.className = 'lesson-start-actions';
-  controls.append(button, listen);
+  const tempo = document.createElement('p');
+  tempo.id = 'lesson-selected-tempo';
+  tempo.className = 'lesson-selected-tempo';
+  tempo.textContent = t(lesson.speed.label);
+  controls.append(tempo, button, listen);
   overlay.append(controls);
   set.append(overlay);
   updateLessonListenButton();
@@ -229,10 +233,14 @@ function beginLesson() {
   stopLessonPreview();
   removeLessonStarter();
   const current = lesson;
-  current.started = performance.now();
+  current.started = performance.now() + 1000;
   const tick = () => {
     if (lesson !== current) return;
     const elapsed = performance.now() - current.started;
+    if (elapsed < 0) {
+      current.frame = requestAnimationFrame(tick);
+      return;
+    }
     const cycleMs = lessonCycleMs(current);
     while (true) {
       const cycle = Math.floor(current.next / current.events.length);
@@ -289,6 +297,7 @@ function scoreLessonHit(key) {
   const current = lesson;
   if (!current || current.started === null) return;
   const elapsed = performance.now() - current.started;
+  if (elapsed < 0) return;
   const cycleMs = lessonCycleMs(current);
   const cycle = Math.floor(elapsed / cycleMs);
   let closest;
@@ -345,6 +354,9 @@ function renderLessons() {
     for (const speed of lessonSpeeds) {
       const button = action(t(speed.label), () => prepareLesson(definition, speed));
       button.classList.add('lesson-speed');
+      const selected = !!lesson && lesson.definition.id === definition.id && lesson.speed.id === speed.id;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
       button.disabled = !!lesson || busy || recording?.stage === 'saving';
       speeds.append(button);
     }

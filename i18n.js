@@ -27,7 +27,7 @@ const swedish = {
   'Mūsų ritmai': 'Våra rytmer', 'Kitų įrašus galite tik paklausyti.': 'Du kan lyssna på andras inspelningar, men bara ändra dina egna.',
   'Piano dainelės': 'Pianolåtar', 'Būgnų pamokos': 'Trumlektioner',
   'Pasirink greitį ir spausk šviečiančius mygtukus.': 'Välj tempo och tryck på de lysande knapparna.',
-  'Labai lėtas': 'Mycket långsam', 'Lėtas': 'Långsam', 'Vidutinis': 'Medel', 'Greitas': 'Snabb', 'Pradėti pamoką': 'Starta övningen', 'Stabdyti pamoką': 'Stoppa övningen',
+  'Labai lėtas': 'Mycket långsam', 'Lėtas': 'Långsam', 'Vidutinis': 'Medel', 'Normalus': 'Normal', 'Greitas': 'Snabb', 'Pradėti pamoką': 'Starta övningen', 'Stabdyti pamoką': 'Stoppa övningen',
   'Du gaideliai': 'Två tuppar', 'Pirmas rokas': 'Första rockrytmen', 'Lėtas rokas': 'Långsam rock',
   'Crash pradžia': 'Crash-start', 'Aštuoni hi-hat': 'Åttondelar på hi-hat',
   'Rodyti daugiau vartotojų': 'Visa fler användare', 'Šiai programai reikia įjungti JavaScript.': 'JavaScript måste vara aktiverat för den här appen.',

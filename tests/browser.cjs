@@ -305,7 +305,16 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert(await page.locator('#recording-bar').isHidden());
   assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'each instrument shows its own lessons');
   assert.equal(await page.locator('.lesson-speed').count(),(kit==='salamander-v1'?1:4)*3,'lessons offer three speeds');
-  assert.deepEqual(await page.locator('.lesson-card').first().locator('.lesson-speed').allTextContents(),['Lėtas','Vidutinis','Greitas']);
+  assert.deepEqual(await page.locator('.lesson-card').first().locator('.lesson-speed').allTextContents(),['Lėtas','Normalus','Greitas']);
+  const startSelectedLesson=async()=>{
+    await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
+    assert.equal(await page.locator('.lesson-cue').count(),0,'starting a lesson leaves preparation time before the first cue');
+    await page.clock.fastForward(700);
+    assert.equal(await page.locator('.lesson-cue').count(),0,'the first cue waits a full second');
+    await page.clock.fastForward(300);
+    await page.clock.runFor(20);
+    assert(await page.locator('.lesson-cue').count(),'the first cue appears after preparation');
+  };
   await page.evaluate(()=>{
     window.lessonDemoSounds=[];
     window.lessonDemoLiveHits=0;
@@ -322,9 +331,12 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       HTMLMediaElement.prototype.play=function(...args){window.lessonDemoSounds.push(performance.now());return play.apply(this,args);};
     }
   });
-  for(const [label,beatMs] of [['Lėtas',1400],['Vidutinis',520],['Greitas',350]]){
+  for(const [label,beatMs] of [['Lėtas',1400],['Normalus',520],['Greitas',350]]){
     await page.locator('.lesson-card').first().getByRole('button',{name:label,exact:true}).click();
     await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    assert.equal(await page.locator('#lesson-selected-tempo').textContent(),label,'the selected tempo is visible beside the preview and start controls');
+    assert.equal(await page.locator('.lesson-speed.is-selected').textContent(),label,'the chosen tempo remains highlighted in its lesson card');
+    assert.equal(await page.locator('.lesson-speed.is-selected').getAttribute('aria-pressed'),'true');
     const before=await page.evaluate(()=>window.lessonDemoSounds.length);
     await page.locator('#listen-lesson').click();
     await wait(()=>page.evaluate(count=>window.lessonDemoSounds.length>count,before));
@@ -338,6 +350,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     assert.equal(await page.evaluate(()=>window.lessonDemoLiveHits),0,'demo notes are not recorded as user input');
     if(label==='Lėtas'){
       await page.locator('#language-select').selectOption('sv');
+      assert.equal(await page.locator('#lesson-selected-tempo').textContent(),'Långsam','the selected tempo translates into Swedish');
       assert.equal(await page.locator('#listen-lesson').innerText(),'Stoppa provlyssningen','active listening controls translate into Swedish');
       await page.locator('#language-select').selectOption('lt');
     }
@@ -353,7 +366,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),stoppedCount,'stopping a preview cancels its remaining notes');
     await page.locator('#listen-lesson').click();
     await wait(()=>page.evaluate(count=>window.lessonDemoSounds.length>count,stoppedCount));
-    await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
+    await startSelectedLesson();
     const startedCount=await page.evaluate(()=>window.lessonDemoSounds.length);
     await page.clock.fastForward((kit==='salamander-v1'?2:1)*beatMs+25);
     assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),startedCount,'starting a lesson stops the demo audio');
@@ -392,7 +405,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   };
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
-  await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
+  await startSelectedLesson();
   const delayedKey=kit==='salamander-v1'?'c4':'l';
   await page.clock.fastForward(kit==='salamander-v1'?800:500);
   if(kit==='salamander-v1')assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('lesson-cue')),'a slow lesson cue remains visible during its response window');
@@ -402,7 +415,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
-  await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
+  await startSelectedLesson();
   await page.clock.fastForward(kit==='salamander-v1'?1050:750);
   await pressLessonKey(delayedKey);
   assert(await page.locator(`.kit .set [data-key="${delayedKey}"]`).evaluate(element=>element.classList.contains('lesson-wrong')),'a response expires after one second or when the next note starts, whichever comes first');
@@ -415,7 +428,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   },kit);
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
-  await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
+  await startSelectedLesson();
   await page.clock.fastForward(lastNote.time+800);
   assert(await page.locator(`.kit .set [data-key="${lastNote.key}"]`).evaluate(element=>element.classList.contains('lesson-cue')),'the last note allows a full second to respond');
   await page.clock.fastForward(250);
@@ -423,7 +436,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
-  await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
+  await startSelectedLesson();
   await wait(()=>page.locator('.lesson-cue').count().then(count=>count>0));
   assert(await page.locator('.lesson-card.is-playing').count(),'a lesson highlights the next instrument key');
   const promptedKey=await page.locator('.lesson-cue').first().getAttribute('data-key');
