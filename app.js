@@ -1,5 +1,5 @@
 import './navigation.js';
-import './play-help.js';
+import { lessonSequenceVisible } from './play-help.js';
 import * as db from './database.js';
 import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit, releasePianoKeys } from './index.js';
 import { t, setLanguage, applyPageTranslations, language } from './i18n.js';
@@ -277,7 +277,17 @@ function createLesson(definition, speed) {
     group.keys.push(note.key);
     group.indices.push(index);
   });
-  return { definition, speed, events, groups, outcomes: new Map(), next: 0, started: null, frame: 0, preview: null, pending: [], judged: new Map(), feedbackTimers: new Map(), practiceStarted: null, practiceHeld: new Map(), practiceTimer: null };
+  const runs = [], groupToRun = [];
+  groups.forEach((group, index) => {
+    let run = runs.at(-1);
+    if (!run || run.keys.join(',') !== group.keys.join(',')) {
+      runs.push(run = { keys: group.keys, start: index, end: index, indices: [] });
+    }
+    run.end = index;
+    run.indices.push(...group.indices);
+    groupToRun.push(runs.length - 1);
+  });
+  return { definition, speed, events, groups, runs, groupToRun, outcomes: new Map(), next: 0, started: null, frame: 0, preview: null, pending: [], judged: new Map(), feedbackTimers: new Map(), practiceStarted: null, practiceHeld: new Map(), practiceTimer: null };
 }
 
 function lessonCycleMs(current) {
@@ -327,8 +337,8 @@ function renderLessonSequence(current, elapsed) {
     set.append(strip);
   }
   const available = ACTIVE_KIT !== 'salamander-v1' || current.events.every(note => lessonButton(note.key));
-  strip.hidden = !available;
-  if (!available) return;
+  strip.hidden = !lessonSequenceVisible || !available;
+  if (strip.hidden) return;
   const cycleMs = lessonCycleMs(current);
   const next = nextLessonBeat(current, elapsed);
   const target = current.pending[0]?.target ?? next?.target;
@@ -336,19 +346,20 @@ function renderLessonSequence(current, elapsed) {
   const cycle = Math.floor(target / cycleMs);
   const groupIndex = current.groups.findIndex(group => Math.abs(cycle * cycleMs + group.beat * current.speed.beatMs - target) < .01);
   if (groupIndex === -1) return;
-  const center = cycle * current.groups.length + groupIndex;
+  const center = cycle * current.runs.length + current.groupToRun[groupIndex];
   const cells = [];
   for (let position = center - 3; position <= center + 3; position++) {
     if (position < 0) { cells.push(null); continue; }
-    const group = current.groups[position % current.groups.length];
-    const groupCycle = Math.floor(position / current.groups.length);
+    const group = current.runs[position % current.runs.length];
+    const groupCycle = Math.floor(position / current.runs.length);
     const past = position < center;
     const results = group.indices.map(index => current.outcomes.get(groupCycle * current.events.length + index));
     const result = !past ? '' : results.some(value => !value || value === 'wrong') ? 'wrong'
       : results.includes('early') ? 'early' : 'correct';
-    const target = groupCycle * cycleMs + group.beat * current.speed.beatMs;
+    const target = groupCycle * cycleMs + current.groups[position === center ? groupIndex : group.start].beat * current.speed.beatMs;
+    const count = group.end - (position === center ? groupIndex : group.start) + 1;
     cells.push({ keys: group.keys, labels: group.keys.map(lessonSequenceLabel), past, result,
-      current: position === center, due: position === center && target <= elapsed });
+      count, current: position === center, due: position === center && target <= elapsed });
   }
   const signature = JSON.stringify([language, cells]);
   if (strip.dataset.sequence === signature) return;
@@ -363,13 +374,18 @@ function renderLessonSequence(current, elapsed) {
       item.classList.toggle('is-due', cell.due);
       item.classList.toggle('is-past', cell.past);
       if (cell.result) item.classList.add('result-' + cell.result);
-      item.textContent = cell.labels.join(' + ');
+      item.textContent = cell.labels.join(' + ') + (cell.count > 1 ? ` ${cell.count}` : '');
+      item.dataset.repeats = String(cell.count);
       item.dataset.notes = cell.keys.join(',');
       if (cell.current) item.setAttribute('aria-current', 'step');
     }
     strip.append(item);
   }
 }
+
+window.addEventListener('lessonsequencechange', () => {
+  if (lesson && lesson.started !== null) renderLessonSequence(lesson, performance.now() - lesson.started);
+});
 
 function flashLessonResult(current, key, result) {
   const button = lessonButton(key);

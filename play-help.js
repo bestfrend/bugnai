@@ -1,11 +1,21 @@
 import { t } from './i18n.js';
 
+const SEQUENCE_SETTING = 'bugnai.lesson-sequence';
+export let lessonSequenceVisible = localStorage.getItem(SEQUENCE_SETTING) === 'true';
+
 const toolbar = document.querySelector('.language-switch');
 if (toolbar) {
   const menu = document.createElement('details');
   menu.className = 'play-help-menu';
-  menu.innerHTML = '<summary><span id="play-help-menu-label"></span></summary><div class="play-help-dropdown"><button id="open-play-help" class="action" type="button" aria-haspopup="dialog" aria-controls="play-help-dialog"></button></div>';
+  menu.innerHTML = '<summary><span id="play-help-menu-label"></span></summary><div class="play-help-dropdown"><button id="open-play-help" class="action" type="button" aria-haspopup="dialog" aria-controls="play-help-dialog"></button><label class="play-help-toggle"><input id="show-lesson-sequence" type="checkbox"><span id="lesson-sequence-setting-label"></span></label></div>';
   toolbar.prepend(menu);
+  const sequenceToggle = document.getElementById('show-lesson-sequence');
+  sequenceToggle.checked = lessonSequenceVisible;
+  sequenceToggle.addEventListener('change', () => {
+    lessonSequenceVisible = sequenceToggle.checked;
+    localStorage.setItem(SEQUENCE_SETTING, String(lessonSequenceVisible));
+    window.dispatchEvent(new Event('lessonsequencechange'));
+  });
 
   const dialog = document.createElement('dialog');
   dialog.id = 'play-help-dialog';
@@ -16,6 +26,7 @@ if (toolbar) {
 
   const text = {
     'play-help-menu-label': 'Meniu',
+    'lesson-sequence-setting-label': 'Rodyti natų seką mokantis',
     'open-play-help': 'Prieš grojant',
     'play-help-title': 'Prieš grojant',
     'play-help-intro': 'Jei groji keliais pirštais, įrenginio nustatymuose išjunk šiuos gestus, jei jie įjungti:',
