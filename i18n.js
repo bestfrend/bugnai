@@ -25,7 +25,7 @@ const swedish = {
   'Įkeliami būgnų garsai…': 'Laddar trumljud…', 'Įkeliami pianino garsai…': 'Laddar pianoljud…',
   'Įkeliami garsai…': 'Laddar ljud…', 'Stabdyti atkūrimą': 'Stoppa uppspelning',
   'Mūsų ritmai': 'Våra rytmer', 'Kitų įrašus galite tik paklausyti.': 'Du kan lyssna på andras inspelningar, men bara ändra dina egna.',
-  'Piano dainelės': 'Pianolåtar', 'Būgnų pamokos': 'Trumlektioner',
+  'Piano dainelės': 'Pianolåtar', 'Būgnų pamokos': 'Trumlektioner', 'Toliau': 'Härnäst',
   'Pasirink greitį ir spausk šviečiančius mygtukus.': 'Välj tempo och tryck på de lysande knapparna.',
   'Labai lėtas': 'Mycket långsam', 'Lėtas': 'Långsam', 'Vidutinis': 'Medel', 'Normalus': 'Normal', 'Greitas': 'Snabb', 'Pradėti pamoką': 'Starta övningen', 'Stabdyti pamoką': 'Stoppa övningen',
   'Du gaideliai': 'Två tuppar', 'Pirmas rokas': 'Första rockrytmen', 'Lėtas rokas': 'Långsam rock',

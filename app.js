@@ -94,8 +94,8 @@ function action(label, handler, className = '') {
 }
 
 function clearLessonCues() {
-  for (const button of document.querySelectorAll('.lesson-cue, .lesson-correct, .lesson-wrong')) {
-    button.classList.remove('lesson-cue', 'lesson-correct', 'lesson-wrong');
+  for (const button of document.querySelectorAll('.lesson-cue, .lesson-correct, .lesson-early, .lesson-wrong')) {
+    button.classList.remove('lesson-cue', 'lesson-correct', 'lesson-early', 'lesson-wrong');
   }
 }
 
@@ -106,6 +106,7 @@ function removeLessonStarter() {
 function stopLesson() {
   stopLessonPreview();
   removeLessonStarter();
+  $('lesson-sequence')?.remove();
   document.querySelector('.kit')?.classList.remove('lesson-active');
   if (!lesson) return;
   cancelAnimationFrame(lesson.frame);
@@ -234,6 +235,7 @@ function beginLesson() {
   removeLessonStarter();
   const current = lesson;
   current.started = performance.now() + 1000;
+  renderLessonSequence(current, -1000);
   const tick = () => {
     if (lesson !== current) return;
     const elapsed = performance.now() - current.started;
@@ -257,6 +259,7 @@ function beginLesson() {
     for (const note of current.pending) lessonButton(note.key)?.classList.add('lesson-cue');
     const cycle = Math.floor(elapsed / cycleMs);
     for (const previous of current.judged.keys()) if (previous < cycle - 1) current.judged.delete(previous);
+    renderLessonSequence(current, elapsed);
     current.frame = requestAnimationFrame(tick);
   };
   tick();
@@ -280,15 +283,75 @@ function lessonButton(key) {
   return [...document.querySelectorAll('.kit .set [data-key]')].find(button => button.dataset.key === key);
 }
 
-function flashLessonResult(current, key, correct) {
+// Only the immediately upcoming beat can be anticipated, including all notes of a chord.
+function nextLessonBeat(current, elapsed) {
+  const cycleMs = lessonCycleMs(current);
+  const cycle = Math.max(0, Math.floor(elapsed / cycleMs));
+  for (const candidateCycle of [cycle, cycle + 1]) {
+    const index = current.events.findIndex(note => candidateCycle * cycleMs + note.beat * current.speed.beatMs > elapsed);
+    if (index !== -1) return { cycle: candidateCycle, index,
+      target: candidateCycle * cycleMs + current.events[index].beat * current.speed.beatMs };
+  }
+}
+
+function renderLessonSequence(current, elapsed) {
+  let strip = $('lesson-sequence');
+  if (!strip) {
+    const set = document.querySelector('.kit .set');
+    if (!set) return;
+    strip = document.createElement('div');
+    strip.id = 'lesson-sequence';
+    strip.className = 'lesson-sequence';
+    set.append(strip);
+  }
+  const groups = [];
+  const append = (key, target) => {
+    let group = groups.find(group => group.target === target);
+    if (!group) groups.push(group = { target, keys: [] });
+    group.keys.push(key);
+  };
+  for (const note of current.pending) append(note.key, note.target);
+  const next = nextLessonBeat(current, elapsed);
+  if (next) {
+    for (let offset = 0; offset < current.events.length * 2 && groups.length < 7; offset++) {
+      const position = next.index + offset;
+      const cycle = next.cycle + Math.floor(position / current.events.length);
+      const index = position % current.events.length;
+      const note = current.events[index];
+      if (!current.judged.get(cycle)?.has(index)) append(note.key, cycle * lessonCycleMs(current) + note.beat * current.speed.beatMs);
+    }
+  }
+  const visible = groups.slice(0, 6);
+  const signature = JSON.stringify([language, visible, elapsed >= 0 && visible[0]?.target <= elapsed]);
+  if (strip.dataset.sequence === signature) return;
+  strip.dataset.sequence = signature;
+  const label = document.createElement('span');
+  label.className = 'lesson-sequence-label';
+  label.textContent = t('Toliau');
+  strip.replaceChildren(label);
+  for (const group of visible) {
+    const item = document.createElement('span');
+    item.className = 'lesson-sequence-note' + (group.target <= elapsed ? ' is-current' : '');
+    item.textContent = group.keys.map(key => {
+      const button = lessonButton(key);
+      return ACTIVE_KIT === 'salamander-v1'
+        ? `${button?.querySelector('span')?.textContent || key} · ${(button?.dataset.shortcut || key).toUpperCase()}`
+        : key.toUpperCase();
+    }).join(' + ');
+    item.dataset.notes = group.keys.join(',');
+    strip.append(item);
+  }
+}
+
+function flashLessonResult(current, key, result) {
   const button = lessonButton(key);
   if (!button) return;
   clearTimeout(current.feedbackTimers.get(key));
-  button.classList.remove('lesson-correct', 'lesson-wrong');
-  button.classList.add(correct ? 'lesson-correct' : 'lesson-wrong');
+  button.classList.remove('lesson-correct', 'lesson-early', 'lesson-wrong');
+  button.classList.add('lesson-' + result);
   if (ACTIVE_KIT === 'salamander-v1') return;
   current.feedbackTimers.set(key, setTimeout(() => {
-    button.classList.remove('lesson-correct', 'lesson-wrong');
+    button.classList.remove('lesson-correct', 'lesson-early', 'lesson-wrong');
     current.feedbackTimers.delete(key);
   }, 420));
 }
@@ -300,16 +363,38 @@ function scoreLessonHit(key) {
   if (elapsed < 0) return;
   const cycleMs = lessonCycleMs(current);
   const cycle = Math.floor(elapsed / cycleMs);
+  let result = 'wrong';
+  let awaitingCurrent = false;
   let closest;
   for (const candidateCycle of [cycle - 1, cycle]) {
     if (candidateCycle < 0) continue;
     current.events.forEach((note, index) => {
-      if (note.key !== key || current.judged.get(candidateCycle)?.has(index)) return;
+      if (current.judged.get(candidateCycle)?.has(index)) return;
       const delay = elapsed - (candidateCycle * cycleMs + note.beat * current.speed.beatMs);
       const lateWindow = lessonResponseWindow(current, index);
       if (delay < 0 || delay >= lateWindow) return;
+      if (note.key !== key) {
+        awaitingCurrent = true;
+        return;
+      }
       if (!closest || delay < closest.distance) closest = { cycle: candidateCycle, index, distance: delay };
     });
+  }
+  if (closest) result = 'correct';
+  else if (!awaitingCurrent) {
+    const next = nextLessonBeat(current, elapsed);
+    if (next) {
+      const beat = current.events[next.index].beat;
+      const index = current.events.findIndex((note, index) => note.beat === beat && note.key === key && !current.judged.get(next.cycle)?.has(index));
+      if (index !== -1) {
+        closest = { cycle: next.cycle, index };
+        result = 'early';
+        // Move the musical clock forward without changing the chosen spacing between beats.
+        current.started -= next.target - elapsed;
+        current.pending = [];
+        for (const button of document.querySelectorAll('.lesson-cue')) button.classList.remove('lesson-cue');
+      }
+    }
   }
   if (closest) {
     if (!current.judged.has(closest.cycle)) current.judged.set(closest.cycle, new Set());
@@ -318,7 +403,7 @@ function scoreLessonHit(key) {
     current.pending = current.pending.filter(note => note.key !== key || note.target !== target);
     if (!current.pending.some(note => note.key === key)) lessonButton(key)?.classList.remove('lesson-cue');
   }
-  flashLessonResult(current, key, !!closest);
+  flashLessonResult(current, key, result);
 }
 
 function pauseLessonForReview() {
@@ -1029,7 +1114,7 @@ window.addEventListener('drumhit', event => {
 });
 
 window.addEventListener('pianorelease', event => {
-  lessonButton(event.detail.key)?.classList.remove('lesson-correct', 'lesson-wrong');
+  lessonButton(event.detail.key)?.classList.remove('lesson-correct', 'lesson-early', 'lesson-wrong');
   if (!recording || recording.kit !== 'salamander-v1' || recording.stage !== 'recording') return;
   const note = recording.events.findLast(note => note.key === event.detail.key);
   if (note) note.length = Math.max(0, Math.round(performance.now() - recording.started) - note.time);
