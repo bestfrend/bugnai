@@ -109,6 +109,7 @@ function stopLesson() {
   $('lesson-sequence')?.remove();
   document.querySelector('.kit')?.classList.remove('lesson-active');
   if (!lesson) return;
+  clearTimeout(lesson.practiceTimer);
   cancelAnimationFrame(lesson.frame);
   for (const timer of lesson.feedbackTimers.values()) clearTimeout(timer);
   clearLessonCues();
@@ -212,6 +213,7 @@ async function prepareLesson(definition, speed) {
   if (busy || lesson || recording?.stage === 'saving') return;
   if (recording) discardRecordingForLesson();
   pausedLesson = null;
+  updateRecordBar();
   lesson = createLesson(definition, speed);
   document.querySelector('.kit')?.classList.add('lesson-active');
   renderLessons();
@@ -275,7 +277,7 @@ function createLesson(definition, speed) {
     group.keys.push(note.key);
     group.indices.push(index);
   });
-  return { definition, speed, events, groups, outcomes: new Map(), next: 0, started: null, frame: 0, preview: null, pending: [], judged: new Map(), feedbackTimers: new Map() };
+  return { definition, speed, events, groups, outcomes: new Map(), next: 0, started: null, frame: 0, preview: null, pending: [], judged: new Map(), feedbackTimers: new Map(), practiceStarted: null, practiceHeld: new Map(), practiceTimer: null };
 }
 
 function lessonCycleMs(current) {
@@ -435,8 +437,22 @@ function scoreLessonHit(key) {
 
 function pauseLessonForReview() {
   if (!lesson) return;
-  pausedLesson = { definition: lesson.definition, speed: lesson.speed };
+  pausedLesson = { definition: lesson.definition, speed: lesson.speed,
+    duration: lesson.practiceStarted === null ? 0 : performance.now() - lesson.practiceStarted };
   stopLesson();
+}
+
+function scheduleLessonReview(tail = 0) {
+  const current = lesson;
+  if (!current || current.practiceStarted === null) return;
+  clearTimeout(current.practiceTimer);
+  current.practiceTimer = setTimeout(() => {
+    if (lesson !== current) return;
+    pauseLessonForReview();
+    updateRecordBar();
+    refreshControls();
+    status('');
+  }, Math.max(0, tail) + 3000);
 }
 
 function restorePausedLesson() {
@@ -1061,8 +1077,19 @@ function clearRecordTimers() {
 }
 
 function updateRecordBar() {
+  const lessonReview = !!pausedLesson && !recording;
+  $('recording-bar').classList.toggle('lesson-review', lessonReview);
+  $('restart-recording').querySelector('.button-label').textContent = t(lessonReview ? 'Pakartoti pamoką' : 'Pakartoti bandymą');
+  if (lessonReview) {
+    $('recording-bar').hidden = false;
+    $('recording-bar').dataset.stage = 'review';
+    $('recording-title').textContent = t('Pamoka baigta');
+    $('recording-clock').textContent = duration(pausedLesson.duration);
+    $('commit-recording').hidden = $('retry-recording').hidden = true;
+    $('restart-recording').disabled = $('cancel-recording').disabled = false;
+    return;
+  }
   const visible = recording && ['review', 'saving', 'failed'].includes(recording.stage);
-  if (visible) pauseLessonForReview();
   $('recording-bar').hidden = !visible;
   if (!recording) return;
   const stage = recording.stage;
@@ -1118,6 +1145,16 @@ window.addEventListener('drumhit', event => {
   stopLessonPreview();
   scoreLessonHit(event.detail.key);
   stopPlayback();
+  if (lesson) {
+    if (lesson.started === null || performance.now() < lesson.started) return;
+    lesson.practiceStarted ??= performance.now();
+    if (ACTIVE_KIT === 'salamander-v1') {
+      clearTimeout(lesson.practiceTimer);
+      lesson.practiceHeld.set(event.detail.key, { started: performance.now(), velocity: event.detail.velocity });
+    } else scheduleLessonReview(soundDuration(event.detail.key, ACTIVE_KIT, event.detail.velocity));
+    return;
+  }
+  if (pausedLesson) return;
   if (!recording) beginAutomaticRecording();
   if (!recording || !['armed', 'recording'].includes(recording.stage)) return;
   const now = performance.now();
@@ -1142,6 +1179,15 @@ window.addEventListener('drumhit', event => {
 
 window.addEventListener('pianorelease', event => {
   lessonButton(event.detail.key)?.classList.remove('lesson-correct', 'lesson-early', 'lesson-wrong');
+  if (lesson) {
+    const note = lesson.practiceHeld.get(event.detail.key);
+    lesson.practiceHeld.delete(event.detail.key);
+    if (note && !lesson.practiceHeld.size) {
+      const length = performance.now() - note.started;
+      scheduleLessonReview(soundDuration(event.detail.key, ACTIVE_KIT, note.velocity, length) - length);
+    }
+    return;
+  }
   if (!recording || recording.kit !== 'salamander-v1' || recording.stage !== 'recording') return;
   const note = recording.events.findLast(note => note.key === event.detail.key);
   if (note) note.length = Math.max(0, Math.round(performance.now() - recording.started) - note.time);
@@ -1205,6 +1251,13 @@ async function persistRecording() {
 }
 
 function repeatRecording() {
+  if (pausedLesson && !recording) {
+    restorePausedLesson();
+    updateRecordBar();
+    refreshControls();
+    status('');
+    return;
+  }
   if (!recording || recording.stage === 'saving') return;
   const { slot, title, replace } = recording;
   clearRecordTimers();
@@ -1222,13 +1275,14 @@ function cancelRecording() {
   if (recording?.stage === 'saving') return;
   clearRecordTimers();
   stopPlayback();
+  const lessonReview = !!pausedLesson && !recording;
   recording = null;
   pausedLesson = null;
   stopAudio();
   updateRecordBar();
   refreshControls();
   renderLessons();
-  status('Bandymas atmestas. Ankstesni įrašai nepakeisti.');
+  status(lessonReview ? '' : 'Bandymas atmestas. Ankstesni įrašai nepakeisti.');
 }
 
 async function removePerformance(slot) {

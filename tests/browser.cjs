@@ -376,7 +376,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     assert(await page.locator(`.kit .set [data-key="${expected}"]`).evaluate(element=>element.classList.contains('lesson-cue')),`${label} shows notes at the new tempo`);
     if(kit==='salamander-v1' && label==='Lėtas'){
       const cueStyle=await page.locator('.lesson-cue').first().evaluate(element=>({outline:getComputedStyle(element).outlineWidth,color:getComputedStyle(element).outlineColor,shadow:getComputedStyle(element).boxShadow}));
-      assert.deepEqual(cueStyle,{outline:'1px',color:'rgb(193, 210, 225)',shadow:'none'},'piano cues use a thin neutral outline without the old glow');
+      assert.deepEqual(cueStyle,{outline:'1px',color:'rgb(73, 164, 119)',shadow:'none'},'piano cues use a thin green outline without the old glow');
       assert.equal(await page.locator('#lesson-sequence .is-current').innerText(),'Sol','Lithuanian piano sequence uses solfege for white notes');
       await page.locator('#language-select').selectOption('sv');
       await page.clock.runFor(20);
@@ -534,12 +534,46 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert.equal(await page.locator('.lesson-cue').count(),0,'stopping a lesson clears every visual cue');
   await page.clock.fastForward(12000);
 
+  await page.locator('.lesson-speed').first().click();
+  await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+  await startSelectedLesson();
+  for(let index=0;index<9;index++){
+    await pressLessonKey(delayedKey);
+    await releaseLessonKey();
+    if(index<8)await page.clock.fastForward(2000);
+  }
+  await page.clock.fastForward(12000);
+  assert(await page.locator('#recording-bar').isVisible(),'a completed practice offers lesson controls');
+  assert.equal(await page.locator('#recording-bar .actions button:visible').count(),2,'practice offers only repeat and exit');
+  assert(await page.locator('#commit-recording').isHidden(),'practice has no save option');
+  assert.equal(await page.locator('#restart-recording').innerText(),'Pakartoti pamoką');
+  await page.locator('#commit-recording').dispatchEvent('click');
+  assert.equal(saves,0,'practice cannot be saved even if the hidden save handler is triggered');
+  await page.locator('#language-select').selectOption('sv');
+  assert.equal(await page.locator('#restart-recording').innerText(),'Öva igen');
+  assert.equal(await page.locator('#recording-title').innerText(),'Övningen är klar');
+  await page.locator('#language-select').selectOption('lt');
+  await page.locator('#restart-recording').click();
+  assert(await page.locator('#recording-bar').isHidden(),'repeating practice hides its review');
+  await startSelectedLesson();
+  await pressLessonKey(delayedKey);
+  await releaseLessonKey();
+  await page.clock.fastForward(12000);
+  assert(await page.locator('#recording-bar').isVisible(),'a repeated practice can finish again');
+  assert.equal(await page.locator('#recording-bar .actions button:visible').count(),2);
+  await page.locator('#cancel-recording').click();
+  assert(await page.locator('#recording-bar').isHidden(),'exiting practice returns to free play');
+
   if(kit==='salamander-v1'){
     assert.equal(await page.locator('.piano-key').count(),13);
     assert.equal(await page.locator('.piano-key').first().evaluate(element=>element.tagName),'DIV','piano keys use a touch surface instead of native phone buttons');
     assert.equal(await page.locator('[data-key="c4"]').getAttribute('role'),'button','piano keys remain accessible as buttons');
     assert.equal(await page.locator('[data-key="c4"]').getAttribute('aria-disabled'),'false','loaded piano keys are accessible');
     assert.equal(await page.locator('.black-key').count(),5);
+    if(mobile){
+      const [black,white]=await Promise.all([page.locator('.black-key').first().boundingBox(),page.locator('.white-key').first().boundingBox()]);
+      assert(Math.abs(black.height/white.height-.58)<.01,'portrait black keys are 58% of white-key height');
+    }
     await page.locator('#language-select').selectOption('sv');
     assert.equal(await page.locator('[data-key="c4"] span').innerText(),'C');
     assert.match(await page.locator('[data-octave-shift="-1"]').innerText(),/Lägre/);
@@ -927,7 +961,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     if(kit==='salamander-v1'){
       const blackKey=page.locator('.black-key').first();
       const [black,white]=await Promise.all([blackKey.boundingBox(),page.locator('.white-key').first().boundingBox()]);
-      assert(Math.abs(black.height/white.height-.4)<.01,'black piano keys are 40% of white-key height in landscape');
+      assert(Math.abs(black.height/white.height-.44)<.01,'black piano keys are 44% of white-key height in landscape');
       await blackKey.evaluate(element=>element.classList.add('pressed'));
       await new Promise(resolve=>setTimeout(resolve,90));
       const pressedBlack=await blackKey.boundingBox();
@@ -977,6 +1011,24 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   }
   await wait(()=>emergencySaves>=1);
   assert.equal(recordings.get(own+':1').events[0].key,firstKey,'closing overwrites the emergency first slot');
+  const emergencyBeforePractice=emergencySaves;
+  await page.locator('.lesson-speed').first().evaluate(button=>button.click());
+  await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+  await startSelectedLesson();
+  if(mobile&&kit==='salamander-v1'){
+    const [sequenceBox,controlsBox]=await Promise.all([page.locator('#lesson-sequence').boundingBox(),page.locator('.piano-octave-controls').boundingBox()]);
+    assert(sequenceBox.y>=controlsBox.y+controlsBox.height,'landscape note sequence sits below piano sound controls');
+    assert(sequenceBox.y<100,'landscape note sequence stays near the top of the keyboard');
+  }
+  for(let index=0;index<9;index++){
+    await pressLessonKey(delayedKey);
+    await releaseLessonKey();
+    if(index<8)await page.clock.fastForward(2000);
+  }
+  await page.evaluate(()=>window.dispatchEvent(new Event('pagehide')));
+  await page.clock.fastForward(500);
+  assert.equal(await page.evaluate(()=>localStorage.getItem('bugnai.emergency-draft')),null,'closing during practice does not retain an emergency rhythm');
+  assert.equal(emergencySaves,emergencyBeforePractice,'closing during practice never saves to the database');
   assert.deepEqual(errors,[]);
   console.log('PASS',file,mobile?'mobile landscape':'desktop',forceFallback?'HTML Audio fallback':'Web Audio','automatic recording, touch chords/glissando, scrolling, save/repeat/exit, seamless tabs, draft discard, history, fetch failure/race and emergency slot');
   await context.close();

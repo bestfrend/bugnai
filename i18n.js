@@ -21,6 +21,7 @@ const swedish = {
   'Pašalinti profilio nuotrauką': 'Ta bort profilbild', 'Pašalinti nuotrauką': 'Ta bort bild',
   'Įrašymo valdymas': 'Inspelningskontroller', 'Įrašyti': 'Spara',
   'Išsaugoti dar kartą': 'Försök spara igen', 'Pakartoti bandymą': 'Spela in igen',
+  'Pakartoti pamoką': 'Öva igen', 'Pamoka baigta': 'Övningen är klar',
   'Išeiti': 'Avsluta', 'Paliesk būgnus arba grok klavišais W A S D J K L.': 'Tryck på trummorna eller spela med tangenterna W A S D J K L.',
   'Įkeliami būgnų garsai…': 'Laddar trumljud…', 'Įkeliami pianino garsai…': 'Laddar pianoljud…',
   'Įkeliami garsai…': 'Laddar ljud…', 'Stabdyti atkūrimą': 'Stoppa uppspelning',
