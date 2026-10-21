@@ -11,6 +11,43 @@ let stopLiveUpdates;
 let liveRefreshTimer;
 let refreshGeneration = 0;
 let pendingRefreshTimer;
+function readDisconnectKeys(key) {
+  try {
+    const keys = JSON.parse(sessionStorage.getItem(key) || '[]');
+    return new Set(Array.isArray(keys) ? keys.filter(key => typeof key === 'string') : []);
+  } catch { return new Set(); }
+}
+const disconnectChecks = readDisconnectKeys('bugnai.admin-disconnect-checks');
+const disconnectedRequests = readDisconnectKeys('bugnai.admin-disconnected-requests');
+
+function locationRequestKey(member) {
+  return member.location_requested_at ? member.id + ':' + member.location_requested_at : null;
+}
+
+function locationState(member) {
+  if (member.location_status === 'cancelled' && disconnectedRequests.has(locationRequestKey(member))) return 'Atmesta nutrūkus ryšiui';
+  return locationStates[member.location_status] || member.location_status || 'Negauta';
+}
+
+async function closeDisconnectedRequests() {
+  let changed = false;
+  for (const member of members) {
+    const key = locationRequestKey(member);
+    if (!key || !pendingLocation(member) || online(member) || disconnectChecks.has(key)) continue;
+    disconnectChecks.add(key);
+    sessionStorage.setItem('bugnai.admin-disconnect-checks', JSON.stringify([...disconnectChecks]));
+    try {
+      await adminRpc('admin_cancel_location_request', { p_member_id: member.id });
+      disconnectedRequests.add(key);
+      sessionStorage.setItem('bugnai.admin-disconnected-requests', JSON.stringify([...disconnectedRequests]));
+      changed = true;
+    } catch (error) {
+      // Cancellation also gets only one attempt; the administrator can act manually.
+      setStatus(error.message, true);
+    }
+  }
+  if (changed && adminCode) refresh(true);
+}
 
 function schedulePendingRefresh() {
   clearTimeout(pendingRefreshTimer);
@@ -176,11 +213,11 @@ function render() {
       if (member.location_status && member.location_status !== 'approved') {
         const previous = document.createElement('small');
         previous.className = 'coordinate-state';
-        previous.textContent = `Ankstesnė patvirtinta vieta · Paskutinis prašymas: ${locationStates[member.location_status] || member.location_status}`;
+        previous.textContent = `Ankstesnė patvirtinta vieta · Paskutinis prašymas: ${locationState(member)}`;
         exact.append(previous);
       }
     } else {
-      exact.textContent = locationStates[member.location_status] || 'Negauta';
+      exact.textContent = locationState(member);
     }
     const rhythms = document.createElement('td');
     rhythms.textContent = String(member.rhythm_count || 0);
@@ -210,6 +247,7 @@ function render() {
   $('members-empty').hidden = visible.length !== 0;
   const active = members.filter(online).length;
   $('admin-summary').textContent = `Iš viso: ${members.length} · Prisijungę: ${active} · Atsijungę: ${members.length - active}`;
+  closeDisconnectedRequests();
 }
 
 function showLogin(message = '', error = false) {

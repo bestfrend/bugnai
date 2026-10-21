@@ -316,54 +316,76 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
 
   locationRequest={id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',expires_at:null};
   locationDecision=null;
-  locationBeginFailures=locationReplyFailures=locationRefineFailures=1;
-  const retryBegin=locationBeginAttempts,retryReply=locationReplyAttempts,retryRefine=locationRefineAttempts;
+  locationBeginFailures=1;
+  const beforeBegin=locationBeginAttempts;
   await page.clock.runFor(2100);
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
   await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
-  await wait(()=>locationBeginAttempts===retryBegin+1);
-  assert.equal(await page.evaluate(()=>window.watchCount),3,'the browser request starts even while the consent marker is unavailable');
+  await wait(()=>locationDecision==='declined');
+  assert.equal(await page.evaluate(()=>window.watchCount),3,'only one browser request is opened');
+  await page.clock.runFor(12000);
+  assert.equal(locationBeginAttempts,beforeBegin+1,'a failed request marker is never retried');
+
+  locationRequest={id:'ffffffff-ffff-4fff-8fff-ffffffffffff',expires_at:null};
+  locationDecision=null;
+  locationReplyFailures=1;
+  const beforeRefine=locationRefineAttempts;
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  await page.evaluate(()=>window.watchSuccess({coords:{latitude:54,longitude:25,accuracy:2500}}));
+  await wait(()=>locationDecision==='declined');
+  await page.evaluate(()=>window.watchSuccess({coords:{latitude:54.68,longitude:25.28,accuracy:8}}));
+  await page.clock.runFor(12000);
+  assert.deepEqual(attemptedLocationAnswers.filter(answer=>answer.p_request_id==='ffffffff-ffff-4fff-8fff-ffffffffffff').map(answer=>answer.p_decision),['approved','declined'],'an interrupted approval is not resent; a single refusal closes the request');
+  assert.equal(locationRefineAttempts,beforeRefine,'refinements stop after a failed approval');
+
+  locationRequest={id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',expires_at:null};
+  locationReplyFailures=1;
+  const beforeRefusal=locationReplyAttempts;
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Atmesti',exact:true}).click();
+  await wait(()=>locationReplyAttempts===beforeRefusal+1);
+  await page.clock.runFor(12000);
+  assert.equal(locationReplyAttempts,beforeRefusal+1,'a failed refusal is not automatically resent');
+  assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open),'the same pending request is never shown again');
+  locationRequest=null;
+
+  locationRequest={id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',expires_at:null};
+  locationDecision=null;
+  const beforeOffline=locationReplyAttempts;
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
   await page.evaluate(()=>{
-    window.watchSuccess({coords:{latitude:54,longitude:25,accuracy:2500}});
+    Object.defineProperty(navigator,'onLine',{configurable:true,value:false});
+    window.dispatchEvent(new Event('offline'));
     window.watchSuccess({coords:{latitude:54.68,longitude:25.28,accuracy:8}});
   });
-  await page.clock.runFor(1100);
-  await wait(()=>locationReplyAttempts===retryReply+1);
-  await page.clock.runFor(1100);
-  await wait(()=>locationDecision==='approved');
-  await wait(()=>locationRefineAttempts===retryRefine+1);
-  await page.clock.runFor(1100);
-  await wait(()=>locationData.p_accuracy_m===8);
-  assert.deepEqual(attemptedLocationAnswers.filter(answer=>answer.p_request_id==='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee').map(answer=>answer.p_decision),['approved','approved'],'a failed upload retries the original approval instead of replacing it with an error');
-
-  for(const [id,decision] of [['ffffffff-ffff-4fff-8fff-ffffffffffff','declined'],['cccccccc-cccc-4ccc-8ccc-cccccccccccc','browser_denied'],['dddddddd-dddd-4ddd-8ddd-dddddddddddd','error']]){
-    locationRequest={id,expires_at:null};
-    locationDecision=null;
-    locationReplyFailures=1;
-    const before=locationReplyAttempts;
-    await page.clock.runFor(2100);
-    await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
-    await page.locator('#location-request-dialog').getByRole('button',{name:decision==='declined'?'Atmesti':'Bendrinti dabartinę vietą',exact:true}).click();
-    if(decision!=='declined')await page.evaluate(code=>window.watchError({code}),decision==='browser_denied'?1:3);
-    await wait(()=>locationReplyAttempts===before+1);
-    assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open),'the modal closes immediately even if sending the answer fails');
-    await page.clock.runFor(1100);
-    await wait(()=>locationDecision===decision);
-  }
+  await page.clock.runFor(12000);
+  assert.equal(locationReplyAttempts,beforeOffline,'no network write is attempted while the browser is offline');
+  await page.evaluate(()=>{
+    Object.defineProperty(navigator,'onLine',{configurable:true,value:true});
+    window.dispatchEvent(new Event('online'));
+  });
+  await wait(()=>locationDecision==='declined');
+  await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+  await page.clock.runFor(12000);
+  assert.equal(locationReplyAttempts,beforeOffline+1,'reconnection sends only one terminal refusal, never an approval or a new prompt');
 
   locationRequest={id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',expires_at:null};
   loseLocationAcknowledgement=true;
+  const beforeLostAck=locationReplyAttempts;
   await page.clock.runFor(2100);
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
   await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
-  await page.evaluate(()=>{
-    window.watchSuccess({coords:{latitude:54,longitude:25,accuracy:2500}});
-    window.watchSuccess({coords:{latitude:54.68,longitude:25.28,accuracy:8}});
-  });
+  await page.evaluate(()=>window.watchSuccess({coords:{latitude:54.68,longitude:25.28,accuracy:8}}));
   await wait(()=>loseLocationAcknowledgement===false);
-  await page.clock.runFor(1100);
-  await wait(()=>locationData.p_accuracy_m===8);
-  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'all location retries remain silent for the user');
+  await wait(()=>locationReplyAttempts===beforeLostAck+2);
+  await page.clock.runFor(12000);
+  assert.equal(locationReplyAttempts,beforeLostAck+2,'even a lost acknowledgement does not cause the approval to be repeated');
+  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'connection failures add no client messages');
 
 
   assert.equal(await page.locator('#create-rhythm').count(),0);
@@ -1125,6 +1147,7 @@ async function adminScenario(browser){
   await page.clock.pauseAt(new Date(Date.now()+1000));
   let locationStatus='declined';
   let locationAccuracy=8;
+  let disconnectedMember=false,disconnectCancellations=0;
   let memberListRequests=0;
   let liveSocket;
   let liveJoins=0;
@@ -1143,9 +1166,14 @@ async function adminScenario(browser){
     topic:'realtime:admin-location-updates',event:'broadcast',payload:{event:'location_changed',payload:{}}
   }));
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',route=>{
+    if(new URL(route.request().url()).pathname.endsWith('/admin_cancel_location_request')){
+      disconnectCancellations++;
+      locationStatus='cancelled';
+      return route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:'null'});
+    }
     memberListRequests++;
     const rows=[
-      {id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:new Date().toISOString(),rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva',location_status:locationStatus,exact_latitude:54.680123,exact_longitude:25.280456,exact_accuracy_m:locationAccuracy,location_captured_at:'2026-10-15T12:30:00Z'},
+      {id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:disconnectedMember?'2026-01-01T00:00:00Z':new Date().toISOString(),location_requested_at:'2026-10-21T10:00:00Z',rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva',location_status:locationStatus,exact_latitude:54.680123,exact_longitude:25.280456,exact_accuracy_m:locationAccuracy,location_captured_at:'2026-10-15T12:30:00Z'},
       {id:other,nickname:'Atsijungęs',created_at:new Date().toISOString(),last_seen_at:'2026-01-01T00:00:00Z',rhythm_count:0,location_status:null}
     ];
     route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify(rows)});
@@ -1214,6 +1242,15 @@ async function adminScenario(browser){
   await page.locator('#admin-refresh').click();
   await wait(()=>page.locator('.coordinate-kind').innerText().then(text=>text.includes('tikslumas nežinomas')));
   assert.match(await page.locator('.exact-location-cell').first().innerText(),/Paklaida nežinoma/);
+  disconnectedMember=true;
+  locationStatus='pending';
+  await page.locator('#admin-refresh').click();
+  await wait(()=>disconnectCancellations===1);
+  await wait(()=>page.locator('.coordinate-state').innerText().then(text=>text.includes('Atmesta nutrūkus ryšiui')));
+  await page.clock.runFor(6500);
+  await page.locator('#admin-refresh').click();
+  assert.equal(disconnectCancellations,1,'a disconnected request is cancelled once, without automatically resending anything');
+  assert.equal(await page.getByRole('button',{name:'Atšaukti prašymą',exact:true}).count(),0);
   console.log('PASS admin member list');
   await context.close();
 }

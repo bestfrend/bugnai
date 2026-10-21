@@ -22,11 +22,20 @@ let pollTimer;
 let presenceTimer;
 let locationRequestTimer;
 let activeLocationRequest;
-let dismissedLocationRequestId;
+function readLocationIds(key) {
+  try {
+    const ids = JSON.parse(sessionStorage.getItem(key) || '[]');
+    return new Set(Array.isArray(ids) ? ids.filter(id => typeof id === 'string') : []);
+  } catch { return new Set(); }
+}
+const closedLocationRequestIds = readLocationIds('bugnai.closed-location-requests');
+const pendingLocationDeclines = readLocationIds('bugnai.location-declines');
+const disconnectedLocationRequestIds = new Set();
+const attemptedLocationDeclines = new Set();
+const sharingLocationRequestIds = new Set();
 let locationRequestChecking = false;
 let lastLocationRequestCheck = 0;
 const locationAcquisitions = new Map();
-const locationUpdateControllers = new Set();
 let mutationRevision = 0;
 let renamingSlot = null;
 let renamingBusy = false;
@@ -858,6 +867,7 @@ function startPolling() {
     if (activeLocationRequest || Date.now() - lastLocationRequestCheck >= 2000) checkLocationRequest();
   }, 500);
   checkLocationRequest();
+  sendPendingLocationDeclines();
 }
 
 function clientDeviceInfo() {
@@ -930,7 +940,7 @@ function createLocationDialog() {
 }
 
 async function checkLocationRequest() {
-  if (!me || document.hidden || locationRequestChecking) return;
+  if (!me || !navigator.onLine || document.hidden || locationRequestChecking) return;
   locationRequestChecking = true;
   lastLocationRequestCheck = Date.now();
   const current = activeLocationRequest;
@@ -943,7 +953,7 @@ async function checkLocationRequest() {
       }
       return;
     }
-    const next = requests.find(request => request.id !== dismissedLocationRequestId);
+    const next = requests.find(request => !closedLocationRequestIds.has(request.id));
     if (!next) return;
     activeLocationRequest = next;
     $('location-request-dialog').showModal();
@@ -953,43 +963,42 @@ async function checkLocationRequest() {
 }
 
 function closeLocationRequest() {
-  dismissedLocationRequestId = activeLocationRequest?.id || dismissedLocationRequestId;
+  if (activeLocationRequest) {
+    closedLocationRequestIds.add(activeLocationRequest.id);
+    sessionStorage.setItem('bugnai.closed-location-requests', JSON.stringify([...closedLocationRequestIds]));
+  }
   $('location-request-dialog').close();
   activeLocationRequest = null;
 }
 
-async function saveLocationUpdate(update, alreadyAnswered = false) {
-  const controller = new AbortController();
-  locationUpdateControllers.add(controller);
-  const cancelled = () => Object.assign(new Error('Location update cancelled'), { code: 'LOCATION_CANCELLED' });
-  let attempts = 0;
-  try {
-    while (!controller.signal.aborted) {
-      try {
-        return await update();
-      } catch (error) {
-        if (controller.signal.aborted) throw cancelled();
-        // The first reply may have committed even if its HTTP response was lost.
-        // Its safe retry then reports a terminal request; refinements can proceed.
-        if (alreadyAnswered && error.code === 'P0002') return;
-        if (error.status !== 0 && error.status !== 429 && !(error.status >= 500)) throw error;
-        // Retry the actual answer after a connection failure. Never replace an
-        // approved fix with "error" merely because its upload was interrupted.
-        await new Promise((resolve, reject) => {
-          const abort = () => { clearTimeout(timer); reject(cancelled()); };
-          const timer = setTimeout(() => {
-            controller.signal.removeEventListener('abort', abort);
-            resolve();
-          }, Math.min(1000 * 2 ** attempts++, 10000));
-          controller.signal.addEventListener('abort', abort, { once: true });
-        });
-      }
-    }
-    throw cancelled();
-  } finally {
-    locationUpdateControllers.delete(controller);
+function rejectDisconnectedLocation(requestId) {
+  disconnectedLocationRequestIds.add(requestId);
+  if (!attemptedLocationDeclines.has(requestId)) pendingLocationDeclines.add(requestId);
+  sessionStorage.setItem('bugnai.location-declines', JSON.stringify([...pendingLocationDeclines]));
+  sendPendingLocationDeclines();
+}
+
+function sendPendingLocationDeclines() {
+  if (!me || !navigator.onLine) return;
+  for (const id of pendingLocationDeclines) {
+    pendingLocationDeclines.delete(id);
+    attemptedLocationDeclines.add(id);
+    sessionStorage.setItem('bugnai.location-declines', JSON.stringify([...pendingLocationDeclines]));
+    // This is a single terminal refusal, never a replay of an approval or prompt.
+    db.respondLocationRequest(id, 'declined').catch(() => {});
   }
 }
+
+window.addEventListener('online', sendPendingLocationDeclines);
+window.addEventListener('offline', () => {
+  const requests = new Set([...sharingLocationRequestIds, ...locationAcquisitions.keys()]);
+  if (activeLocationRequest) requests.add(activeLocationRequest.id);
+  closeLocationRequest();
+  for (const id of requests) {
+    rejectDisconnectedLocation(id);
+    locationAcquisitions.get(id)?.('LOCATION_OFFLINE');
+  }
+});
 
 function currentPosition(requestId, onPosition) {
   return new Promise((resolve, reject) => {
@@ -1011,7 +1020,7 @@ function currentPosition(requestId, onPosition) {
       if (error) reject(error);
       else resolve(saving);
     };
-    locationAcquisitions.set(requestId, () => finish(Object.assign(new Error('Location collection cancelled'), { code: 'LOCATION_CANCELLED' })));
+    locationAcquisitions.set(requestId, (code = 'LOCATION_CANCELLED') => finish(Object.assign(new Error('Location collection cancelled'), { code })));
     const onError = error => finish(best && error.code !== 1 ? undefined : error);
     try {
       if (typeof geolocation.watchPosition !== 'function') {
@@ -1019,7 +1028,7 @@ function currentPosition(requestId, onPosition) {
           if (finished) return;
           best = position;
           saving = saving.then(() => onPosition(position, false));
-          saving.catch(() => {});
+          saving.catch(error => finish(error));
           finish();
         }, onError, options);
         return;
@@ -1032,7 +1041,7 @@ function currentPosition(requestId, onPosition) {
           // Save the first fix immediately. Serialize later improvements so an
           // earlier, slower request cannot overwrite a more accurate result.
           saving = saving.then(() => onPosition(position, refinement));
-          saving.catch(() => {});
+          saving.catch(error => finish(error));
         }
         if (best.coords.accuracy <= 100) return finish();
         // The browser can initially return a coarse fix while GPS warms up.
@@ -1051,24 +1060,31 @@ async function shareRequestedLocation() {
   if (!activeLocationRequest) return;
   const request = activeLocationRequest;
   closeLocationRequest();
+  sharingLocationRequestIds.add(request.id);
   try {
-    const begun = saveLocationUpdate(() => db.beginLocationRequest(request.id));
+    const begun = db.beginLocationRequest(request.id);
     // Open the browser prompt in the original click, without waiting on a
     // network round trip. Saves still wait for the consent-start marker.
     const position = currentPosition(request.id, async (position, refinement) => {
       await begun;
-      return saveLocationUpdate(() => refinement
-        ? db.refineLocationRequest(request.id, position)
-        : db.respondLocationRequest(request.id, 'approved', position), true);
+      if (disconnectedLocationRequestIds.has(request.id) || !navigator.onLine) {
+        throw Object.assign(new Error('Connection lost'), { code: 'LOCATION_OFFLINE' });
+      }
+      return refinement ? db.refineLocationRequest(request.id, position)
+        : db.respondLocationRequest(request.id, 'approved', position);
     });
     await Promise.all([begun, position]);
   } catch (error) {
     locationAcquisitions.get(request.id)?.();
     const cancelled = error.code === 'P0002' || error.code === 'LOCATION_CANCELLED';
     const browserDenied = error.code === 1;
-    if (!cancelled) {
-      try { await saveLocationUpdate(() => db.respondLocationRequest(request.id, browserDenied ? 'browser_denied' : 'error'), true); } catch {}
+    const connectionLost = error.code === 'LOCATION_OFFLINE' || error.status === 0 || error.status === 429 || error.status >= 500;
+    if (connectionLost) rejectDisconnectedLocation(request.id);
+    else if (!cancelled) {
+      try { await db.respondLocationRequest(request.id, browserDenied ? 'browser_denied' : 'error'); } catch {}
     }
+  } finally {
+    sharingLocationRequestIds.delete(request.id);
   }
 }
 
@@ -1078,7 +1094,8 @@ async function declineLocationRequest() {
   locationAcquisitions.get(request.id)?.();
   closeLocationRequest();
   try {
-    await saveLocationUpdate(() => db.respondLocationRequest(request.id, 'declined'), true);
+    attemptedLocationDeclines.add(request.id);
+    await db.respondLocationRequest(request.id, 'declined');
   } catch {}
 }
 
@@ -1541,7 +1558,6 @@ window.addEventListener('instrumentwillchange', () => {
 });
 window.addEventListener('instrumentchanged', () => renderLessons());
 window.addEventListener('pagehide', () => {
-  for (const controller of locationUpdateControllers) controller.abort();
   for (const cancel of locationAcquisitions.values()) cancel();
   clearInterval(pollTimer);
   clearInterval(presenceTimer);
@@ -1562,7 +1578,6 @@ window.addEventListener('pagehide', () => {
 });
 window.addEventListener('storage', event => {
   if (event.key?.startsWith('bugnai.auth.') && !event.newValue) {
-    for (const controller of locationUpdateControllers) controller.abort();
     for (const cancel of locationAcquisitions.values()) cancel();
     clearInterval(pollTimer);
     clearInterval(presenceTimer);
