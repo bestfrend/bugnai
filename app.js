@@ -263,12 +263,22 @@ function beginLesson() {
       const target = cycle * cycleMs + note.beat * current.speed.beatMs;
       if (target > elapsed) break;
       current.next++;
-      if (!current.judged.get(cycle)?.has(index)) current.pending.push({ key: note.key, target,
-        expires: target + lessonResponseWindow(current, index) });
+      if (!current.judged.get(cycle)?.has(index)) {
+        const expires = target + lessonResponseWindow(current, index);
+        const nextBeat = current.events.find(next => next.beat > note.beat)?.beat;
+        const repeats = current.events.some(next => next.beat === nextBeat && next.key === note.key);
+        const interval = (nextBeat - note.beat) * current.speed.beatMs;
+        // Show a release before repeating the key, without shortening the
+        // player's response window or changing the musical clock.
+        const cueUntil = repeats ? Math.min(expires, target + interval - Math.min(100, interval * .2)) : expires;
+        current.pending.push({ key: note.key, target, expires, cueUntil });
+      }
     }
     current.pending = current.pending.filter(note => elapsed < note.expires);
     for (const button of document.querySelectorAll('.lesson-cue')) button.classList.remove('lesson-cue');
-    for (const note of current.pending) lessonButton(note.key)?.classList.add('lesson-cue');
+    for (const note of current.pending) {
+      if (elapsed < note.cueUntil) lessonButton(note.key)?.classList.add('lesson-cue');
+    }
     const cycle = Math.floor(elapsed / cycleMs);
     for (const previous of current.judged.keys()) if (previous < cycle - 1) current.judged.delete(previous);
     for (const position of current.outcomes.keys()) if (position < (cycle - 1) * current.events.length) current.outcomes.delete(position);

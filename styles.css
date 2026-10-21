@@ -350,7 +350,7 @@ footer { padding: 24px 0 32px; }
 .kit .set [data-key].lesson-wrong { background: #e9939a !important; }
 .lesson-sequence { position: absolute; z-index: 8; top: 8px; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: center; gap: 4px; width: min(480px, calc(100% - 16px)); box-sizing: border-box; padding: 5px; border: 1px solid #b8dbea66; border-radius: 10px; background: #142436e8; color: #d5e4f2; pointer-events: none; overflow: hidden; white-space: nowrap; font-size: clamp(8px, 2.5vw, 11px); box-shadow: 0 3px 12px #07111c55; }
 .lesson-sequence[hidden] { display: none; }
-.piano-keyboard .lesson-sequence { top: 48%; }
+.piano-keyboard .lesson-sequence { top: 12px; }
 .lesson-sequence-note { min-width: 0; padding: 5px 2px; border: 1px solid #8eb5ce44; border-radius: 6px; font-weight: 600; text-align: center; overflow: hidden; text-overflow: ellipsis; transition: transform 120ms ease-out, border-color 120ms ease-out, background 120ms ease-out; }
 .lesson-sequence-note.is-current { border-color: #abf2ff; background: #386576; color: #fff; }
 .lesson-sequence-note.is-current.is-due { transform: scale(1.08); border-color: #d7f4ff; background: #3f5d73; box-shadow: 0 0 0 1px #d7f4ff55; }

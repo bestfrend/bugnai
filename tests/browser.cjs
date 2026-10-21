@@ -604,6 +604,25 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert(await page.locator(`.kit .set [data-key="${delayedKey}"]`).evaluate(element=>element.classList.contains('lesson-correct')),'a delayed response before the next note and within one second is accepted');
   await releaseLessonKey();
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+  if(kit==='salamander-v1'){
+    await page.locator('.lesson-card').first().getByRole('button',{name:'Normalus',exact:true}).click();
+    await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    await page.clock.pauseAt(await page.evaluate(()=>Date.now()+50));
+    await startSelectedLesson();
+    const [stripBox,keyboardBox]=await Promise.all([page.locator('#lesson-sequence').boundingBox(),page.locator('.piano-keyboard').boundingBox()]);
+    assert(stripBox.y-keyboardBox.y<=28,'portrait and desktop note sequence stays near the top of the keyboard');
+    await page.clock.fastForward(450);
+    await page.clock.runFor(20);
+    assert.equal(await page.locator('[data-key="c4"].lesson-cue').count(),0,'a repeated note visibly releases before the next press');
+    await pressLessonKey('c4');
+    assert(await page.locator('[data-key="c4"]').evaluate(key=>key.classList.contains('lesson-correct')),'the visual release does not shorten the response window');
+    await releaseLessonKey();
+    await page.clock.fastForward(100);
+    await page.clock.runFor(20);
+    assert.equal(await page.locator('[data-key="c4"].lesson-cue').count(),1,'the same key lights again for its next occurrence');
+    await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+    await page.clock.resume();
+  }
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
   await startSelectedLesson();
