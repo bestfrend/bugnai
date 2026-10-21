@@ -81,6 +81,11 @@ async function request(path, options = {}, token) {
 }
 
 async function refreshSession() {
+  session = readSession();
+  if (!session) throw new DatabaseError('Prisijunk įvesdamas vardą.', 401);
+  // A valid token needs no cross-tab refresh lock. A suspended tab may hold
+  // that lock indefinitely, including while a location reply is ready to save.
+  if (session.expires_at > Date.now() / 1000 + 60) return;
   if (refreshing) return refreshing;
   const refresh = async () => {
     // Re-read after taking the lock: another tab may have rotated the refresh token.
@@ -101,8 +106,13 @@ async function refreshSession() {
     }
   };
   refreshing = (navigator.locks
-    ? navigator.locks.request(SESSION_KEY, refresh)
-    : refresh()).finally(() => { refreshing = null; });
+    ? navigator.locks.request(SESSION_KEY, { signal: AbortSignal.timeout(15000) }, refresh)
+    : refresh()).catch(error => {
+      if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+        throw new DatabaseError('Nepavyko laiku patikrinti prisijungimo. Bandyk dar kartą.', 0);
+      }
+      throw error;
+    }).finally(() => { refreshing = null; });
   return refreshing;
 }
 

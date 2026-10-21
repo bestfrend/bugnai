@@ -202,12 +202,25 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'admin can silently close an unanswered modal');
 
+  await page.evaluate(()=>{
+    window.locationPermission = Object.assign(new EventTarget(), {state:'prompt'});
+    const query = navigator.permissions.query.bind(navigator.permissions);
+    navigator.permissions.query = descriptor => descriptor.name === 'geolocation'
+      ? Promise.resolve(window.locationPermission) : query(descriptor);
+  });
   await page.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{
     getCurrentPosition(success,error){window.positionRequests=(window.positionRequests||0)+1;window.resolveLocation=success;window.rejectLocation=error;}
   }}));
   locationRequest={id:'55555555-5555-4555-8555-555555555555',expires_at:null};
   await page.clock.runFor(2100);
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.evaluate(()=>{
+    navigator.locks.request('bugnai.auth.hsqsjxnotqpoodvnxecv',()=>{
+      window.locationAuthLockHeld=true;
+      return new Promise(resolve=>{window.releaseLocationAuthLock=resolve;});
+    });
+  });
+  await wait(()=>page.evaluate(()=>window.locationAuthLockHeld===true));
   const firstLocationChoice=page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'});
   const choiceBox=await firstLocationChoice.boundingBox();
   await page.mouse.move(choiceBox.x+choiceBox.width/2,choiceBox.y+choiceBox.height/2);
@@ -221,6 +234,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open),'waiting for browser permission does not reopen the modal');
   await page.evaluate(()=>window.resolveLocation({coords:{latitude:54.68,longitude:25.28,accuracy:10}}));
   await wait(()=>locationDecision==='approved');
+  await page.evaluate(()=>window.releaseLocationAuthLock());
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open));
   beginLocationAvailable=true;
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'successful sharing leaves the app status unchanged');
@@ -387,6 +401,20 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert.equal(locationReplyAttempts,beforeLostAck+2,'even a lost acknowledgement does not cause the approval to be repeated');
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'connection failures add no client messages');
 
+  locationRequest={id:'12121212-1212-4212-8212-121212121212',expires_at:null};
+  locationDecision=null;
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  await page.clock.fastForward(65000);
+  assert.equal(locationDecision,null,'waiting for a permission choice has no application deadline');
+  await page.evaluate(()=>{
+    window.locationPermission.state='granted';
+    window.locationPermission.dispatchEvent(new Event('change'));
+  });
+  await page.clock.runFor(30100);
+  await wait(()=>locationDecision==='error');
+  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'a stalled browser acquisition ends silently after permission');
 
   assert.equal(await page.locator('#create-rhythm').count(),0);
   assert.equal(await page.locator('#strength-control').count(),0);

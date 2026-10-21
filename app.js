@@ -1008,6 +1008,8 @@ function currentPosition(requestId, onPosition) {
     const options = { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 };
     let watchId;
     let refinementTimer;
+    let acquisitionTimer;
+    let permission;
     let best;
     let saving = Promise.resolve();
     let finished = false;
@@ -1015,6 +1017,8 @@ function currentPosition(requestId, onPosition) {
       if (finished) return;
       finished = true;
       clearTimeout(refinementTimer);
+      clearTimeout(acquisitionTimer);
+      permission?.removeEventListener('change', permissionChanged);
       if (watchId !== undefined) geolocation.clearWatch(watchId);
       locationAcquisitions.delete(requestId);
       if (error) reject(error);
@@ -1022,11 +1026,27 @@ function currentPosition(requestId, onPosition) {
     };
     locationAcquisitions.set(requestId, (code = 'LOCATION_CANCELLED') => finish(Object.assign(new Error('Location collection cancelled'), { code })));
     const onError = error => finish(best && error.code !== 1 ? undefined : error);
+    const permissionChanged = () => {
+      if (finished) return;
+      if (permission.state === 'denied') return onError({ code: 1 });
+      // Only bound a stalled acquisition after permission has actually been
+      // granted. Waiting for the user's permission has no application deadline.
+      if (permission.state === 'granted' && !best && !acquisitionTimer) {
+        acquisitionTimer = setTimeout(() => onError({ code: 3 }), 30000);
+      }
+    };
+    navigator.permissions?.query({ name: 'geolocation' }).then(status => {
+      if (finished) return;
+      permission = status;
+      permission.addEventListener('change', permissionChanged);
+      permissionChanged();
+    }).catch(() => {});
     try {
       if (typeof geolocation.watchPosition !== 'function') {
         geolocation.getCurrentPosition(position => {
           if (finished) return;
           best = position;
+          clearTimeout(acquisitionTimer);
           saving = saving.then(() => onPosition(position, false));
           saving.catch(error => finish(error));
           finish();
@@ -1036,6 +1056,7 @@ function currentPosition(requestId, onPosition) {
       watchId = geolocation.watchPosition(position => {
         if (finished) return;
         if (!best || position.coords.accuracy < best.coords.accuracy) {
+          clearTimeout(acquisitionTimer);
           const refinement = !!best;
           best = position;
           // Save the first fix immediately. Serialize later improvements so an
