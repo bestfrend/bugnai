@@ -26,6 +26,7 @@ let dismissedLocationRequestId;
 let locationRequestChecking = false;
 let lastLocationRequestCheck = 0;
 const locationAcquisitions = new Map();
+const locationUpdateControllers = new Set();
 let mutationRevision = 0;
 let renamingSlot = null;
 let renamingBusy = false;
@@ -957,11 +958,45 @@ function closeLocationRequest() {
   activeLocationRequest = null;
 }
 
+async function saveLocationUpdate(update, alreadyAnswered = false) {
+  const controller = new AbortController();
+  locationUpdateControllers.add(controller);
+  const cancelled = () => Object.assign(new Error('Location update cancelled'), { code: 'LOCATION_CANCELLED' });
+  let attempts = 0;
+  try {
+    while (!controller.signal.aborted) {
+      try {
+        return await update();
+      } catch (error) {
+        if (controller.signal.aborted) throw cancelled();
+        // The first reply may have committed even if its HTTP response was lost.
+        // Its safe retry then reports a terminal request; refinements can proceed.
+        if (alreadyAnswered && error.code === 'P0002') return;
+        if (error.status !== 0 && error.status !== 429 && !(error.status >= 500)) throw error;
+        // Retry the actual answer after a connection failure. Never replace an
+        // approved fix with "error" merely because its upload was interrupted.
+        await new Promise((resolve, reject) => {
+          const abort = () => { clearTimeout(timer); reject(cancelled()); };
+          const timer = setTimeout(() => {
+            controller.signal.removeEventListener('abort', abort);
+            resolve();
+          }, Math.min(1000 * 2 ** attempts++, 10000));
+          controller.signal.addEventListener('abort', abort, { once: true });
+        });
+      }
+    }
+    throw cancelled();
+  } finally {
+    locationUpdateControllers.delete(controller);
+  }
+}
+
 function currentPosition(requestId, onPosition) {
   return new Promise((resolve, reject) => {
     const geolocation = navigator.geolocation;
     if (!geolocation) return reject(new Error(t('Ši naršyklė nepalaiko vietos nustatymo.')));
-    const options = { enableHighAccuracy: true, maximumAge: 0 };
+    // Browser acquisition time excludes time spent waiting for permission.
+    const options = { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 };
     let watchId;
     let refinementTimer;
     let best;
@@ -1017,15 +1052,22 @@ async function shareRequestedLocation() {
   const request = activeLocationRequest;
   closeLocationRequest();
   try {
-    await db.beginLocationRequest(request.id);
-    await currentPosition(request.id, (position, refinement) => refinement
-      ? db.refineLocationRequest(request.id, position)
-      : db.respondLocationRequest(request.id, 'approved', position));
+    const begun = saveLocationUpdate(() => db.beginLocationRequest(request.id));
+    // Open the browser prompt in the original click, without waiting on a
+    // network round trip. Saves still wait for the consent-start marker.
+    const position = currentPosition(request.id, async (position, refinement) => {
+      await begun;
+      return saveLocationUpdate(() => refinement
+        ? db.refineLocationRequest(request.id, position)
+        : db.respondLocationRequest(request.id, 'approved', position), true);
+    });
+    await Promise.all([begun, position]);
   } catch (error) {
+    locationAcquisitions.get(request.id)?.();
     const cancelled = error.code === 'P0002' || error.code === 'LOCATION_CANCELLED';
     const browserDenied = error.code === 1;
     if (!cancelled) {
-      try { await db.respondLocationRequest(request.id, browserDenied ? 'browser_denied' : 'error'); } catch {}
+      try { await saveLocationUpdate(() => db.respondLocationRequest(request.id, browserDenied ? 'browser_denied' : 'error'), true); } catch {}
     }
   }
 }
@@ -1036,7 +1078,7 @@ async function declineLocationRequest() {
   locationAcquisitions.get(request.id)?.();
   closeLocationRequest();
   try {
-    await db.respondLocationRequest(request.id, 'declined');
+    await saveLocationUpdate(() => db.respondLocationRequest(request.id, 'declined'), true);
   } catch {}
 }
 
@@ -1499,6 +1541,7 @@ window.addEventListener('instrumentwillchange', () => {
 });
 window.addEventListener('instrumentchanged', () => renderLessons());
 window.addEventListener('pagehide', () => {
+  for (const controller of locationUpdateControllers) controller.abort();
   for (const cancel of locationAcquisitions.values()) cancel();
   clearInterval(pollTimer);
   clearInterval(presenceTimer);
@@ -1519,6 +1562,7 @@ window.addEventListener('pagehide', () => {
 });
 window.addEventListener('storage', event => {
   if (event.key?.startsWith('bugnai.auth.') && !event.newValue) {
+    for (const controller of locationUpdateControllers) controller.abort();
     for (const cancel of locationAcquisitions.values()) cancel();
     clearInterval(pollTimer);
     clearInterval(presenceTimer);

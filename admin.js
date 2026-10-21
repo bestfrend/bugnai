@@ -10,6 +10,15 @@ let refreshTimer;
 let stopLiveUpdates;
 let liveRefreshTimer;
 let refreshGeneration = 0;
+let pendingRefreshTimer;
+
+function schedulePendingRefresh() {
+  clearTimeout(pendingRefreshTimer);
+  if (adminCode && members.some(pendingLocation)) {
+    // A missed Broadcast must not leave an answered request pending for a minute.
+    pendingRefreshTimer = setTimeout(() => refresh(true), 2000);
+  }
+}
 
 async function adminRpc(name, parameters = {}) {
   let response;
@@ -204,6 +213,7 @@ function render() {
 }
 
 function showLogin(message = '', error = false) {
+  clearTimeout(pendingRefreshTimer);
   clearInterval(refreshTimer);
   clearTimeout(liveRefreshTimer);
   liveRefreshTimer = null;
@@ -221,6 +231,7 @@ function showPanel() {
   $('admin-panel').hidden = false;
   clearInterval(refreshTimer);
   refreshTimer = setInterval(() => refresh(true), 60_000);
+  schedulePendingRefresh();
   stopLiveUpdates?.();
   stopLiveUpdates = subscribeLocationChanges(() => {
     if (!adminCode || liveRefreshTimer) return;
@@ -250,6 +261,7 @@ async function refresh(silent = false) {
     return false;
   } finally {
     if (!silent) $('admin-refresh').disabled = false;
+    schedulePendingRefresh();
   }
 }
 
@@ -277,6 +289,7 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && adminCode) refresh(true);
 });
 window.addEventListener('pagehide', () => {
+  clearTimeout(pendingRefreshTimer);
   clearInterval(refreshTimer);
   clearTimeout(liveRefreshTimer);
   liveRefreshTimer = null;

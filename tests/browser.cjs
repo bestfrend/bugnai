@@ -51,6 +51,10 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   let locationDecision=null;
   let locationData=null;
   let beginLocationAvailable=false;
+  let locationBeginFailures=0,locationReplyFailures=0,locationRefineFailures=0;
+  let locationBeginAttempts=0,locationReplyAttempts=0,locationRefineAttempts=0;
+  let loseLocationAcknowledgement=false;
+  const attemptedLocationAnswers=[];
   const locationOutcomes=new Map();
   const session=()=>({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,user:{id:own,user_metadata:{nickname:'Ritmas'}}});
   await context.route('https://fonts.googleapis.com/**',route=>route.fulfill({body:''}));
@@ -65,9 +69,15 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     if(url.pathname==='/rest/v1/rpc/start_member_session'){sessionStarts++;return reply(null);}
     if(url.pathname==='/rest/v1/rpc/touch_member_presence')return reply(null);
     if(url.pathname==='/rest/v1/rpc/member_pending_location_request')return reply(locationRequest?[locationRequest]:[]);
-    if(url.pathname==='/rest/v1/rpc/member_begin_location_request')return beginLocationAvailable?reply(null):reply({code:'PGRST202'},404);
+    if(url.pathname==='/rest/v1/rpc/member_begin_location_request'){
+      locationBeginAttempts++;
+      if(locationBeginFailures>0){locationBeginFailures--;return reply({message:'Temporary outage'},503);}
+      return beginLocationAvailable?reply(null):reply({code:'PGRST202'},404);
+    }
     if(url.pathname==='/rest/v1/rpc/member_refine_location_request'){
       const refinement=req.postDataJSON();
+      locationRefineAttempts++;
+      if(locationRefineFailures>0){locationRefineFailures--;return reply({message:'Temporary outage'},503);}
       assert.equal(locationOutcomes.get(refinement.p_request_id),'approved','refine only after saving the first fix');
       assert(refinement.p_accuracy_m<locationData.p_accuracy_m,'refinements must improve accuracy');
       locationData=refinement;
@@ -75,11 +85,15 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     }
     if(url.pathname==='/rest/v1/rpc/member_respond_location_request'){
       const decision=req.postDataJSON();
+      locationReplyAttempts++;
+      attemptedLocationAnswers.push(decision);
+      if(locationReplyFailures>0){locationReplyFailures--;return reply({message:'Temporary outage'},503);}
       if(locationOutcomes.has(decision.p_request_id))return reply({code:'P0002'},404);
       locationDecision=decision.p_decision;
       locationData=decision;
       locationOutcomes.set(decision.p_request_id,decision.p_decision);
       if(locationRequest?.id===decision.p_request_id)locationRequest=null;
+      if(loseLocationAcknowledgement){loseLocationAcknowledgement=false;return reply({message:'Response interrupted'},503);}
       return reply(null);
     }
     if(url.pathname==='/rest/v1/profiles'){
@@ -267,7 +281,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
   await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
   await wait(()=>page.evaluate(()=>window.watchCount===1));
-  assert.deepEqual(await page.evaluate(()=>window.watchOptions),{enableHighAccuracy:true,maximumAge:0});
+  assert.deepEqual(await page.evaluate(()=>window.watchOptions),{enableHighAccuracy:true,maximumAge:0,timeout:30000});
   await page.clock.fastForward(20000);
   assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open),'permission waiting remains in the background');
   await page.evaluate(()=>window.watchSuccess({coords:{latitude:54,longitude:25,accuracy:2500}}));
@@ -299,6 +313,58 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert.equal(locationData.p_accuracy_m,800,'save improvements without overwriting them with a worse fix');
   assert.equal(await page.evaluate(()=>window.clearedLocationWatch),2,'coarse-only acquisition is bounded');
   assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'refinement adds no client messages');
+
+  locationRequest={id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',expires_at:null};
+  locationDecision=null;
+  locationBeginFailures=locationReplyFailures=locationRefineFailures=1;
+  const retryBegin=locationBeginAttempts,retryReply=locationReplyAttempts,retryRefine=locationRefineAttempts;
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  await wait(()=>locationBeginAttempts===retryBegin+1);
+  assert.equal(await page.evaluate(()=>window.watchCount),3,'the browser request starts even while the consent marker is unavailable');
+  await page.evaluate(()=>{
+    window.watchSuccess({coords:{latitude:54,longitude:25,accuracy:2500}});
+    window.watchSuccess({coords:{latitude:54.68,longitude:25.28,accuracy:8}});
+  });
+  await page.clock.runFor(1100);
+  await wait(()=>locationReplyAttempts===retryReply+1);
+  await page.clock.runFor(1100);
+  await wait(()=>locationDecision==='approved');
+  await wait(()=>locationRefineAttempts===retryRefine+1);
+  await page.clock.runFor(1100);
+  await wait(()=>locationData.p_accuracy_m===8);
+  assert.deepEqual(attemptedLocationAnswers.filter(answer=>answer.p_request_id==='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee').map(answer=>answer.p_decision),['approved','approved'],'a failed upload retries the original approval instead of replacing it with an error');
+
+  for(const [id,decision] of [['ffffffff-ffff-4fff-8fff-ffffffffffff','declined'],['cccccccc-cccc-4ccc-8ccc-cccccccccccc','browser_denied'],['dddddddd-dddd-4ddd-8ddd-dddddddddddd','error']]){
+    locationRequest={id,expires_at:null};
+    locationDecision=null;
+    locationReplyFailures=1;
+    const before=locationReplyAttempts;
+    await page.clock.runFor(2100);
+    await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+    await page.locator('#location-request-dialog').getByRole('button',{name:decision==='declined'?'Atmesti':'Bendrinti dabartinę vietą',exact:true}).click();
+    if(decision!=='declined')await page.evaluate(code=>window.watchError({code}),decision==='browser_denied'?1:3);
+    await wait(()=>locationReplyAttempts===before+1);
+    assert(await page.locator('#location-request-dialog').evaluate(dialog=>!dialog.open),'the modal closes immediately even if sending the answer fails');
+    await page.clock.runFor(1100);
+    await wait(()=>locationDecision===decision);
+  }
+
+  locationRequest={id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',expires_at:null};
+  loseLocationAcknowledgement=true;
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('#location-request-dialog').evaluate(dialog=>dialog.open));
+  await page.locator('#location-request-dialog').getByRole('button',{name:'Bendrinti dabartinę vietą'}).click();
+  await page.evaluate(()=>{
+    window.watchSuccess({coords:{latitude:54,longitude:25,accuracy:2500}});
+    window.watchSuccess({coords:{latitude:54.68,longitude:25.28,accuracy:8}});
+  });
+  await wait(()=>loseLocationAcknowledgement===false);
+  await page.clock.runFor(1100);
+  await wait(()=>locationData.p_accuracy_m===8);
+  assert.equal(await page.locator('#status').textContent(),statusBeforeLocation,'all location retries remain silent for the user');
+
 
   assert.equal(await page.locator('#create-rhythm').count(),0);
   assert.equal(await page.locator('#strength-control').count(),0);
@@ -1120,6 +1186,14 @@ async function adminScenario(browser){
   locationStatus='pending';
   await page.locator('#admin-refresh').click();
   await wait(()=>page.getByRole('button',{name:'Atšaukti prašymą',exact:true}).count().then(Boolean));
+  locationStatus='approved';
+  locationAccuracy=35;
+  const beforePendingPoll=memberListRequests;
+  await page.clock.runFor(2100);
+  await wait(()=>page.locator('.exact-location-cell').first().innerText().then(text=>text.includes('±35 m')));
+  assert.equal(await page.getByRole('button',{name:'Atšaukti prašymą',exact:true}).count(),0,'an answered request stops waiting even when its broadcast is lost');
+  assert.equal(memberListRequests,beforePendingPoll+1,'only pending requests receive a short fallback refresh');
+  assert(await page.locator('#admin-refresh').isEnabled(),'fallback updates do not blink or disable the refresh control');
   locationAccuracy=2500;
   locationChanged();
   await page.clock.runFor(150);
