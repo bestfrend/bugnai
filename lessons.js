@@ -20,25 +20,25 @@ export function melody(notes) {
 }
 
 const pianoLessons = [
-  { id: 'ode-to-joy', title: 'Odė džiaugsmui', ...melody([
+  { id: 'ode-to-joy', level: 1, title: 'Odė džiaugsmui', ...melody([
     'e4', 'e4', 'f4', 'g4', 'g4', 'f4', 'e4', 'd4',
     'c4', 'c4', 'd4', 'e4', ['e4', 1.5], ['d4', .5], ['d4', 1.75, 1.65], [null, .25],
     'e4', 'e4', 'f4', 'g4', 'g4', 'f4', 'e4', 'd4',
     'c4', 'c4', 'd4', 'e4', ['d4', 1.5], ['c4', .5], ['c4', 1.5, 1.4], [null, .5]
   ]) },
-  { id: 'london-bridge', title: 'Londono tiltas', ...melody([
+  { id: 'london-bridge', level: 1, title: 'Londono tiltas', ...melody([
     ['g4', 1.5], ['a4', .5], 'g4', 'f4', 'e4', 'f4', ['g4', 1.75, 1.65], [null, .25],
     'd4', 'e4', ['f4', 2], 'e4', 'f4', ['g4', 1.75, 1.65], [null, .25],
     ['g4', 1.5], ['a4', .5], 'g4', 'f4', 'e4', 'f4', ['g4', 1.75, 1.65], [null, .25],
     ['d4', 2], ['g4', 2], 'e4', ['c4', 2.5, 2.4], [null, .5]
   ]) },
-  { id: 'mary-little-lamb', title: 'Mažas avinėlis', ...melody([
+  { id: 'mary-little-lamb', level: 1, title: 'Mažas avinėlis', ...melody([
     'e4', 'd4', 'c4', 'd4', 'e4', 'e4', ['e4', 1.75, 1.65], [null, .25],
     'd4', 'd4', ['d4', 2], 'e4', 'g4', ['g4', 1.75, 1.65], [null, .25],
     'e4', 'd4', 'c4', 'd4', 'e4', 'e4', 'e4', 'e4',
     'd4', 'd4', 'e4', 'd4', ['c4', 3.5, 3.4], [null, .5]
   ]) },
-  { id: 'two-roosters', title: 'Du gaideliai', ...melody([
+  { id: 'two-roosters', level: 1, title: 'Du gaideliai', ...melody([
     'c4', 'c4', 'g4', 'g4', 'a4', 'a4', ['g4', 1.75, 1.65], [null, .25],
     'f4', 'f4', 'e4', 'e4', 'd4', 'd4', ['c4', 1.75, 1.65], [null, .25],
     'g4', 'g4', 'f4', 'f4', 'e4', 'e4', ['d4', 2],
@@ -47,6 +47,60 @@ const pianoLessons = [
     'f4', 'f4', 'e4', 'e4', 'd4', 'd4', ['c4', 1.5, 1.4], [null, .5]
   ]) }
 ];
+
+
+// Right-hand teaching arrangements from public-domain scores. Keep authorship
+// distinct from sample attribution; the source editions are recorded below.
+pianoLessons.push({
+  id: 'minuet-in-g', level: 2, title: 'Menuetas', composer: 'Christian Petzold', bpm: 94,
+  source: 'https://github.com/MutopiaProject/MutopiaProject/blob/2144afd6f52d56c5b6995b8b589ef1268b3139f0/ftp/BachJS/BWVAnh114/anna-magdalena-04/anna-magdalena-04.ly',
+  ...melody([
+    'd5', ['g4', .5], ['a4', .5], ['b4', .5], ['c5', .5],
+    'd5', 'g4', 'g4',
+    'e5', ['c5', .5], ['d5', .5], ['e5', .5], ['fs5', .5],
+    'g5', 'g4', 'g4',
+    'c5', ['d5', .5], ['c5', .5], ['b4', .5], ['a4', .5],
+    'b4', ['c5', .5], ['b4', .5], ['a4', .5], ['g4', .5],
+    'fs4', ['g4', .5], ['a4', .5], ['b4', .5], ['g4', .5],
+    ['a4', 2.75, 2.6], [null, .25],
+    'd5', ['g4', .5], ['a4', .5], ['b4', .5], ['c5', .5],
+    'd5', 'g4', 'g4',
+    'e5', ['c5', .5], ['d5', .5], ['e5', .5], ['fs5', .5],
+    'g5', 'g4', 'g4',
+    'c5', ['d5', .5], ['c5', .5], ['b4', .5], ['a4', .5],
+    'b4', ['c5', .5], ['b4', .5], ['a4', .5], ['g4', .5],
+    'a4', ['b4', .5], ['a4', .5], ['g4', .5], ['fs4', .5],
+    ['g4', 2.5, 2.4], [null, .5]
+  ])
+});
+
+// Opening 3/8 theme, including the pickup, sixteenths, rests and written repeat.
+const eliseTheme = [
+  ['e5', .25], ['ds5', .25],
+  ['e5', .25], ['ds5', .25], ['e5', .25], ['b4', .25], ['d5', .25], ['c5', .25],
+  ['a4', .5], [null, .25], ['c4', .25], ['e4', .25], ['a4', .25],
+  ['b4', .5], [null, .25], ['e4', .25], ['gs4', .25], ['b4', .25],
+  ['c5', .5], [null, .25], ['e4', .25], ['e5', .25], ['ds5', .25],
+  ['e5', .25], ['ds5', .25], ['e5', .25], ['b4', .25], ['d5', .25], ['c5', .25],
+  ['a4', .5], [null, .25], ['c4', .25], ['e4', .25], ['a4', .25],
+  ['b4', .5], [null, .25], ['e4', .25], ['c5', .25], ['b4', .25],
+  ['a4', 1]
+];
+pianoLessons.push({
+  id: 'fur-elise-theme', level: 3, title: 'Elizai · pagrindinė tema', composer: 'Ludwig van Beethoven', bpm: 72,
+  source: 'https://github.com/MutopiaProject/MutopiaProject/blob/2144afd6f52d56c5b6995b8b589ef1268b3139f0/ftp/BeethovenLv/WoO59/fur_Elise_WoO59/fur_Elise_WoO59.ly',
+  ...melody([...eliseTheme, ...eliseTheme, [null, .5]])
+});
+
+export const pianoLessonLevels = [
+  { id: 1, label: 'I lygis' }, { id: 2, label: 'II lygis' }, { id: 3, label: 'III lygis' }
+];
+
+export function tempoForLesson(definition, speed) {
+  // Resolve by id so repeating a paused lesson does not scale its tempo twice.
+  const base = lessonSpeeds.find(option => option.id === speed.id) || speed;
+  return { ...base, beatMs: base.beatMs * (definition.bpm ? 60000 / definition.bpm / 520 : 1) };
+}
 
 function repeat(keys, count, step = .5) {
   return Array.from({ length: count }, (_, index) => ({ key: keys[index % keys.length], beat: index * step }));

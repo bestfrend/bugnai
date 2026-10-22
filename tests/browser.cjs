@@ -462,6 +462,81 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     assert(await page.locator('.lesson-cue').count(),'the first cue appears after preparation');
     assert.equal(await page.locator('#lesson-sequence .is-current.is-due').count(),1,'the central note is emphasized when it is time to press');
   };
+  if(kit==='salamander-v1'){
+    assert.deepEqual(await page.locator('#lesson-levels [role="tab"]').allTextContents(),['I lygis','II lygis','III lygis']);
+    await page.locator('#lesson-level-2').click();
+    assert.equal(await page.locator('.lesson-card').count(),1,'levels may have different song counts');
+    assert.equal(await page.locator('.lesson-card h3').textContent(),'Menuetas');
+    assert.equal(await page.locator('.lesson-composer').textContent(),'Christian Petzold');
+    await page.locator('.lesson-speed').nth(1).click();
+    await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    assert.equal(await page.locator('.piano-keyboard.lesson-range').count(),1,'an advanced range is fitted to the lesson automatically');
+    assert.equal(await page.locator('[data-key="g5"]').count(),1);
+    assert.equal(await page.locator('[data-key="fs4"]').count(),1);
+    await page.locator('#language-select').selectOption('sv');
+    assert.equal(await page.locator('#lesson-level-2').textContent(),'Nivå II');
+    assert.equal(await page.locator('.lesson-card h3').textContent(),'Menuett');
+    assert.equal(await page.locator('[data-key="g5"]').count(),1,'translating does not reset the lesson range');
+    assert.equal(await page.locator('#lesson-start').count(),1);
+    await page.locator('#language-select').selectOption('lt');
+    await page.locator('#listen-lesson').click();
+    await wait(()=>page.locator('#listen-lesson').getAttribute('aria-pressed').then(value=>value==='true'));
+    await page.locator('#lesson-level-3').click();
+    assert.equal(await page.locator('#lesson-start').count(),0,'changing levels cancels the previous lesson and preview');
+    assert.equal(await page.locator('.piano-keyboard.lesson-range').count(),0,'switching levels restores the previous keyboard view');
+    assert.equal(await page.locator('.lesson-card').getAttribute('data-lesson-id'),'fur-elise-theme');
+    await page.locator('.lesson-speed').nth(1).click();
+    await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    assert.equal(await page.locator('[data-key="e5"]').count(),1);
+    assert.equal(await page.locator('[data-key="ds5"]').count(),1,'the theme exposes its high black keys');
+    const fits=await page.locator('.piano-keyboard').evaluate(keyboard=>{
+      const box=keyboard.getBoundingClientRect();
+      return [...keyboard.querySelectorAll('[data-key]')].every(key=>{const b=key.getBoundingClientRect();return b.x>=box.x&&b.right<=box.right+1;});
+    });
+    assert(fits,'the lesson keyboard stays inside the screen');
+    await page.clock.pauseAt(await page.evaluate(()=>Date.now()+50));
+    await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
+    await page.clock.fastForward(1000);
+    await page.clock.runFor(20);
+    assert.equal(await page.locator('[data-key="e5"].lesson-cue').count(),1,'Für Elise starts with the expected high E');
+    await page.keyboard.down(';');
+    assert.equal(await page.locator('[data-key="e5"].lesson-correct').count(),1,'the expanded keyboard maps its extra notes to physical keys too');
+    await page.keyboard.up(';');
+    await page.clock.fastForward(220);
+    await page.clock.runFor(20);
+    assert.equal(await page.locator('[data-key="ds5"].lesson-cue').count(),1,'sixteenth-note guidance uses the song tempo');
+    await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+    assert.equal(await page.locator('.piano-keyboard [data-key]').count(),13,'stopping restores the ordinary one-octave keyboard');
+    await page.clock.resume();
+    await page.locator('#lesson-level-1').click();
+    await page.evaluate(async()=>{
+      const entry=new URL(document.querySelector('script[src*="app.js"]').src);
+      const {lessonsForKit}=await import(new URL('./lessons.js'+entry.search,entry).href);
+      const library=lessonsForKit('salamander-v1');
+      library.push({...library[0],id:'scroll-test-1'},{...library[0],id:'scroll-test-2'});
+      window.dispatchEvent(new Event('languagechange'));
+    });
+    await wait(()=>page.locator('#lesson-list').evaluate(list=>list.scrollHeight>list.clientHeight));
+    assert.equal(await page.locator('.lesson-card').count(),6);
+    const fiveRows=await page.locator('#lesson-list').evaluate(list=>{
+      const box=list.getBoundingClientRect(),fifth=list.children[4].getBoundingClientRect(),sixth=list.children[5].getBoundingClientRect();
+      return fifth.bottom<=box.bottom+1&&sixth.top>=box.bottom;
+    });
+    assert(fiveRows,'only the first five full song cards fit before the list scrolls');
+    await page.locator('#lesson-list').evaluate(list=>list.scrollTop=list.scrollHeight);
+    assert(await page.locator('#lesson-list').evaluate(list=>list.scrollTop>0),'more songs can be reached by scrolling the list');
+    await page.locator('#lesson-level-1').focus();
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await page.locator('#lesson-level-2').getAttribute('aria-selected'),'true','level tabs support arrow keys');
+    assert.equal(await page.locator('#lesson-list').evaluate(list=>list.style.maxHeight),'','shorter levels remove the scroll cap');
+    await page.evaluate(async()=>{
+      const entry=new URL(document.querySelector('script[src*="app.js"]').src);
+      const {lessonsForKit}=await import(new URL('./lessons.js'+entry.search,entry).href);
+      lessonsForKit('salamander-v1').splice(-2,2);
+    });
+    await page.locator('#lesson-level-1').click();
+    assert.equal(await page.locator('.lesson-card').count(),4);
+  } else assert(await page.locator('#lesson-levels').isHidden(),'piano level tabs stay hidden for drums');
   // A valid image larger than the former limit must reach the existing resize
   // path. Extra PNG bytes do not allocate a huge decoded bitmap in this test.
   const largePhoto=Buffer.concat([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64'),Buffer.alloc(6*1024*1024)]);

@@ -16,6 +16,7 @@ const keyboardShortcuts = new Map();
 const loading = new Map();
 const readyKits = new Set();
 let currentPianoOctave = 4;
+let lessonPianoRange = null;
 const FULL_PIANO_VIEW = PIANO_OCTAVES.at(-1) + 1;
 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 let audioContext;
@@ -336,33 +337,65 @@ function clearInstrumentPointers() {
 }
 
 const pianoNames = { c: 'Do', cs: 'Do♯', d: 'Re', ds: 'Re♯', e: 'Mi', f: 'Fa', fs: 'Fa♯', g: 'Sol', gs: 'Sol♯', a: 'La', as: 'La♯', b: 'Si' };
-const pianoShortcuts = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k'];
+const pianoShortcuts = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k', 'o', 'l', 'p', ';'];
 function pianoKeyboardMarkup(octave) {
-  const full = octave === FULL_PIANO_VIEW;
-  const keys = full ? [...PIANO_OCTAVES.flatMap(value => pianoKeys(value).slice(0, -1)), 'c7'] : pianoKeys(octave);
+  const full = !lessonPianoRange && octave === FULL_PIANO_VIEW;
+  const keys = lessonPianoRange || (full ? [...PIANO_OCTAVES.flatMap(value => pianoKeys(value).slice(0, -1)), 'c7'] : pianoKeys(octave));
+  const firstOctave = Number(keys[0].at(-1));
+  const firstWhite = { c: 0, d: 1, e: 2, f: 3, g: 4, a: 5, b: 6 }[keys[0].replace(/\d/, '')];
   return keys.map((key, index) => {
     const note = key.replace(/\d/, '');
     const shortcut = full ? pianoShortcuts[index - 24] : pianoShortcuts[index];
-    const position = (full ? (Number(key.at(-1)) - PIANO_OCTAVES[0]) * 7 : 0) + (({ cs: 1, ds: 2, fs: 4, gs: 5, as: 6 })[note] ?? 0);
+    const position = (Number(key.at(-1)) - firstOctave) * 7 + (({ cs: 1, ds: 2, fs: 4, gs: 5, as: 6 })[note] ?? 0) - firstWhite;
     const label = full ? (note === 'c' ? key.toUpperCase() : '') : t(pianoNames[note]);
     return `<div role="button" tabindex="0" class="piano-key ${note.endsWith('s') ? 'black-key' : 'white-key'}" data-key="${key}"${shortcut ? ` data-shortcut="${shortcut}"` : ''} style="--position:${position}" aria-label="${t(pianoNames[note])}, ${key.toUpperCase()}${shortcut ? `, ${t('klavišas')} ${shortcut.toUpperCase()}` : ''}"><span>${label}</span>${!full && shortcut ? `<small>${shortcut.toUpperCase()}</small>` : ''}</div>`;
   }).join('');
 }
-function updatePianoOctave(octave) {
+
+export function setLessonPianoRange(keys) {
+  if (ACTIVE_KIT !== 'salamander-v1') { lessonPianoRange = null; return; }
+  if (!keys) {
+    if (!lessonPianoRange) return;
+    lessonPianoRange = null;
+  } else {
+    if (keys.every(key => buttons.has(key))) return;
+    const all = [...PIANO_OCTAVES.flatMap(value => pianoKeys(value).slice(0, -1)), 'c7'];
+    const positions = keys.map(key => all.indexOf(key));
+    if (positions.some(index => index < 0)) return;
+    let first = Math.min(...positions), last = Math.max(...positions);
+    // Include a white key at each edge so black keys stay within the keyboard.
+    if (all[first].includes('s')) first--;
+    if (all[last].includes('s')) last++;
+    lessonPianoRange = all.slice(first, last + 1);
+  }
+  updatePianoOctave(currentPianoOctave, true);
+}
+
+function updatePianoOctave(octave, preserveLessonRange = false) {
+  if (!preserveLessonRange) lessonPianoRange = null;
   currentPianoOctave = Math.max(PIANO_OCTAVES[0], Math.min(FULL_PIANO_VIEW, octave));
   const keyboard = document.querySelector('.piano-keyboard');
   if (!keyboard) return;
-  // A keyboard key can still be held while the octave button is clicked.
-  // Finish that exact note before replacing the visible keys.
   releasePianoKeys();
-  const full = currentPianoOctave === FULL_PIANO_VIEW;
+  const full = !lessonPianoRange && currentPianoOctave === FULL_PIANO_VIEW;
   keyboard.classList.toggle('full-range', full);
+  keyboard.classList.toggle('lesson-range', !!lessonPianoRange);
+  if (lessonPianoRange) {
+    const whites = lessonPianoRange.filter(key => !key.includes('s')).length;
+    keyboard.style.setProperty('--white-width', 100 / whites + '%');
+    keyboard.style.setProperty('--black-width', 60 / whites + '%');
+    keyboard.style.setProperty('--half-black-width', 30 / whites + '%');
+  } else {
+    for (const name of ['--white-width', '--black-width', '--half-black-width']) keyboard.style.removeProperty(name);
+  }
   keyboard.innerHTML = pianoKeyboardMarkup(currentPianoOctave);
-  keyboard.setAttribute('aria-label', full ? `${t('Pilnas pianinas')} C2–C7` : `${t('Pianino klavišai')} C${currentPianoOctave}–C${currentPianoOctave + 1}`);
+  const range = lessonPianoRange ? `${lessonPianoRange[0].toUpperCase()}–${lessonPianoRange.at(-1).toUpperCase()}`
+    : full ? 'C2–C7' : `C${currentPianoOctave}–C${currentPianoOctave + 1}`;
+  keyboard.setAttribute('aria-label', `${t(full ? 'Pilnas pianinas' : 'Pianino klavišai')} ${range}`);
   const octaveLabel = document.getElementById('piano-octave-label');
-  octaveLabel.dataset.source = full ? 'Pilnas' : currentPianoOctave === 4 ? 'Vidurinė dalis' : currentPianoOctave < 4 ? 'Žemesni garsai' : 'Aukštesni garsai';
-  octaveLabel.dataset.range = full ? 'C2–C7' : `C${currentPianoOctave}–C${currentPianoOctave + 1}`;
-  octaveLabel.textContent = `${t(octaveLabel.dataset.source)} · ${octaveLabel.dataset.range}`;
+  octaveLabel.dataset.source = lessonPianoRange ? 'Pamoka' : full ? 'Pilnas' : currentPianoOctave === 4 ? 'Vidurinė dalis' : currentPianoOctave < 4 ? 'Žemesni garsai' : 'Aukštesni garsai';
+  octaveLabel.dataset.range = range;
+  octaveLabel.textContent = `${t(octaveLabel.dataset.source)} · ${range}`;
   document.querySelector('[data-octave-shift="-1"]').disabled = currentPianoOctave === PIANO_OCTAVES[0];
   const higher = document.querySelector('[data-octave-shift="1"]');
   const higherLabel = higher.querySelector('.piano-button-label');
@@ -375,7 +408,7 @@ function updatePianoOctave(octave) {
 
 window.addEventListener('blur', clearInstrumentPointers);
 document.addEventListener('visibilitychange', () => { if (document.hidden) clearInstrumentPointers(); });
-window.addEventListener('languagechange', () => { if (ACTIVE_KIT === 'salamander-v1') updatePianoOctave(currentPianoOctave); });
+window.addEventListener('languagechange', () => { if (ACTIVE_KIT === 'salamander-v1') updatePianoOctave(currentPianoOctave, true); });
 
 let instrumentGeneration = 0;
 export function suspendInstrument() {

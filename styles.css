@@ -333,7 +333,18 @@ footer { padding: 24px 0 32px; }
 .rhythm-kit { display: block; color: #a5b1c9; font-size: 9px; line-height: 12px; }
 .lessons { margin: 0 0 18px; }
 .lessons .section-heading { margin-bottom: 6px; }
-.lesson-list { display: grid; gap: 8px; }
+.lesson-level-tabs { display: flex; gap: 6px; margin: 0 0 14px; padding: 4px; border: 1px solid #52617a; border-radius: 12px; background: #162237; }
+.lesson-level-tabs[hidden] { display: none; }
+.lesson-level-tab { flex: 1; min-height: 36px; padding: 7px 9px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #c8d6ea; font: 600 12px/1.2 system-ui, sans-serif; cursor: pointer; }
+.lesson-level-tab[aria-selected="true"] { border-color: #849ab8; background: #425a7b; color: #fff; }
+.lesson-level-tab:focus-visible { outline: 2px solid #b7e8ff; outline-offset: 2px; }
+.lesson-list { position: relative; display: grid; grid-auto-rows: max-content; align-content: start; gap: 8px; }
+.lesson-list.has-overflow { overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; scrollbar-color: #8199bb #162237; scrollbar-gutter: stable; padding-right: 6px; }
+.lesson-list::-webkit-scrollbar { width: 6px; }
+.lesson-list::-webkit-scrollbar-track { background: #162237; border-radius: 8px; }
+.lesson-list::-webkit-scrollbar-thumb { background: #8199bb; border-radius: 8px; }
+.lesson-heading { min-width: 0; }
+.lesson-composer { margin: 4px 0 0; color: #a9bbd4; font-size: 10px; line-height: 1.35; }
 .lesson-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 9px 10px 9px 13px; border: 1px solid #53627c; border-radius: 12px; background: #182338; }
 .lesson-card.is-playing { border-color: #7ee7ff; box-shadow: inset 0 0 18px #5ed8ff22, 0 0 12px #5ed8ff22; }
 .lesson-card h3 { margin: 0; font-size: 14px; }
@@ -402,6 +413,8 @@ footer { padding: 24px 0 32px; }
 .white-key { position: relative; flex: 1; min-width: 0; height: 100%; color: #39445a; border: 1px solid #bdc7d5; background: linear-gradient(#e4e9ef, #fff 65%, #e6ebf2); box-shadow: inset 0 -5px #bcc7d6; }
 .black-key { position: absolute; z-index: 1; top: -1px; left: calc(var(--position) * var(--white-width) - var(--half-black-width)); width: var(--black-width); height: 58%; padding-bottom: 10px; font-size: 9px; color: #e8eef7; border: 1px solid #070e1a; border-top: 0; background: linear-gradient(100deg, #35425a, #101724); box-shadow: inset 0 -5px #070d17, 2px 5px 5px #0005; }
 .piano-keyboard.full-range { --white-width: 2.777778%; --black-width: 1.666667%; --half-black-width: .833333%; max-width: none; }
+.piano-keyboard.lesson-range .piano-key { font-size: 10px; }
+.piano-keyboard.lesson-range .black-key { font-size: 8px; }
 .piano-keyboard.full-range .piano-key { padding-bottom: 8px; font-size: 8px; }
 .piano-keyboard.full-range .black-key { padding-bottom: 0; }
 .white-key.pressed, .white-key.lesson-cue[data-lesson-repeat] { transform: perspective(500px) rotateX(-3deg) translateY(3px); border-color: #8292a5; background: linear-gradient(#d8e0e9, #f2f5f8 65%, #d8e0e9); box-shadow: inset 3px 0 5px #63788b88, inset -3px 0 5px #63788b88, inset 0 3px 7px #68778b55, inset 0 -2px #9aaaba; }

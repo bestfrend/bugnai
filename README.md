@@ -267,6 +267,27 @@ laikymas negali viršyti natai skirto laiko. Perklausa ir pamokos rodymas naudoj
 kartojimas prasideda tik pasibaigus visai frazei. Perkusijos smūgiams atskiro
 pianino laikymo nereikia – esami būgnų ritmai išlieka vieno smūgio įvykiais.
 
+### Trys pianino pamokų lygiai
+
+Pianino biblioteka skirstoma pagal `level: 1 | 2 | 3`; lygiai turi atskirus
+skirtukus, o dainų skaičius juose neprivalo sutapti. Pirmame lygyje lieka keturios
+pradinės melodijos, antrame – Christiano Petzoldo „Menueto G-dur“ pirmoji dalis,
+trečiame – Ludwigo van Beethoveno „Elizai“ pagrindinė tema su pakartojimu.
+Tai vienos melodinės linijos mokomosios versijos. Natų šaltiniai ir jų viešojo
+domeno deklaracijos įrašyti `lessons.js`; tikrinti leidimai:
+
+- [Menuetas, BWV Anh. 114](https://github.com/MutopiaProject/MutopiaProject/blob/2144afd6f52d56c5b6995b8b589ef1268b3139f0/ftp/BachJS/BWVAnh114/anna-magdalena-04/anna-magdalena-04.ly), Allen Garvin, „Public Domain“. Kūrinys dabar priskiriamas Christianui Petzoldui.
+- [Für Elise, WoO 59](https://github.com/MutopiaProject/MutopiaProject/blob/2144afd6f52d56c5b6995b8b589ef1268b3139f0/ftp/BeethovenLv/WoO59/fur_Elise_WoO59/fur_Elise_WoO59.ly), Stelios Samelis, „Public Domain“.
+
+Naujai dainai nurodykite lygį, autoriaus vardą ir, jei reikia, `bpm`: „Normalus“
+atitiks jos tempą, kiti du greičiai jį proporcingai pakeis. Jei dainos natos
+netelpa dabartiniame klaviatūros vaizde, pamoka automatiškai parodo reikiamą
+vientisą klavišų ruožą. Sustabdžius pamoką atkuriamas ankstesnis vaizdas;
+aukščio mygtukai ir toliau leidžia jį keisti rankiniu būdu.
+
+Viename lygyje iš karto telpa iki penkių dainelių. Įdėjus daugiau, sąrašas slenka
+savo srityje, o aukštis perskaičiuojamas pagal pirmų penkių kortelių dydį.
+
 ### Bendras būgnų dizainas
 
 Visi trys būgnų garsų rinkiniai naudoja tą patį scenos dizainą: vertikaliame

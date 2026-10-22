@@ -1,9 +1,9 @@
 import './navigation.js';
 import { lessonSequenceVisible, lessonRepeatCountsVisible } from './play-help.js';
 import * as db from './database.js';
-import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit, releasePianoKeys } from './index.js';
+import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit, releasePianoKeys, setLessonPianoRange } from './index.js';
 import { t, setLanguage, applyPageTranslations, language } from './i18n.js';
-import { lessonsForKit, lessonSpeeds } from './lessons.js';
+import { lessonsForKit, lessonSpeeds, pianoLessonLevels, tempoForLesson } from './lessons.js';
 
 const $ = id => document.getElementById(id);
 const MAX_NOTES = 6000;
@@ -43,6 +43,8 @@ let avatarRemovalVisible = false;
 let activeStatus = { message: '', error: false };
 let lesson = null;
 let pausedLesson = null;
+let pianoLessonLevel = 1;
+let lessonListObserver;
 
 const iconPaths = {
   play: ['M8 5v14l11-7z'],
@@ -127,6 +129,7 @@ function stopLesson() {
   for (const timer of lesson.feedbackTimers.values()) clearTimeout(timer);
   clearLessonCues();
   lesson = null;
+  setLessonPianoRange(null);
   renderLessons();
 }
 
@@ -228,19 +231,23 @@ async function prepareLesson(definition, speed) {
   pausedLesson = null;
   updateRecordBar();
   lesson = createLesson(definition, speed);
+  const current = lesson;
+  if (ACTIVE_KIT === 'salamander-v1') setLessonPianoRange(lesson.events.map(note => note.key));
   document.querySelector('.kit')?.classList.add('lesson-active');
   renderLessons();
   document.querySelector('.kit')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   try {
     await prepareAudio(ACTIVE_KIT);
   } catch {
+    if (lesson !== current) return;
     lesson = null;
+    setLessonPianoRange(null);
     document.querySelector('.kit')?.classList.remove('lesson-active');
     renderLessons();
     status('Nepavyko paleisti garso. Paliesk būgną ir bandyk atkurti dar kartą.', true);
     return;
   }
-  if (!lesson || lesson.definition !== definition) return;
+  if (lesson !== current) return;
   showLessonStarter();
 }
 
@@ -302,6 +309,7 @@ function beginLesson() {
 }
 
 function createLesson(definition, speed) {
+  speed = tempoForLesson(definition, speed);
   const events = [...definition.events].sort((a, b) => a.beat - b.beat);
   const groups = [];
   events.forEach((note, index) => {
@@ -566,9 +574,32 @@ function restorePausedLesson() {
   pausedLesson = null;
   if (!saved || lesson) return;
   lesson = createLesson(saved.definition, saved.speed);
+  if (ACTIVE_KIT === 'salamander-v1') {
+    pianoLessonLevel = saved.definition.level || 1;
+    setLessonPianoRange(lesson.events.map(note => note.key));
+  }
   document.querySelector('.kit')?.classList.add('lesson-active');
   renderLessons();
   showLessonStarter();
+}
+
+function resizeLessonList() {
+  const list = $('lesson-list');
+  if (!list) return;
+  const cards = [...list.children];
+  const overflow = cards.length > 5;
+  list.classList.toggle('has-overflow', overflow);
+  const height = overflow ? cards[4].offsetTop + cards[4].offsetHeight : 0;
+  list.style.maxHeight = height > 0 ? height + 'px' : '';
+  list.tabIndex = overflow ? 0 : -1;
+}
+
+function changeLessonLevel(id) {
+  if (pianoLessonLevel === id) return;
+  pianoLessonLevel = id;
+  if (lesson) stopLesson();
+  else renderLessons();
+  $('lesson-level-' + id)?.focus({ preventScroll: true });
 }
 
 function renderLessons() {
@@ -577,12 +608,62 @@ function renderLessons() {
   const piano = ACTIVE_KIT === 'salamander-v1';
   $('lessons-title').textContent = t(piano ? 'Piano dainelės' : 'Būgnų pamokos');
   $('lessons-hint').textContent = t('Pasirink greitį ir spausk šviečiančius mygtukus.');
+  let tabs = $('lesson-levels');
+  if (!tabs) {
+    tabs = document.createElement('div');
+    tabs.id = 'lesson-levels';
+    tabs.className = 'lesson-level-tabs';
+    tabs.setAttribute('role', 'tablist');
+    tabs.addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const index = pianoLessonLevels.findIndex(level => level.id === pianoLessonLevel);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? 2
+        : (index + (event.key === 'ArrowRight' ? 1 : 2)) % 3;
+      changeLessonLevel(pianoLessonLevels[next].id);
+    });
+    list.before(tabs);
+  }
+  tabs.hidden = !piano;
+  tabs.setAttribute('aria-label', t('Pianino pamokų lygiai'));
+  tabs.replaceChildren();
+  if (piano) {
+    list.setAttribute('role', 'tabpanel');
+    list.setAttribute('aria-labelledby', 'lesson-level-' + pianoLessonLevel);
+    for (const level of pianoLessonLevels) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.id = 'lesson-level-' + level.id;
+      button.className = 'lesson-level-tab';
+      button.textContent = t(level.label);
+      button.setAttribute('role', 'tab');
+      button.setAttribute('aria-controls', 'lesson-list');
+      button.setAttribute('aria-selected', String(level.id === pianoLessonLevel));
+      button.tabIndex = level.id === pianoLessonLevel ? 0 : -1;
+      button.addEventListener('click', () => changeLessonLevel(level.id));
+      tabs.append(button);
+    }
+  } else {
+    list.removeAttribute('role');
+    list.removeAttribute('aria-labelledby');
+  }
   list.replaceChildren();
-  for (const definition of lessonsForKit(ACTIVE_KIT)) {
+  list.scrollTop = 0;
+  const definitions = lessonsForKit(ACTIVE_KIT).filter(definition => !piano || (definition.level || 1) === pianoLessonLevel);
+  for (const definition of definitions) {
     const card = document.createElement('article');
     card.className = 'lesson-card' + (lesson?.definition.id === definition.id ? ' is-playing' : '');
     const title = document.createElement('h3');
     title.textContent = t(definition.title);
+    const heading = document.createElement('div');
+    heading.className = 'lesson-heading';
+    heading.append(title);
+    if (definition.composer) {
+      const author = document.createElement('p');
+      author.className = 'lesson-composer';
+      author.textContent = definition.composer;
+      heading.append(author);
+    }
     const speeds = document.createElement('div');
     speeds.className = 'lesson-speeds';
     for (const speed of lessonSpeeds) {
@@ -600,9 +681,17 @@ function renderLessons() {
       decorateAction(stop, 'stop');
       speeds.append(stop);
     }
-    card.append(title, speeds);
+    card.dataset.lessonId = definition.id;
+    card.append(heading, speeds);
     list.append(card);
   }
+  if (typeof ResizeObserver !== 'undefined') {
+    lessonListObserver ||= new ResizeObserver(resizeLessonList);
+    lessonListObserver.disconnect();
+    lessonListObserver.observe(list);
+    for (const card of [...list.children].slice(0, 5)) lessonListObserver.observe(card);
+  }
+  resizeLessonList();
 }
 
 function duration(ms) {
