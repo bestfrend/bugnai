@@ -420,18 +420,19 @@ footer { padding: 24px 0 32px; }
   .piano-keyboard { max-width: none; height: 100%; border-radius: 0; }
   .piano-keyboard .black-key { height: 44%; }
   .piano-keyboard .lesson-sequence { top: 44px; }
-  .stage-kit .drum-sound-controls { position: absolute; z-index: 10; top: 4px; left: 50%; transform: translateX(-50%); margin: 0; padding: 2px 4px; border-radius: 9px; background: #151c2be8; }
+  .stage-kit .drum-sound-controls { position: absolute; z-index: 10; top: 4px; left: 50%; transform: translateX(-50%); margin: 0; padding: 2px 4px; border-radius: 9px; background: #c3c8cdbf; border: 1px solid #ffffff70; box-shadow: 0 8px 24px #35414c26; -webkit-backdrop-filter: blur(32px); backdrop-filter: blur(32px); color: #344350; }
+  .stage-kit .drum-sound-controls .action { background: #ffffff14; border-color: #ffffff80; color: #344350; }
   .stage-kit .lesson-sequence { top: 48px; }
   .piano-kit .piano-octave-controls { position: absolute; z-index: 2; top: 4px; left: 50%; transform: translateX(-50%); margin: 0; padding: 2px 4px; border-radius: 9px; background: #151c2bdb; }
   .recording-bar { width: 100%; height: 100%; }
 
   /* In fullscreen, the scene becomes a clear, thumb-friendly glass control board. */
-  .stage-kit .set:not(.piano-keyboard) { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); grid-template-areas: 'crash high low ride' 'hat snare kick kick'; gap: 5px; padding: 5px; background: radial-gradient(circle at 50% 0, #5c7795, transparent 50%), #142238; }
+  .stage-kit .set:not(.piano-keyboard) { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); grid-template-areas: 'crash high low ride' 'hat snare kick kick'; gap: 5px; padding: 5px; background: #adb3b9; }
   .stage-kit .set:not(.piano-keyboard)::before { display: none; }
-  .stage-kit .set:not(.piano-keyboard) .drum { position: relative; inset: auto; display: flex; width: auto; height: auto; aspect-ratio: auto; padding: 8px; border: 1px solid #ffffffb8; border-radius: 12px; background: linear-gradient(135deg, #ffffffd9, #cfebff94 48%, #ffffff75); box-shadow: inset 0 1px 0 #fff, inset 0 -10px 20px #7bb7d455, 0 0 0 1px #bfeaff55, 0 8px 18px #06111b88; backdrop-filter: blur(9px); color: #12243a; }
-  .stage-kit .set:not(.piano-keyboard) .drum:is(.w, .a, .s, .d, .j, .k, .l) { position: relative; inset: auto; width: auto; height: auto; aspect-ratio: auto; border-color: #ffffffb8; background: linear-gradient(135deg, #ffffffdf, #cfebff9b 48%, #ffffff80); }
+  .stage-kit .set:not(.piano-keyboard) .drum { position: relative; inset: auto; display: flex; width: auto; height: auto; aspect-ratio: auto; padding: 8px; border: 1px solid #ffffffb8; border-radius: 12px; background: #c1c6cb99; box-shadow: inset 0 1px 0 #ffffff60, 0 7px 22px #35414c26; -webkit-backdrop-filter: blur(32px); backdrop-filter: blur(32px); color: #344350; }
+  .stage-kit .set:not(.piano-keyboard) .drum:is(.w, .a, .s, .d, .j, .k, .l) { position: relative; inset: auto; width: auto; height: auto; aspect-ratio: auto; border-color: #ffffffb8; background: #c1c6cb99; }
   .stage-kit .set:not(.piano-keyboard) .drum::before { display: none; }
-  .stage-kit .set:not(.piano-keyboard) .drum::after { top: 13%; left: auto; right: 12%; width: 8px; border: 0; background: #ffffffc4; box-shadow: 0 0 12px 4px #fff; }
+  .stage-kit .set:not(.piano-keyboard) .drum::after { display: none; }
   .stage-kit .set:not(.piano-keyboard) .drum.k { grid-area: crash; }
   .stage-kit .set:not(.piano-keyboard) .drum.w { grid-area: high; }
   .stage-kit .set:not(.piano-keyboard) .drum.a { grid-area: low; }
@@ -439,9 +440,9 @@ footer { padding: 24px 0 32px; }
   .stage-kit .set:not(.piano-keyboard) .drum.s { grid-area: hat; }
   .stage-kit .set:not(.piano-keyboard) .drum.j { grid-area: snare; }
   .stage-kit .set:not(.piano-keyboard) .drum.l { grid-area: kick; }
-  .stage-kit .set:not(.piano-keyboard) .drum .drum-key { font-size: clamp(1.7rem, 5vh, 3rem); color: #164b72; text-shadow: 0 1px #fff; }
-  .stage-kit .set:not(.piano-keyboard) .drum-name { color: #173651; background: #ffffffa8; box-shadow: 0 1px 3px #2a5a7d33; }
-  .stage-kit .set:not(.piano-keyboard) .drum.pressed { transform: scale(.97); filter: brightness(1.14); border-color: #fff; background: linear-gradient(135deg, #fff, #81e8ffb8 52%, #d7fbff); box-shadow: inset 0 0 24px #fff, 0 0 12px 4px #82e8ff, 0 0 34px #4acbff; }
+  .stage-kit .set:not(.piano-keyboard) .drum .drum-key { font: 500 clamp(1.7rem, 5vh, 3rem)/1.2 system-ui, sans-serif; color: #344350; text-shadow: none; }
+  .stage-kit .set:not(.piano-keyboard) .drum-name { color: #344350; background: transparent; box-shadow: none; }
+  .stage-kit .set:not(.piano-keyboard) .drum.pressed { z-index: 3; opacity: 1; transform: none; filter: none; border-color: #fff; background: #fff; box-shadow: inset 0 0 30px #fff, 0 0 28px 8px #ffffffc9, 0 0 56px 16px #ffffff66; }
 }
 
 /* Administration page. */
