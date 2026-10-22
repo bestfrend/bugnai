@@ -170,7 +170,7 @@ Anksčiau paruoštame projekte **SQL Editor** paleiskite papildomą
 [supabase/avatars.sql](supabase/avatars.sql). Naujame projekte pakanka viso
 `supabase/schema.sql` — nuotraukų pakeitimai jau įtraukti.
 
-Savo profiliui galima pasirinkti JPG, PNG ar WebP failą iki 5 MB. Naršyklė iškerpa
+Savo profiliui galima pasirinkti JPG, PNG ar WebP failą be pradinės 5 MB ribos. Naršyklė iškerpa
 centrinį kvadratą ir sumažina jį iki 128 × 128 JPEG. Maža nuotrauka saugoma tiesiogiai
 profilio `avatar_data` lauke (iki 32 KB), todėl papildomo Storage bucket nereikia.
 Duomenų bazė leidžia keisti tik savo nuotrauką; kiti profilio laukai nepakeičiami.

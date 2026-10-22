@@ -108,6 +108,11 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       return reply(null);
     }
     if(url.pathname==='/rest/v1/profiles'){
+      if(method==='PATCH'){
+        const profile=profiles.find(profile=>profile.id===own);
+        Object.assign(profile,req.postDataJSON());
+        return reply([profile]);
+      }
       if(method==='POST'){
         const profile=req.postDataJSON();
         if(profiles.some(existing=>existing.nickname.toLowerCase()===profile.nickname.trim().toLowerCase()))return reply({code:'23505',message:'Nickname is already taken'},409);
@@ -457,6 +462,17 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     assert(await page.locator('.lesson-cue').count(),'the first cue appears after preparation');
     assert.equal(await page.locator('#lesson-sequence .is-current.is-due').count(),1,'the central note is emphasized when it is time to press');
   };
+  // A valid image larger than the former limit must reach the existing resize
+  // path. Extra PNG bytes do not allocate a huge decoded bitmap in this test.
+  const largePhoto=Buffer.concat([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64'),Buffer.alloc(6*1024*1024)]);
+  await page.locator('#avatar-file').setInputFiles({name:'large-photo.png',mimeType:'image/png',buffer:largePhoto});
+  await wait(()=>Promise.resolve(profiles.find(profile=>profile.id===own)?.avatar_data));
+  const avatar=profiles.find(profile=>profile.id===own).avatar_data;
+  assert(avatar.startsWith('data:image/jpeg;base64,'),'large uploads are converted to JPEG');
+  assert(avatar.length<=32768,'only the small optimized avatar is sent to the database');
+  const avatarSize=await page.evaluate(async data=>{const image=new Image();image.src=data;await image.decode();return [image.naturalWidth,image.naturalHeight];},avatar);
+  assert.deepEqual(avatarSize,[128,128],'the original file is resized to the profile dimensions');
+  await wait(()=>page.locator('#my-avatar img').count().then(count=>count===1));
   assert.equal(await page.locator('#show-lesson-sequence').isChecked(),false,'the note sequence is opt-in on a fresh browser');
   assert(await page.locator('#show-lesson-repeat-counts').isChecked(),'key repetition counts are enabled on a fresh browser');
   await page.locator('.lesson-speed').first().click();

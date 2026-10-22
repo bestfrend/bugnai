@@ -1199,8 +1199,8 @@ async function declineLocationRequest() {
 }
 
 async function optimizeAvatar(file) {
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
-    throw new Error('Pasirink JPG, PNG arba WebP nuotrauką iki 5 MB.');
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    throw new Error('Pasirink JPG, PNG arba WebP nuotrauką.');
   }
   const url = URL.createObjectURL(file);
   try {

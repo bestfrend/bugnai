@@ -75,7 +75,7 @@ const swedish = {
   'Pasiektas 50 ritmų limitas. Gali perrašyti arba ištrinti vieną iš savo ritmų.': 'Gränsen på 50 rytmer har nåtts. Spela in igen eller ta bort en av dina rytmer.',
   'Pavadinimas turi būti nuo 1 iki 60 simbolių.': 'Namnet måste vara 1–60 tecken långt.',
   'Ritmo pavadinimas išsaugotas.': 'Namnet har sparats.',
-  'Pasirink JPG, PNG arba WebP nuotrauką iki 5 MB.': 'Välj en JPG-, PNG- eller WebP-bild på högst 5 MB.',
+  'Pasirink JPG, PNG arba WebP nuotrauką.': 'Välj en JPG-, PNG- eller WebP-bild.',
   'Nepavyko perskaityti nuotraukos. Pasirink kitą JPG, PNG arba WebP failą.': 'Kunde inte läsa bilden. Välj en annan JPG-, PNG- eller WebP-fil.',
   'Nuotrauka per didelė. Pasirink mažesnę.': 'Bilden är för stor. Välj en mindre.',
   'Nuotrauka išsaugota.': 'Bilden har sparats.', 'Nuotrauka pašalinta.': 'Bilden har tagits bort.',
