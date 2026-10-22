@@ -522,7 +522,12 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     if(kit==='salamander-v1' && label==='Lėtas'){
       const cueStyle=await page.locator('.lesson-cue').first().evaluate(element=>({outline:getComputedStyle(element).outlineStyle,shadow:getComputedStyle(element).boxShadow}));
       assert.equal(cueStyle.outline,'none','lesson cues have no top or bottom outline');
-      assert.equal(cueStyle.shadow,'rgb(73, 164, 119) 3px 0px 0px 0px inset, rgb(73, 164, 119) -3px 0px 0px 0px inset','piano cues use only crisp left and right edges, with no glow');
+      assert.equal(cueStyle.shadow,'none','the instructional cue itself has no shadow');
+      const cueEdges=await page.locator('.lesson-cue').first().evaluate(key=>{
+        const edge=getComputedStyle(key,'::after');
+        return {left:edge.borderLeftWidth,right:edge.borderRightWidth,top:edge.borderTopWidth,bottom:edge.borderBottomWidth,color:edge.borderLeftColor,shadow:edge.boxShadow};
+      });
+      assert.deepEqual(cueEdges,{left:'3px',right:'3px',top:'0px',bottom:'0px',color:'rgb(73, 164, 119)',shadow:'none'},'only the left and right instructional lines are drawn');
       assert.equal(await page.locator('#lesson-sequence .is-current').innerText(),'Fa','Lithuanian piano sequence shows solfege without keyboard letters');
       await page.locator('#language-select').selectOption('sv');
       await page.clock.runFor(20);
