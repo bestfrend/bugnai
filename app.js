@@ -266,6 +266,12 @@ function beginLesson() {
       if (target > elapsed) break;
       current.next++;
       if (!current.judged.get(cycle)?.has(index)) {
+        // A new instruction must be visible even while the preceding press of
+        // this key is held. Only clear its old visual feedback, not the sound
+        // or the result recorded for that earlier occurrence.
+        if (ACTIVE_KIT === 'salamander-v1') {
+          lessonButton(note.key)?.classList.remove('lesson-correct', 'lesson-early', 'lesson-wrong');
+        }
         const expires = target + lessonResponseWindow(current, index);
         const nextBeat = current.events.find(next => next.beat > note.beat)?.beat;
         const previousBeat = current.events.filter(previous => previous.beat < note.beat).at(-1)?.beat;

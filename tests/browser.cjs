@@ -649,10 +649,17 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       assert.equal(await page.locator('[data-key="e4"]').evaluate(key=>getComputedStyle(key).boxShadow),idleShadow,'the release has no lingering shadow before the repeated cue');
       await pressLessonKey('e4');
       assert(await page.locator('[data-key="e4"]').evaluate(key=>key.classList.contains('lesson-correct')),'the visual release does not shorten the response window');
-      await releaseLessonKey();
       await page.clock.fastForward(advance);
       await page.clock.runFor(20);
       assert.equal(await page.locator('[data-key="e4"].lesson-cue').count(),1,'the same key lights again for its next occurrence');
+      assert.equal(await page.locator('[data-key="e4"].lesson-correct').count(),0,'the previous held success must not cover the next instruction');
+      const nextCue=await page.locator('[data-key="e4"]').evaluate(key=>({edge:getComputedStyle(key,'::after').borderLeftWidth,background:getComputedStyle(key).backgroundColor}));
+      assert.equal(nextCue.edge,tempo==='Greitas'?'1px':'3px','the next instructional side line is visible while the first note is still held');
+      assert.notEqual(nextCue.background,'rgb(140, 213, 189)','the old green success background is cleared');
+      await releaseLessonKey();
+      await pressLessonKey('e4');
+      assert.equal(await page.locator('[data-key="e4"].lesson-correct').count(),1,'the repeated note needs its own successful press');
+      await releaseLessonKey();
       await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
       await page.clock.resume();
     }
