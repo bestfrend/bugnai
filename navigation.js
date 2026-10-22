@@ -1,11 +1,34 @@
-import { ACTIVE_KIT, mountInstrument, suspendInstrument } from './index.js';
+import { ACTIVE_KIT, mountInstrument, suspendInstrument, getKit } from './index.js';
 import { t, applyPageTranslations } from './i18n.js';
 
 const links = [...document.querySelectorAll('[data-kit-link]')];
-const destinations = new Map(links.map(link => [link.dataset.kitLink, new URL(link.href)]));
+const destinations = new Map(Object.entries({
+  'salamander-v1': 'piano.html', 'classic-v1': 'classic.html',
+  'virtuosity-v1': 'studio.html', 'stage-v1': 'stage.html'
+}).map(([id, path]) => [id, new URL(path, location.href)]));
+const drumKits = ['classic-v1', 'virtuosity-v1', 'stage-v1'];
+let lastDrumKit = drumKits.includes(ACTIVE_KIT) ? ACTIVE_KIT : 'stage-v1';
+let requestedKit = ACTIVE_KIT;
 const templates = new Map();
 let requestGeneration = 0;
 let pending = false;
+
+function updateControls() {
+  const drums = document.querySelector('[data-instrument="drums"]');
+  drums.dataset.kitLink = lastDrumKit;
+  drums.href = destinations.get(lastDrumKit);
+  for (const link of links) {
+    if (link.dataset.kitLink === ACTIVE_KIT) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  const label = document.getElementById('drum-sound-label');
+  if (label) label.textContent = t(getKit(ACTIVE_KIT).name);
+  const index = drumKits.indexOf(requestedKit);
+  for (const button of document.querySelectorAll('[data-drum-shift]')) {
+    button.dataset.kitChoice = drumKits[(index + Number(button.dataset.drumShift) + drumKits.length) % drumKits.length];
+  }
+}
+updateControls();
 
 function snapshot(doc) {
   return {
@@ -39,6 +62,7 @@ async function navigate(id, push = true) {
   if (!destinations.has(id)) return;
   if (id === ACTIVE_KIT && !pending && document.querySelector('#audio-status').hidden) return;
   const generation = ++requestGeneration;
+  requestedKit = id;
   pending = true;
   window.dispatchEvent(new Event('instrumentwillchange'));
   suspendInstrument();
@@ -57,14 +81,12 @@ async function navigate(id, push = true) {
     document.body.className = page.className;
     document.body.dataset.kit = id;
     applyPageTranslations();
-    for (const link of links) {
-      if (link.dataset.kitLink === id) link.setAttribute('aria-current', 'page');
-      else link.removeAttribute('aria-current');
-    }
     if (push && location.pathname !== destinations.get(id).pathname) {
       history.pushState(null, '', destinations.get(id));
     }
     const mounted = mountInstrument(id);
+    if (drumKits.includes(id)) lastDrumKit = id;
+    updateControls();
     window.dispatchEvent(new CustomEvent('instrumentchanged', { detail: { kit: id } }));
     await mounted;
   } catch {
@@ -72,6 +94,8 @@ async function navigate(id, push = true) {
     // Keep the current instrument usable after a failed page fetch; never reload login.
     await mountInstrument(ACTIVE_KIT);
     if (generation !== requestGeneration) return;
+    requestedKit = ACTIVE_KIT;
+    updateControls();
     const status = document.querySelector('#status');
     status.dataset.source = 'Instrumento įkelti nepavyko. Patikrink internetą ir bandyk dar kartą.';
     status.textContent = t('Instrumento įkelti nepavyko. Patikrink internetą ir bandyk dar kartą.');
@@ -84,11 +108,19 @@ async function navigate(id, push = true) {
 }
 
 document.addEventListener('click', event => {
+  const shift = event.target.closest('[data-drum-shift]');
+  if (shift) {
+    if (!window.drumAppReady || ACTIVE_KIT === 'salamander-v1') return;
+    const index = drumKits.indexOf(requestedKit);
+    navigate(drumKits[(index + Number(shift.dataset.drumShift) + drumKits.length) % drumKits.length]);
+    return;
+  }
   const link = event.target.closest('a[data-kit-link]');
   if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
   event.preventDefault();
   navigate(link.dataset.kitLink);
 });
+window.addEventListener('languagechange', updateControls);
 window.addEventListener('popstate', () => {
   const id = [...destinations].find(([,url]) => url.pathname === location.pathname)?.[0];
   navigate(id || 'salamander-v1', false);

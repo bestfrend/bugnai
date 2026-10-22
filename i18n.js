@@ -10,7 +10,9 @@ const swedish = {
   'Šie sistemos gestai gali perimti prisilietimus ir nutraukti natas.': 'De här systemgesterna kan ta över pekinmatningen och avbryta tonerna.',
   'Instrumentai': 'Instrument', 'Pianinas · Salamander': 'Piano · Salamander',
   'Klasikiniai būgnai': 'Klassiska trummor', 'Virtuosity būgnai': 'Virtuosity-trummor',
-  'Scena': 'Scen', 'Scenos būgnai': 'Scenkit',
+  'Scena': 'Scen', 'Scenos būgnai': 'Scenkit', 'Studijiniai': 'Studiotrummor',
+  'Būgnų garsų pasirinkimas': 'Välj trumljud',
+  'Ankstesnis būgnų rinkinys': 'Föregående trumset', 'Kitas būgnų rinkinys': 'Nästa trumset',
   'Būgnų 🥁 komplektas': 'Trumset 🥁', 'Salamander pianinas': 'Salamanderpiano',
   'Būgnai': 'Trummor',
   'Jungiamasi…': 'Ansluter…', 'Įvesk vardą': 'Ange ditt namn',
@@ -121,10 +123,8 @@ export function setLanguage(next) {
 }
 
 const staticText = {
-  '[data-kit-link="salamander-v1"]': 'Pianinas · Salamander',
-  '[data-kit-link="classic-v1"]': 'Klasikiniai būgnai',
-  '[data-kit-link="virtuosity-v1"]': 'Virtuosity būgnai',
-  '[data-kit-link="stage-v1"]': 'Scena',
+  '[data-kit-link="salamander-v1"]': 'Pianinas',
+  '[data-instrument="drums"]': 'Būgnai',
   '#login-title': 'Įvesk vardą',
   '#login-form label': 'Vardas',
   '#remove-avatar': 'Pašalinti nuotrauką',
@@ -171,9 +171,9 @@ export function applyPageTranslations() {
   if (welcome) welcome.title = t('Dukart paspausk, kad tvarkytum nuotrauką');
   for (const [selector, source] of Object.entries(staticText)) setText(document.querySelector(selector), source);
   const kit = document.body.dataset.kit;
-  const title = kit === 'salamander-v1' ? 'Salamander pianinas' : kit === 'stage-v1' ? 'Scenos būgnai' : 'Būgnų 🥁 komplektas';
+  const title = kit === 'salamander-v1' ? 'Salamander pianinas' : 'Būgnai';
   setText(document.getElementById('title'), title);
-  document.title = t(kit === 'salamander-v1' ? 'Salamander pianinas' : kit === 'virtuosity-v1' ? 'Virtuosity būgnai' : kit === 'stage-v1' ? 'Scenos būgnai' : 'Būgnai');
+  document.title = t(kit === 'salamander-v1' ? 'Salamander pianinas' : 'Būgnai');
   const version = document.querySelector('.version');
   if (version?.firstChild?.nodeType === Node.TEXT_NODE) version.firstChild.textContent = t('Versija') + ' ';
   for (const button of document.querySelectorAll('.action[data-i18n-source], .avatar-remove[data-i18n-source]')) {
@@ -198,6 +198,9 @@ export function applyPageTranslations() {
   const audio = document.getElementById('audio-status');
   if (audio) audio.textContent = t(audio.dataset.source || (document.body.dataset.kit === 'salamander-v1' ? 'Įkeliami pianino garsai…' : 'Įkeliami būgnų garsai…'));
   const octaveControls = document.querySelector('.piano-octave-controls');
+  document.querySelector('.drum-sound-controls')?.setAttribute('aria-label', t('Būgnų garsų pasirinkimas'));
+  document.querySelector('[data-drum-shift="-1"]')?.setAttribute('aria-label', t('Ankstesnis būgnų rinkinys'));
+  document.querySelector('[data-drum-shift="1"]')?.setAttribute('aria-label', t('Kitas būgnų rinkinys'));
   if (octaveControls) octaveControls.setAttribute('aria-label', t('Pianino aukščio pasirinkimas'));
   const lowerButton = document.querySelector('[data-octave-shift="-1"]');
   if (lowerButton) lowerButton.setAttribute('aria-label', t('Žemesni garsai'));

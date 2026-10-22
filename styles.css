@@ -380,6 +380,10 @@ footer { padding: 24px 0 32px; }
 .piano-octave-controls { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 12px auto 16px; font: 600 12px/1.2 system-ui, sans-serif; color: #c9d6ed; }
 .piano-octave-controls .action { min-height: 36px; padding: 7px 10px; font-size: 12px; line-height: 1; white-space: nowrap; }
 .piano-octave-controls .button-icon { width: 15px; height: 15px; }
+.drum-sound-controls { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 12px auto 16px; font: 600 12px/1.2 system-ui, sans-serif; color: #c9d6ed; }
+.drum-sound-controls .action { min-height: 34px; padding: 6px 9px; }
+.drum-sound-controls .button-icon { width: 16px; height: 16px; }
+.drum-sound-controls output { min-width: 120px; text-align: center; }
 .piano-octave-controls output { min-width: 130px; font-variant-numeric: tabular-nums; }
 .piano-keyboard { --white-width: 12.5%; --black-width: 7.5%; --half-black-width: 3.75%; position: relative; display: flex; width: 100%; max-width: 760px; height: clamp(190px, 36vw, 280px); padding: 0; border: 5px solid #151c2b; border-top-width: 12px; border-radius: 12px; background: #151c2b; box-shadow: 0 14px 25px #1115; touch-action: none; }
 .piano-key { box-sizing: border-box; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; border-radius: 0 0 6px 6px; font-family: system-ui, sans-serif; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 5px; padding: 0 0 14px; font-size: 11px; font-weight: 600; transform-origin: center top; transition: transform 65ms ease-out, box-shadow 90ms ease-out, background 90ms ease-out; }
@@ -416,6 +420,8 @@ footer { padding: 24px 0 32px; }
   .piano-keyboard { max-width: none; height: 100%; border-radius: 0; }
   .piano-keyboard .black-key { height: 44%; }
   .piano-keyboard .lesson-sequence { top: 44px; }
+  .stage-kit .drum-sound-controls { position: absolute; z-index: 10; top: 4px; left: 50%; transform: translateX(-50%); margin: 0; padding: 2px 4px; border-radius: 9px; background: #151c2be8; }
+  .stage-kit .lesson-sequence { top: 48px; }
   .piano-kit .piano-octave-controls { position: absolute; z-index: 2; top: 4px; left: 50%; transform: translateX(-50%); margin: 0; padding: 2px 4px; border-radius: 9px; background: #151c2bdb; }
   .recording-bar { width: 100%; height: 100%; }
 

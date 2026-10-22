@@ -34,7 +34,7 @@ export const KITS = {
     sounds: Object.fromEntries([...'wasdjkl'].map(key=>[key,[0,1,2].map(layer=>`sounds/virtuosity-v1/${key}-${layer}.mp3`)]))
   },
   'stage-v1': {
-    name: 'Scena',
+    name: 'Studijiniai',
     // Fixed CC0 Virtuosity samples: each visual pad maps to its real instrument.
     sounds: Object.fromEntries([...'wasdjkl'].map(key=>[key,[0,1,2].map(layer=>`sounds/virtuosity-v1/${key}-${layer}.mp3`)]))
   }

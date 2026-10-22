@@ -189,11 +189,14 @@ paskutinę žinomą `updated_at` datą, nekeisdama įrašų ar jų atnaujinimo l
 Iki migracijos programa rodo turimą atnaujinimo datą su tai paaiškinančiu tooltip.
 Naujam projektui pakanka viso `supabase/schema.sql`.
 
-### Antras būgnų puslapis: Virtuosity
+### Būgnų garsų rinkiniai
 
-Pradinis `index.html` atveria pianiną. Klasikiniai būgnai yra `classic.html`,
-o Virtuosity – `studio.html`. Prisijungimas, vartotojų sąrašas ir iki 50 ritmų
-biblioteka bendri. `index.html`, `piano.html` ir `studio.html` generuojami iš
+Pradinis `index.html` atveria pianiną. Viršuje yra tik „Pianinas“ ir „Būgnai“.
+Būgnuose rodyklėmis perjungiami „Klasikiniai“, „Virtuosity“ ir „Studijiniai“
+garsai; grįžus iš pianino išlieka tame pačiame puslapyje pasirinktas rinkinys.
+Esami `classic.html`, `studio.html` ir `stage.html` adresai išlieka suderinami
+su senais įrašais. Prisijungimas, vartotojų sąrašas ir iki 50 ritmų biblioteka
+bendri. `index.html`, `piano.html`, `stage.html` ir `studio.html` generuojami iš
 `classic.html` šablono su `python3 scripts/build-studio.py`; įrašymo logika ir
 stiliai visiems bendri. Pakeitus šabloną, prieš naršyklės testus sugeneruokite
 puslapius iš naujo.
@@ -235,9 +238,13 @@ ir pasirinktu tempu. Perklausą galima sustabdyti, o jai pasibaigus pradėti pam
 ar klausyti dar kartą. Pavyzdys neregistruojamas kaip vartotojo atlikimas;
 pradėjus pamoką arba pakeitus instrumentą, perklausa nutraukiama.
 
-### Vizualus „Scena“ komplektas
+### Bendras būgnų dizainas
 
-`stage.html` pateikia būgnus kaip 2D komplektą iš viršaus. Jo garsai yra tie patys
+Visi trys būgnų garsų rinkiniai naudoja tą patį scenos dizainą: vertikaliame
+telefone – 2D komplektą iš viršaus, pasuktame – per visą ekraną išdėstytus
+stiklo stiliaus mygtukus. Garsų pasirinkimo rodyklės prieinamos abiem padėtimis.
+Buvęs „Scena“ rinkinys (`stage-v1`, `stage.html`) vadinamas „Studijiniai“;
+jo garsai yra tie patys
 fiksuoti, trijų stiprumo lygių **Virtuosity Drums** CC0 įrašai: hi-hat, ride ir crash
 lėkštės, aukštas ir žemas tomai, mažasis bei bosinis būgnai. Todėl kiekvienas
 matomas instrumentas turi jam tinkamą garso įrašą, o senų Virtuosity įrašų garsas
@@ -282,7 +289,7 @@ atleidimu, ne paskutinės natos pradžia; akordų atleidimai gali persidengti. I
 migracijos pianino išsaugojimas rodo konkretų SQL failą ir išlaiko bandymą
 pakartotiniam išsaugojimui. Naujam projektui pakanka viso `schema.sql`.
 
-Visų trijų instrumentų prisijungimas ir 50 įrašų limitas bendri. Pianino įrašas
+Abiejų instrumentų prisijungimas ir 50 įrašų limitas bendri. Pianino įrašas
 atkuriamas pianinu ir būgnų puslapyje. `python3 scripts/build-studio.py` generuoja
 kitus tris puslapius iš bendro `classic.html`; GitHub Actions tai atlieka prieš
 publikuodamas ir visiems instrumentų puslapiams suteikia tą pačią versiją.

@@ -1,12 +1,11 @@
-"""Generate both instrument pages from the shared application markup."""
+"""Generate piano and drum sound variants from the shared application markup."""
 import pathlib
 import re
 root = pathlib.Path(__file__).resolve().parents[1]
 page = (root / 'classic.html').read_text(encoding='utf-8')
 page = page.replace('<title>Būgnai</title>', '<title>Virtuosity būgnai</title>')
-page = page.replace('<body data-kit="classic-v1">', '<body data-kit="virtuosity-v1" class="studio-kit">')
-page = page.replace('data-kit-link="classic-v1" aria-current="page"', 'data-kit-link="classic-v1"')
-page = page.replace('data-kit-link="virtuosity-v1"', 'data-kit-link="virtuosity-v1" aria-current="page"')
+page = page.replace('<body data-kit="classic-v1" class="stage-kit">', '<body data-kit="virtuosity-v1" class="stage-kit">')
+page = page.replace('>Klasikiniai</output>', '>Virtuosity</output>')
 page = page.replace('class="sound-credit" hidden', 'class="sound-credit"')
 names = {'w':'Aukštas tomas', 'a':'Žemas tomas', 's':'Užd. hi-hat', 'd':'Ride lėkštė', 'j':'Mažasis būgnas', 'k':'Crash lėkštė', 'l':'Bosinis būgnas'}
 buttons = '\n'.join(f'          <button type="button" class="{key} drum" data-key="{key}" aria-label="{name}, {key.upper()}"><span class="drum-key">{key}</span><span class="drum-name">{name}</span></button>' for key,name in names.items())
@@ -18,10 +17,9 @@ if count != 1: raise SystemExit('Missing shared drum kit markup')
 # top-down drum-set layout and its own saved kit ID.
 page = (root / 'classic.html').read_text(encoding='utf-8')
 page = page.replace('<title>Būgnai</title>', '<title>Scenos būgnai</title>')
-page = page.replace('<body data-kit="classic-v1">', '<body data-kit="stage-v1" class="stage-kit">')
-page = page.replace('data-kit-link="classic-v1" aria-current="page"', 'data-kit-link="classic-v1"')
-page = page.replace('data-kit-link="stage-v1"', 'data-kit-link="stage-v1" aria-current="page"')
-page = page.replace('Būgnų 🥁 komplektas', 'Scenos būgnai')
+page = page.replace('<body data-kit="classic-v1" class="stage-kit">', '<body data-kit="stage-v1" class="stage-kit">')
+
+page = page.replace('>Klasikiniai</output>', '>Studijiniai</output>')
 page = page.replace('class="sound-credit" hidden', 'class="sound-credit"')
 names = {'w':'Aukštas tomas', 'a':'Žemas tomas', 's':'Užd. hi-hat', 'd':'Ride lėkštė', 'j':'Mažasis būgnas', 'k':'Crash lėkštė', 'l':'Bosinis būgnas'}
 buttons = '\n'.join(f'          <button type="button" class="{key} drum" data-key="{key}" aria-label="{name}, {key.upper()}"><span class="drum-key">{key}</span><span class="drum-name">{name}</span></button>' for key,name in names.items())
@@ -32,10 +30,11 @@ if count != 1: raise SystemExit('Missing visual stage kit markup')
 # Piano shares the complete login/library/recording UI with both drum pages.
 page = (root / 'classic.html').read_text(encoding='utf-8')
 page = page.replace('<title>Būgnai</title>', '<title>Salamander pianinas · Alexander Holm</title>')
-page = page.replace('<body data-kit="classic-v1">', '<body data-kit="salamander-v1" class="piano-kit">')
-page = page.replace('data-kit-link="classic-v1" aria-current="page"', 'data-kit-link="classic-v1"')
+page = page.replace('<body data-kit="classic-v1" class="stage-kit">', '<body data-kit="salamander-v1" class="piano-kit">')
+page = page.replace(' data-instrument="drums" aria-current="page"', ' data-instrument="drums"')
 page = page.replace('data-kit-link="salamander-v1"', 'data-kit-link="salamander-v1" aria-current="page"')
-page = page.replace('Būgnų 🥁 komplektas', 'Salamander pianinas')
+page = page.replace('<h1 id="title">Būgnai</h1>', '<h1 id="title">Salamander pianinas</h1>')
+page = re.sub(r'        <div class="drum-sound-controls".*?</div>\n', '', page, count=1, flags=re.S)
 page = page.replace('aria-label="Būgnai"', 'aria-label="Pianinas"')
 page = page.replace('<p class="hint">Paliesk būgnus arba grok klavišais W A S D J K L.</p>\n', '')
 page = page.replace('Įkeliami būgnų garsai…', 'Įkeliami pianino garsai…')

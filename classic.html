@@ -9,16 +9,14 @@
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css?family=Arvo" rel="stylesheet">
 </head>
-<body data-kit="classic-v1">
+<body data-kit="classic-v1" class="stage-kit">
   <header>
     <div class="language-switch"><select id="language-select" aria-label="Language"><option value="lt">🇱🇹 Lietuvių</option><option value="sv">🇸🇪 Svenska</option></select></div>
     <nav class="kit-tabs" aria-label="Instrumentai" hidden>
-      <a href="piano.html" data-kit-link="salamander-v1">Pianinas · Salamander</a>
-      <a href="classic.html" data-kit-link="classic-v1" aria-current="page">Klasikiniai būgnai</a>
-      <a href="studio.html" data-kit-link="virtuosity-v1">Virtuosity būgnai</a>
-      <a href="stage.html" data-kit-link="stage-v1">Scena</a>
+      <a href="piano.html" data-kit-link="salamander-v1">Pianinas</a>
+      <a href="stage.html" data-kit-link="stage-v1" data-instrument="drums" aria-current="page">Būgnai</a>
     </nav>
-    <h1 id="title">Būgnų 🥁 komplektas</h1>
+    <h1 id="title">Būgnai</h1>
   </header>
   <main>
     <p id="status" class="status" role="status" aria-live="polite" data-source=""></p>
@@ -58,6 +56,11 @@
       <section class="kit" aria-label="Būgnai">
         <p class="hint">Paliesk būgnus arba grok klavišais W A S D J K L.</p>
         <p id="audio-status" class="hint" role="status">Įkeliami būgnų garsai…</p>
+        <div class="drum-sound-controls" aria-label="Būgnų garsų pasirinkimas">
+          <button type="button" class="action" data-drum-shift="-1" aria-label="Ankstesnis būgnų rinkinys"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H4m7-7-7 7 7 7"/></svg></button>
+          <output id="drum-sound-label" aria-live="polite">Klasikiniai</output>
+          <button type="button" class="action" data-drum-shift="1" aria-label="Kitas būgnų rinkinys"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-7-7 7 7-7 7"/></svg></button>
+        </div>
         <div class="set">
           <button type="button" class="w drum" data-key="w" aria-label="Pirmas tomas, W"><span class="drum-key">w</span><span class="drum-name">Pirmas tomas</span></button>
           <button type="button" class="a drum" data-key="a" aria-label="Antras tomas, A"><span class="drum-key">a</span><span class="drum-name">Antras tomas</span></button>

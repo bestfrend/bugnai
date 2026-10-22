@@ -20,6 +20,17 @@ async function wait(check){
   throw new Error('Timed out waiting for expected app state');
 }
 
+async function clickInstrument(page,id){
+  let choice=page.locator(`[data-kit-link="${id}"], [data-kit-choice="${id}"]`);
+  if(!await choice.count()){
+    await page.locator('[data-instrument="drums"]').click();
+    await wait(()=>page.locator('body').getAttribute('data-kit').then(kit=>kit!=='salamander-v1'));
+    await wait(()=>page.locator('#audio-status').isHidden());
+    choice=page.locator(`[data-kit-link="${id}"], [data-kit-choice="${id}"]`);
+  }
+  await choice.click();
+}
+
 async function untranslatedPublicText(page){
   return page.evaluate(()=>{
     const remaining=[];
@@ -172,13 +183,14 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await page.locator('#login-form').evaluate(form=>form.requestSubmit());
   assert.match(await page.locator('#status').innerText(),/Ange ett namn/);
   assert.equal(sessionStarts,0,'whitespace name does not start a session');
-  assert.match(await page.locator('[data-kit-link="classic-v1"]').textContent(),/Klassiska trummor/);
+  assert.equal(await page.locator('.kit-tabs a').count(),2,'only piano and drums are top-level tabs');
+  assert.equal(await page.locator('[data-instrument="drums"]').textContent(),'Trummor');
   if(kit==='classic-v1'){
     assert.equal(await page.locator('.drum').first().getAttribute('aria-label'),'Tom 1, W');
   }else if(kit==='virtuosity-v1'){
     assert.equal(await page.locator('.drum-name').first().innerText(),'Hög tom-tom');
   }else if(kit==='stage-v1'){
-    assert.equal(await page.locator('#title').innerText(),'Scenkit');
+    assert.equal(await page.locator('#title').innerText(),'Trummor');
     assert.equal(await page.locator('.stage-kit .drum.s').count(),1,'visual kit keeps a distinct hi-hat pad');
   }
   assert.deepEqual(await untranslatedPublicText(page),[],'login screen is fully translated');
@@ -530,15 +542,15 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   const beforeNavigationPreview=await page.evaluate(()=>window.lessonDemoSounds.length);
   await page.locator('#listen-lesson').click();
   await wait(()=>page.evaluate(count=>window.lessonDemoSounds.length>count,beforeNavigationPreview));
-  const previewAlternate=kit==='salamander-v1'?'classic-v1':'salamander-v1';
-  await page.locator(`[data-kit-link="${previewAlternate}"]`).click();
+  const previewAlternate=kit==='salamander-v1'?'stage-v1':'salamander-v1';
+  await clickInstrument(page,previewAlternate);
   await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===previewAlternate));
   await wait(()=>page.locator('#audio-status').isHidden());
   const afterNavigationPreview=await page.evaluate(()=>window.lessonDemoSounds.length);
   await page.clock.fastForward(3000);
   assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),afterNavigationPreview,'changing instruments cancels the lesson demo');
   assert.equal(await page.locator('#lesson-start').count(),0,'a demo starter does not leak into another instrument');
-  await page.locator(`[data-kit-link="${kit}"]`).click();
+  await clickInstrument(page,kit);
   await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===kit));
   await wait(()=>page.locator('#audio-status').isHidden());
   const lessonInput=kit==='salamander-v1'?await context.newCDPSession(page):null;
@@ -965,7 +977,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert.equal(await page.locator('.lesson-card').count(),4,'switching to piano replaces drum lessons');
   assert.equal(await page.locator('html').getAttribute('lang'),'sv');
   assert.deepEqual(await untranslatedPublicText(page),[],'instrument switch keeps translations');
-  await page.locator(`[data-kit-link="${kit}"]`).click();
+  await clickInstrument(page,kit);
   await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===kit));
   assert.equal(await page.locator('.lesson-card').count(),4,'switching back restores this instrument’s lessons');
   await page.locator('#language-select').selectOption('lt');
@@ -992,12 +1004,23 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   });
   const authBefore=authRequests,sessionsBefore=sessionStarts,loadsBefore=documentLoads;
   const originalFirst=JSON.stringify(recordings.get(own+':1'));
-  const alternate=kit==='virtuosity-v1'?'classic-v1':'virtuosity-v1';
+  const navigationKit=kit==='salamander-v1'?'stage-v1':kit;
+  await clickInstrument(page,navigationKit);
+  await wait(()=>page.locator('body').getAttribute('data-kit').then(id=>id===navigationKit));
+  await wait(()=>page.locator('#audio-status').isHidden());
+  const alternate=navigationKit==='virtuosity-v1'?'classic-v1':'virtuosity-v1';
   const alternateFile=alternate==='classic-v1'?'classic.html':'studio.html';
   const choose=async id=>{
-    await page.locator(`[data-kit-link="${id}"]`).click();
+    await clickInstrument(page,id);
     await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===id));
     await wait(()=>page.locator('#audio-status').isHidden());
+    assert.equal(await page.locator('.kit-tabs a').count(),2,'sound choices never add instrument tabs');
+    if(id!=='salamander-v1'){
+      assert.equal(await page.locator('body.stage-kit').count(),1,'all drum sounds share the stage design');
+      assert.equal(await page.locator('[data-drum-shift]').count(),2,'previous and next sound controls stay available');
+      const label={'classic-v1':'Klasikiniai','virtuosity-v1':'Virtuosity','stage-v1':'Studijiniai'}[id];
+      assert.equal(await page.locator('#drum-sound-label').innerText(),label,'the selected sound collection is visible');
+    }
   };
   const playCurrent=async()=>{
     const current=await page.locator('body').getAttribute('data-kit');
@@ -1016,9 +1039,9 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   // A failed fragment fetch leaves the current instrument usable and does not reload login.
   await context.route(base+'/'+alternateFile,route=>route.abort());
   await playCurrent();
-  await page.locator(`[data-kit-link="${alternate}"]`).click();
+  await clickInstrument(page,alternate);
   await wait(()=>page.locator('#status').innerText().then(text=>text.includes('Instrumento įkelti nepavyko')));
-  assert.equal(await page.locator('body').getAttribute('data-kit'),kit);
+  assert.equal(await page.locator('body').getAttribute('data-kit'),navigationKit);
   await wait(()=>page.locator('#audio-status').isHidden());
   await context.unroute(base+'/'+alternateFile);
   const notesBefore=await page.evaluate(()=>window.liveNotes);
@@ -1027,13 +1050,13 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   // A slow earlier response must not replace the user's newer selection.
   let delayed;
   await context.route(base+'/'+alternateFile,route=>{delayed=route;});
-  await page.locator(`[data-kit-link="${alternate}"]`).click();
+  await clickInstrument(page,alternate);
   await wait(()=>!!delayed);
-  await choose(kit);
+  await choose(navigationKit);
   await delayed.fulfill({contentType:'text/html',body:await fs.readFile(path.join(root,alternateFile),'utf8')});
   await context.unroute(base+'/'+alternateFile);
   await page.clock.runFor(100);
-  assert.equal(await page.locator('body').getAttribute('data-kit'),kit);
+  assert.equal(await page.locator('body').getAttribute('data-kit'),navigationKit);
 
   for(const next of [alternate,'salamander-v1','classic-v1','virtuosity-v1','stage-v1',kit]){
     if(await page.locator('body').getAttribute('data-kit')===next)continue;
@@ -1055,14 +1078,15 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await playCurrentLongEnough();
   await page.clock.fastForward(12000);
   await wait(()=>page.locator('#recording-bar').isVisible());
-  await choose(alternate);
+  const reviewAlternate=kit==='salamander-v1'?await page.locator('[data-instrument="drums"]').getAttribute('data-kit-link'):'salamander-v1';
+  await choose(reviewAlternate);
   assert(await page.locator('#recording-bar').isHidden());
   assert.equal(saves,1);
   await page.goBack();
   await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===kit));
   await wait(()=>page.locator('#audio-status').isHidden());
   await page.goForward();
-  await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===alternate));
+  await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===reviewAlternate));
   await wait(()=>page.locator('#audio-status').isHidden());
   // A held piano note is released and discarded when changing instruments.
   await choose('salamander-v1');
