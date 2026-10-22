@@ -342,9 +342,9 @@ footer { padding: 24px 0 32px; }
 .lesson-speed.is-selected:disabled { opacity: 1; border-color: #8de6ff; background: #244758; color: #e4fbff; }
 .kit .set [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: 2px solid #bff8ff; outline-offset: -2px; filter: brightness(1.25) saturate(1.15); box-shadow: inset 0 0 24px #eaffff, 0 0 13px 4px #61ddff !important; }
 /* Original glow above remains available via data-lesson-cue-style="glow". */
-.kit .piano-keyboard[data-lesson-cue-style="soft"] [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: 3px solid #49a477; outline-offset: -3px; filter: brightness(1.1); box-shadow: none !important; transition-property: transform, background; }
+.kit .piano-keyboard[data-lesson-cue-style="soft"] [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: none; filter: brightness(1.1); box-shadow: inset 3px 0 0 #49a477, inset -3px 0 0 #49a477 !important; transition-property: transform, background; }
 .kit .piano-keyboard[data-lesson-cue-style="soft"] .white-key.lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { background: linear-gradient(#f5f8fa, #fff 65%, #f3f7f9); }
-.kit .piano-keyboard[data-lesson-cue-style="soft"][data-lesson-speed="fast"] [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: 1px solid #e4f1f8; outline-offset: -1px; filter: brightness(1.08); box-shadow: inset 0 0 7px #ffffff90, 0 0 4px 1px #e9f5ff70 !important; }
+.kit .piano-keyboard[data-lesson-cue-style="soft"][data-lesson-speed="fast"] [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: none; filter: brightness(1.08); box-shadow: inset 1px 0 0 #e4f1f8, inset -1px 0 0 #e4f1f8 !important; }
 .kit .set [data-key].lesson-correct, .kit .set [data-key].lesson-early, .kit .set [data-key].lesson-wrong { transition: none; }
 .kit .set [data-key].lesson-correct { background: #8cd5bd !important; }
 .kit .set [data-key].lesson-early { background: #f1ce78 !important; }

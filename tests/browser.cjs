@@ -520,8 +520,9 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     const expected=kit==='salamander-v1'?'f4':'j';
     assert(await page.locator(`.kit .set [data-key="${expected}"]`).evaluate(element=>element.classList.contains('lesson-cue')),`${label} shows notes at the new tempo`);
     if(kit==='salamander-v1' && label==='Lėtas'){
-      const cueStyle=await page.locator('.lesson-cue').first().evaluate(element=>({outline:getComputedStyle(element).outlineWidth,color:getComputedStyle(element).outlineColor,shadow:getComputedStyle(element).boxShadow}));
-      assert.deepEqual(cueStyle,{outline:'3px',color:'rgb(73, 164, 119)',shadow:'none'},'piano cues use a thicker green outline without the old glow');
+      const cueStyle=await page.locator('.lesson-cue').first().evaluate(element=>({outline:getComputedStyle(element).outlineStyle,shadow:getComputedStyle(element).boxShadow}));
+      assert.equal(cueStyle.outline,'none','lesson cues have no top or bottom outline');
+      assert.equal(cueStyle.shadow,'rgb(73, 164, 119) 3px 0px 0px 0px inset, rgb(73, 164, 119) -3px 0px 0px 0px inset','piano cues use only crisp left and right edges, with no glow');
       assert.equal(await page.locator('#lesson-sequence .is-current').innerText(),'Fa','Lithuanian piano sequence shows solfege without keyboard letters');
       await page.locator('#language-select').selectOption('sv');
       await page.clock.runFor(20);
