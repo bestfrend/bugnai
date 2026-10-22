@@ -410,7 +410,7 @@ footer { padding: 24px 0 32px; }
 .piano-key:focus-visible { outline: 3px solid #de4a90; outline-offset: -4px; }
 .piano-key[aria-disabled="true"] { opacity: .55; cursor: wait; }
 .piano-credit { max-width: 520px; margin: 14px auto; color: #b6c5dd; line-height: 1.8; }
-.piano-credit span { font-size: 9px; }
+.piano-credit .piano-credit-description { font-size: 9px; }
 .piano-credit a { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 400px) { .kit-tabs { gap: 2px; } .kit-tabs a { padding: 6px 3px; font-size: 11px; } .piano-keyboard { border-width: 3px; border-top-width: 10px; } .black-key { font-size: 8px; } .piano-octave-controls { gap: 5px; } .piano-octave-controls .action { padding: 7px 6px; } .piano-octave-controls output { min-width: 110px; font-size: 11px; } }
 

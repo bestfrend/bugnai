@@ -142,8 +142,8 @@ const staticText = {
   '#location-request-dialog > p:first-of-type': 'Administratorius prašo vieną kartą gauti dabartinę jūsų vietą. Patvirtinus naršyklė dar paprašys vietos leidimo. Nuolatinis sekimas nebus įjungtas.',
   'footer > div:first-child': 'Kurta su ❤️ Londone',
   '.sound-credit a[href*="LICENSE"]': 'Garsai: Virtuosity Drums · CC0',
-  '.piano-credit a[href*="github.com"]': 'Garsų šaltinis',
-  '.piano-credit span': 'Atrinkti mėginiai, natų aukščio keitimas ir atleidimo gaubtinė.'
+  '.piano-credit .piano-source-label': 'Garsų šaltinis',
+  '.piano-credit .piano-credit-description': 'Atrinkti mėginiai, natų aukščio keitimas ir atleidimo gaubtinė.'
 };
 
 function setText(element, source) {
