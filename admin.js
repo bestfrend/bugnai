@@ -11,6 +11,7 @@ let stopLiveUpdates;
 let liveRefreshTimer;
 let refreshGeneration = 0;
 let pendingRefreshTimer;
+const deletingMembers = new Set();
 function readDisconnectKeys(key) {
   try {
     const keys = JSON.parse(sessionStorage.getItem(key) || '[]');
@@ -80,6 +81,28 @@ async function adminRpc(name, parameters = {}) {
 
 function listMembers() {
   return adminRpc('admin_list_members');
+}
+
+async function deleteMember(member) {
+  if (deletingMembers.has(member.id)) return;
+  if (!window.confirm(`Ištrinti vartotoją „${member.nickname}“ ir visus jo ritmus, nuotrauką bei vietos istoriją? Šio veiksmo atšaukti negalima.`)) return;
+  deletingMembers.add(member.id);
+  render();
+  try {
+    await adminRpc('admin_delete_member', { p_member_id: member.id });
+    // Invalidate any list fetched before deletion so it cannot restore the row.
+    refreshGeneration++;
+    members = members.filter(item => item.id !== member.id);
+    render();
+    if (await refresh(true)) setStatus(`Vartotojas „${member.nickname}“ ištrintas.`);
+  } catch (error) {
+    setStatus(error.status === 404
+      ? 'Ištrynimas neparuoštas arba vartotojas jau ištrintas. Supabase SQL Editor paleiskite admin-delete-member.sql ir atnaujinkite sąrašą.'
+      : error.message, true);
+  } finally {
+    deletingMembers.delete(member.id);
+    render();
+  }
 }
 
 async function requestExactLocation(memberId, button) {
@@ -224,6 +247,7 @@ function render() {
     const joined = document.createElement('td');
     joined.textContent = formatDate(member.created_at);
     const controls = document.createElement('td');
+    controls.className = 'admin-member-actions';
     if (pendingLocation(member)) {
       const cancel = document.createElement('button');
       cancel.type = 'button';
@@ -241,6 +265,13 @@ function render() {
       request.addEventListener('click', () => requestExactLocation(member.id, request));
       controls.append(request);
     }
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'action danger admin-delete-member';
+    remove.textContent = deletingMembers.has(member.id) ? 'Trinama…' : 'Ištrinti vartotoją';
+    remove.disabled = deletingMembers.has(member.id);
+    remove.addEventListener('click', () => deleteMember(member));
+    controls.append(remove);
     row.append(identity, state, sessionStarted, device, approximate, exact, rhythms, joined, controls);
     body.append(row);
   }

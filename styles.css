@@ -457,6 +457,8 @@ footer { padding: 24px 0 32px; }
 .admin-table th, .admin-table td { padding: 14px 16px; border-bottom: 1px solid #46536e; vertical-align: middle; }
 .admin-table th { color: #b7c4df; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
 .admin-table td { font-size: 14px; }
+.admin-member-actions .action { display: block; white-space: nowrap; }
+.admin-member-actions .admin-delete-member { margin-top: 8px; min-height: 28px; padding: 4px 8px; font-size: 11px; }
 .admin-table td strong, .admin-table td small { display: block; }
 .admin-table .exact-location-cell { min-width: 285px; }
 .coordinate-actions { display: flex; align-items: center; gap: 10px; white-space: nowrap; }

@@ -407,3 +407,36 @@ test('private device data and consent-based location requests are admin-only',as
   const duringOutage=(await db.query("select * from admin_list_members('test-admin-code') where id=$1",[alice])).rows[0];
   assert.equal(duringOutage.exact_latitude,55.4,'notification failure must not prevent saving consented coordinates');
 });
+
+test('only the administrator can delete an account and its data, preserving other members',async()=>{
+  const removed='33333333-3333-4333-8333-333333333333';
+  await db.exec('reset role');
+  const migration=readFileSync('supabase/admin-delete-member.sql','utf8');
+  await db.exec(migration);
+  await db.exec(migration);
+  await db.query('insert into auth.users values($1)',[removed]);
+  await user(removed);
+  await db.query('insert into profiles(id,nickname,avatar_data) values($1,$2,$3)',[removed,'Ištrinamas','data:image/jpeg;base64,/9j/2Q==']);
+  await insert(removed,1);
+  await db.query("select start_member_session('Telefonas','Android','Chrome','Vilnius')");
+  await db.exec('reset role; set role anon');
+  await db.query("select admin_request_location('test-admin-code',$1)",[removed]);
+  for(const role of ['anon','authenticated']){
+    await db.exec('reset role; set role '+role);
+    for(const code of [null,'','wrong'])await assert.rejects(db.query('select admin_delete_member($1,$2)',[code,removed]),{code:'42501'});
+    await assert.rejects(db.query('delete from auth.users where id=$1',[removed]),{code:'42501'});
+  }
+  await db.exec('reset role');
+  for(const [table,key] of [['auth.users','id'],['public.profiles','id'],['public.performances','owner_id'],['public.member_presence','member_id'],['public.location_requests','member_id']]){
+    assert.equal((await db.query(`select count(*)::int as n from ${table} where ${key}=$1`,[removed])).rows[0].n,1);
+  }
+  const before=(await db.query('select id from profiles where id<>$1 order by id',[removed])).rows;
+  await db.exec('set role anon');
+  await db.query("select admin_delete_member('test-admin-code',$1)",[removed]);
+  await assert.rejects(db.query("select admin_delete_member('test-admin-code',$1)",[removed]),{code:'P0002'});
+  await db.exec('reset role');
+  for(const [table,key] of [['auth.users','id'],['public.profiles','id'],['public.performances','owner_id'],['public.member_presence','member_id'],['public.location_requests','member_id']]){
+    assert.equal((await db.query(`select count(*)::int as n from ${table} where ${key}=$1`,[removed])).rows[0].n,0);
+  }
+  assert.deepEqual((await db.query('select id from profiles order by id')).rows,before);
+});

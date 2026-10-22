@@ -33,6 +33,13 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## Administratoriaus panelė
 
+Vartotojų ištrynimui Supabase SQL Editor paleiskite
+[supabase/admin-delete-member.sql](supabase/admin-delete-member.sql) po `member-insights.sql`.
+Mygtukas „Ištrinti vartotoją“ prašo patvirtinimo ir, patikrinus administratoriaus
+kodą serveryje, negrįžtamai pašalina paskyrą, ritmus, nuotrauką, aktyvumą bei vietos
+istoriją. Tai nėra vartotojo blokavimas: vėliau jis gali susikurti naują paskyrą.
+Šis papildymas nekeičia esamos vietos nustatymo tvarkos.
+
 Administravimo panelė atveriama adresu `https://bestfrend.github.io/bugnai/admin.html`. Administratorius įveda privatų
 kodą, kuris nėra įrašytas į naršyklės failus. Supabase saugo tik jo `bcrypt` maišą,
 be viešos skaitymo teisės.

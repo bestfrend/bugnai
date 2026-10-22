@@ -1196,6 +1196,8 @@ async function adminScenario(browser){
   let locationAccuracy=8;
   let disconnectedMember=false,disconnectCancellations=0;
   let memberListRequests=0;
+  let deleteAttempts=0,deleteFails=false;
+  const deletedMembers=new Set();
   let liveSocket;
   let liveJoins=0;
   await page.routeWebSocket('wss://hsqsjxnotqpoodvnxecv.supabase.co/realtime/v1/websocket*',socket=>{
@@ -1213,6 +1215,14 @@ async function adminScenario(browser){
     topic:'realtime:admin-location-updates',event:'broadcast',payload:{event:'location_changed',payload:{}}
   }));
   await context.route('https://hsqsjxnotqpoodvnxecv.supabase.co/**',route=>{
+    if(new URL(route.request().url()).pathname.endsWith('/admin_delete_member')){
+      deleteAttempts++;
+      const body=route.request().postDataJSON();
+      assert.equal(body.p_code,'test-admin-code-123');
+      assert.equal(body.p_member_id,other);
+      if(!deleteFails)deletedMembers.add(body.p_member_id);
+      return route.fulfill({status:deleteFails?503:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:deleteFails?JSON.stringify({message:'Try again'}):'null'});
+    }
     if(new URL(route.request().url()).pathname.endsWith('/admin_cancel_location_request')){
       disconnectCancellations++;
       locationStatus='cancelled';
@@ -1223,7 +1233,7 @@ async function adminScenario(browser){
       {id:own,nickname:'Ritmas',created_at:new Date().toISOString(),last_seen_at:disconnectedMember?'2026-01-01T00:00:00Z':new Date().toISOString(),location_requested_at:'2026-10-21T10:00:00Z',rhythm_count:1,device_type:'Telefonas',os_name:'Android',browser_name:'Chrome',approx_location:'Vilnius, Lietuva',location_status:locationStatus,exact_latitude:54.680123,exact_longitude:25.280456,exact_accuracy_m:locationAccuracy,location_captured_at:'2026-10-15T12:30:00Z'},
       {id:other,nickname:'Atsijungęs',created_at:new Date().toISOString(),last_seen_at:'2026-01-01T00:00:00Z',rhythm_count:0,location_status:null}
     ];
-    route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify(rows)});
+    route.fulfill({status:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify(rows.filter(row=>!deletedMembers.has(row.id)))});
   });
   await page.goto(`http://127.0.0.1:${server.address().port}/admin.html`);
   await page.locator('#admin-code').fill('test-admin-code-123');
@@ -1250,7 +1260,7 @@ async function adminScenario(browser){
   await coordinates.click();
   assert.equal(await page.evaluate(()=>window.copiedCoordinate),'54.680123, 25.280456');
   assert.match(await page.locator('#admin-status').innerText(),/nukopijuotos/);
-  const offlineRequest=page.locator('#member-rows tr').filter({hasText:'Atsijungęs'}).getByRole('button');
+  const offlineRequest=page.locator('#member-rows tr').filter({hasText:'Atsijungęs'}).getByRole('button',{name:'Vartotojas neprisijungęs',exact:true});
   assert.equal(await offlineRequest.innerText(),'Vartotojas neprisijungęs');
   assert(await offlineRequest.isDisabled());
   locationStatus='browser_denied';
@@ -1298,6 +1308,26 @@ async function adminScenario(browser){
   await page.locator('#admin-refresh').click();
   assert.equal(disconnectCancellations,1,'a disconnected request is cancelled once, without automatically resending anything');
   assert.equal(await page.getByRole('button',{name:'Atšaukti prašymą',exact:true}).count(),0);
+  const removeMember=()=>page.locator('#member-rows tr').filter({hasText:other}).getByRole('button',{name:'Ištrinti vartotoją',exact:true});
+  page.once('dialog',dialog=>dialog.dismiss());
+  await removeMember().click();
+  assert.equal(deleteAttempts,0,'cancelling confirmation sends no deletion request');
+  deleteFails=true;
+  page.once('dialog',dialog=>dialog.accept());
+  await removeMember().click();
+  await wait(()=>deleteAttempts===1);
+  await wait(()=>page.locator('#admin-status').innerText().then(text=>text==='Try again'));
+  assert.equal(await page.locator('#member-rows tr').count(),2,'failed deletion preserves the member');
+  assert(await removeMember().isEnabled(),'failed deletion can be retried manually');
+  deleteFails=false;
+  page.once('dialog',dialog=>{assert.match(dialog.message(),/visus jo ritmus/);return dialog.accept();});
+  await removeMember().click();
+  await wait(()=>page.locator('#member-rows tr').count().then(count=>count===1));
+  await wait(()=>page.locator('#admin-status').innerText().then(text=>text.includes('ištrintas')));
+  assert.equal(deleteAttempts,2);
+  assert.match(await page.locator('#member-rows').innerText(),/Ritmas/,'other members remain');
+  await page.locator('#admin-refresh').click();
+  assert.equal(await page.locator('#member-rows tr').count(),1,'deleted members remain absent after refresh');
   console.log('PASS admin member list');
   await context.close();
 }
