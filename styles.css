@@ -344,6 +344,7 @@ footer { padding: 24px 0 32px; }
 /* Original glow above remains available via data-lesson-cue-style="glow". */
 .kit .piano-keyboard[data-lesson-cue-style="soft"] [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: 3px solid #49a477; outline-offset: -3px; filter: brightness(1.1); box-shadow: none !important; transition-property: transform, background; }
 .kit .piano-keyboard[data-lesson-cue-style="soft"] .white-key.lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { background: linear-gradient(#f5f8fa, #fff 65%, #f3f7f9); }
+.kit .piano-keyboard[data-lesson-cue-style="soft"][data-lesson-speed="fast"] [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: 1px solid #e4f1f8; outline-offset: -1px; filter: brightness(1.08); box-shadow: inset 0 0 7px #ffffff90, 0 0 4px 1px #e9f5ff70 !important; }
 .kit .set [data-key].lesson-correct, .kit .set [data-key].lesson-early, .kit .set [data-key].lesson-wrong { transition: none; }
 .kit .set [data-key].lesson-correct { background: #8cd5bd !important; }
 .kit .set [data-key].lesson-early { background: #f1ce78 !important; }

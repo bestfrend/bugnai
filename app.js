@@ -117,6 +117,7 @@ function stopLesson() {
   stopLessonPreview();
   removeLessonStarter();
   $('lesson-sequence')?.remove();
+  document.querySelector('.piano-keyboard')?.removeAttribute('data-lesson-speed');
   document.querySelector('.kit')?.classList.remove('lesson-active');
   if (!lesson) return;
   clearTimeout(lesson.practiceTimer);
@@ -348,7 +349,10 @@ function renderLessonSequence(current, elapsed) {
   const set = document.querySelector('.kit .set');
   if (!set) return;
   // Set to "glow" to restore the original piano lesson cue, retained in styles.css.
-  if (ACTIVE_KIT === 'salamander-v1') set.dataset.lessonCueStyle ||= 'soft';
+  if (ACTIVE_KIT === 'salamander-v1') {
+    set.dataset.lessonCueStyle ||= 'soft';
+    if (set.dataset.lessonSpeed !== current.speed.id) set.dataset.lessonSpeed = current.speed.id;
+  }
   let strip = $('lesson-sequence');
   if (!strip) {
     strip = document.createElement('div');
