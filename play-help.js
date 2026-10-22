@@ -1,14 +1,23 @@
 import { t } from './i18n.js';
 
 const SEQUENCE_SETTING = 'bugnai.lesson-sequence';
+const REPEAT_COUNTS_SETTING = 'bugnai.lesson-repeat-counts';
 export let lessonSequenceVisible = localStorage.getItem(SEQUENCE_SETTING) === 'true';
+export let lessonRepeatCountsVisible = localStorage.getItem(REPEAT_COUNTS_SETTING) !== 'false';
 
 const toolbar = document.querySelector('.language-switch');
 if (toolbar) {
   const menu = document.createElement('details');
   menu.className = 'play-help-menu';
-  menu.innerHTML = '<summary><span id="play-help-menu-label"></span></summary><div class="play-help-dropdown"><button id="open-play-help" class="action" type="button" aria-haspopup="dialog" aria-controls="play-help-dialog"></button><label class="play-help-toggle"><input id="show-lesson-sequence" type="checkbox"><span id="lesson-sequence-setting-label"></span></label></div>';
+  menu.innerHTML = '<summary><span id="play-help-menu-label"></span></summary><div class="play-help-dropdown"><button id="open-play-help" class="action" type="button" aria-haspopup="dialog" aria-controls="play-help-dialog"></button><label class="play-help-toggle"><input id="show-lesson-repeat-counts" type="checkbox"><span id="lesson-repeat-counts-setting-label"></span></label><label class="play-help-toggle"><input id="show-lesson-sequence" type="checkbox"><span id="lesson-sequence-setting-label"></span></label></div>';
   toolbar.prepend(menu);
+  const repeatCountsToggle = document.getElementById('show-lesson-repeat-counts');
+  repeatCountsToggle.checked = lessonRepeatCountsVisible;
+  repeatCountsToggle.addEventListener('change', () => {
+    lessonRepeatCountsVisible = repeatCountsToggle.checked;
+    localStorage.setItem(REPEAT_COUNTS_SETTING, String(lessonRepeatCountsVisible));
+    window.dispatchEvent(new Event('lessonrepeatcountschange'));
+  });
   const sequenceToggle = document.getElementById('show-lesson-sequence');
   sequenceToggle.checked = lessonSequenceVisible;
   sequenceToggle.addEventListener('change', () => {
@@ -26,6 +35,7 @@ if (toolbar) {
 
   const text = {
     'play-help-menu-label': 'Meniu',
+    'lesson-repeat-counts-setting-label': 'Rodyti pasikartojimų skaičius ant klavišų',
     'lesson-sequence-setting-label': 'Rodyti natų seką mokantis',
     'open-play-help': 'Prieš grojant',
     'play-help-title': 'Prieš grojant',

@@ -1,5 +1,5 @@
 import './navigation.js';
-import { lessonSequenceVisible } from './play-help.js';
+import { lessonSequenceVisible, lessonRepeatCountsVisible } from './play-help.js';
 import * as db from './database.js';
 import { prepareAudio, hitDrum, stopAudio, soundDuration, ACTIVE_KIT, DEFAULT_KIT, getKit, releasePianoKeys } from './index.js';
 import { t, setLanguage, applyPageTranslations, language } from './i18n.js';
@@ -104,6 +104,7 @@ function action(label, handler, className = '') {
 }
 
 function clearLessonCues() {
+  document.querySelectorAll('.lesson-repeat-count').forEach(label => label.remove());
   for (const button of document.querySelectorAll('.lesson-cue, .lesson-correct, .lesson-early, .lesson-wrong, [data-lesson-repeat]')) {
     button.classList.remove('lesson-cue', 'lesson-correct', 'lesson-early', 'lesson-wrong');
     button.removeAttribute('data-lesson-repeat');
@@ -369,7 +370,39 @@ function lessonSequenceLabel(key) {
   return shortcut ? `${name} · ${shortcut}` : name;
 }
 
+function renderLessonRepeatCounts(current, elapsed) {
+  const counts = new Map();
+  if (lessonRepeatCountsVisible && ACTIVE_KIT === 'salamander-v1' && current.events.every(note => lessonButton(note.key))) {
+    const target = current.pending[0]?.target ?? nextLessonBeat(current, elapsed)?.target;
+    if (target !== undefined) {
+      const cycleMs = lessonCycleMs(current);
+      const cycle = Math.floor(target / cycleMs);
+      const groupIndex = current.groups.findIndex(group => Math.abs(cycle * cycleMs + group.beat * current.speed.beatMs - target) < .01);
+      const run = current.runs[current.groupToRun[groupIndex]];
+      for (const index of run?.indices || []) {
+        if (!current.judged.get(cycle)?.has(index)) {
+          const key = current.events[index].key;
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
+      }
+    }
+  }
+  for (const button of document.querySelectorAll('.piano-keyboard [data-key]')) {
+    const count = counts.get(button.dataset.key) || 0;
+    let label = button.querySelector('.lesson-repeat-count');
+    if (count <= 1) { label?.remove(); continue; }
+    if (!label) {
+      label = document.createElement('span');
+      label.className = 'lesson-repeat-count';
+      label.setAttribute('aria-hidden', 'true');
+      button.append(label);
+    }
+    if (label.textContent !== String(count)) label.textContent = String(count);
+  }
+}
+
 function renderLessonSequence(current, elapsed) {
+  renderLessonRepeatCounts(current, elapsed);
   const set = document.querySelector('.kit .set');
   if (!set) return;
   // Set to "glow" to restore the original piano lesson cue, retained in styles.css.
@@ -430,6 +463,10 @@ function renderLessonSequence(current, elapsed) {
     strip.append(item);
   }
 }
+
+window.addEventListener('lessonrepeatcountschange', () => {
+  if (lesson && lesson.started !== null) renderLessonRepeatCounts(lesson, performance.now() - lesson.started);
+});
 
 window.addEventListener('lessonsequencechange', () => {
   if (lesson && lesson.started !== null) renderLessonSequence(lesson, performance.now() - lesson.started);
@@ -498,6 +535,7 @@ function scoreLessonHit(key) {
     current.pending = current.pending.filter(note => note.key !== key || note.target !== target);
     if (!current.pending.some(note => note.key === key)) lessonButton(key)?.classList.remove('lesson-cue');
   }
+  renderLessonRepeatCounts(current, performance.now() - current.started);
   flashLessonResult(current, key, result);
 }
 

@@ -446,6 +446,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     assert.equal(await page.locator('#lesson-sequence .is-current.is-due').count(),1,'the central note is emphasized when it is time to press');
   };
   assert.equal(await page.locator('#show-lesson-sequence').isChecked(),false,'the note sequence is opt-in on a fresh browser');
+  assert(await page.locator('#show-lesson-repeat-counts').isChecked(),'key repetition counts are enabled on a fresh browser');
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
   await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
@@ -453,7 +454,22 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await page.clock.runFor(20);
   assert(await page.locator('#lesson-sequence').isHidden(),'lessons hide the sequence until the user enables it');
   assert(await page.locator('.lesson-cue').count(),'keyboard cues continue when the note sequence is hidden');
+  if(kit==='salamander-v1'){
+    const count=page.locator('[data-key="e4"] .lesson-repeat-count');
+    assert.equal(await count.textContent(),'2','a repeated piano cue shows two presses even while the sequence is hidden');
+    assert(await count.isVisible(),'the count is visible with the cue');
+    const placement=await count.evaluate(label=>{const style=getComputedStyle(label);const key=label.parentElement.getBoundingClientRect(),box=label.getBoundingClientRect();return {color:style.color,centered:Math.abs((box.x+box.width/2)-(key.x+key.width/2))<2&&Math.abs((box.y+box.height/2)-(key.y+key.height/2))<2};});
+    assert.equal(placement.color,'rgb(36, 48, 68)','white keys have dark numbers');
+    assert(placement.centered,'the number is centered on the key');
+  }
   await page.locator('.play-help-menu summary').click();
+  await page.locator('#show-lesson-repeat-counts').uncheck();
+  assert.equal(await page.locator('.lesson-repeat-count').count(),0,'repetition counts can be hidden independently of the sequence');
+  await page.locator('#show-lesson-repeat-counts').check();
+  if(kit==='salamander-v1')assert.equal(await page.locator('[data-key="e4"] .lesson-repeat-count').textContent(),'2','turning the setting back on restores the remaining count');
+  await page.locator('#language-select').selectOption('sv');
+  assert.equal(await page.locator('#lesson-repeat-counts-setting-label').textContent(),'Visa antalet upprepningar på tangenterna','the repetition setting is translated into Swedish');
+  await page.locator('#language-select').selectOption('lt');
   await page.locator('#show-lesson-sequence').check();
   assert(await page.locator('#lesson-sequence').isVisible(),'the menu can show the sequence during practice');
   assert.equal(await page.evaluate(()=>localStorage.getItem('bugnai.lesson-sequence')),'true','the preference is saved');
@@ -636,8 +652,13 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
     await startSelectedLesson();
     await page.clock.fastForward(2900);
-    for(const result of ['early','early','correct','early','early']){
+    assert.equal(await page.locator('[data-key="e4"] .lesson-repeat-count').textContent(),'5','missed repetitions remain included in the count');
+    for(const [press,result] of ['early','early','correct','early','early'].entries()){
       await pressLessonKey('e4');
+      const remaining=4-press;
+      const count=page.locator('[data-key="e4"] .lesson-repeat-count');
+      if(remaining>1)assert.equal(await count.textContent(),String(remaining),'each accepted press reduces the remaining count by one');
+      else assert.equal(await count.count(),0,'one remaining press has no number');
       assert.equal(await page.locator('[data-key="e4"].lesson-'+result).count(),1,'five repeated notes can be caught up in order from late yellow to green and then early yellow');
       await releaseLessonKey();
       await page.clock.runFor(20);
@@ -664,6 +685,20 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     assert.equal(await page.locator('[data-key="g4"].lesson-wrong').count(),1,'the final note expires when the next loop starts with a different note');
     await releaseLessonKey();
     await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+    await page.evaluate(async()=>{
+      const entry=new URL(document.querySelector('script[src*="app.js"]').src);
+      const {lessonsForKit}=await import(new URL('./lessons.js'+entry.search,entry).href);
+      lessonsForKit('salamander-v1')[0].events=[{key:'cs4',beat:0},{key:'cs4',beat:1},{key:'d4',beat:2}];
+    });
+    await page.locator('.lesson-speed').first().click();
+    await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    await startSelectedLesson();
+    const blackCount=page.locator('[data-key="cs4"] .lesson-repeat-count');
+    assert.equal(await blackCount.textContent(),'2','black keys also show repeated presses');
+    assert(await blackCount.isVisible());
+    assert.equal(await blackCount.evaluate(label=>getComputedStyle(label).color),'rgb(244, 247, 252)','black key numbers are nearly white');
+    await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+    assert.equal(await page.locator('.lesson-repeat-count').count(),0,'stopping a lesson removes the numbers');
     await page.evaluate(async()=>{
       const entry=new URL(document.querySelector('script[src*="app.js"]').src);
       const {lessonsForKit}=await import(new URL('./lessons.js'+entry.search,entry).href);
@@ -1252,6 +1287,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   }
 
   await playLongEnough(firstKey);
+  await page.locator('#show-lesson-repeat-counts').evaluate(input=>input.click());
   await page.goto(base+'/'+file);
   await wait(()=>page.locator('#audio-status').isHidden());
   if(await page.locator('#login').isVisible()){
@@ -1264,6 +1300,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await wait(()=>emergencySaves>=1);
   assert.equal(recordings.get(own+':1').events[0].key,firstKey,'closing overwrites the emergency first slot');
   assert(await page.locator('#show-lesson-sequence').isChecked(),'the sequence preference survives a reload');
+  assert.equal(await page.locator('#show-lesson-repeat-counts').isChecked(),false,'turning off repetition counts persists after reload');
   const emergencyBeforePractice=emergencySaves;
   await page.locator('.lesson-speed').first().evaluate(button=>button.click());
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));

@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'bugnai.language';
 const swedish = {
   'Meniu': 'Meny', 'Prieš grojant': 'Innan du spelar', 'Uždaryti': 'Stäng',
+  'Rodyti pasikartojimų skaičius ant klavišų': 'Visa antalet upprepningar på tangenterna',
   'Rodyti natų seką mokantis': 'Visa notföljden under övningen',
   'Klausyti': 'Lyssna', 'Stabdyti perklausą': 'Stoppa provlyssningen',
   'Jei groji keliais pirštais, įrenginio nustatymuose išjunk šiuos gestus, jei jie įjungti:': 'Om du spelar med flera fingrar, stäng av följande gester i enhetens inställningar om de är aktiverade:',
