@@ -624,6 +624,52 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await releaseLessonKey();
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   if(kit==='salamander-v1'){
+    // Use five identical notes to distinguish catch-up from scoring the newest cue.
+    await page.evaluate(async()=>{
+      const entry=new URL(document.querySelector('script[src*="app.js"]').src);
+      const {lessonsForKit}=await import(new URL('./lessons.js'+entry.search,entry).href);
+      const definition=lessonsForKit('salamander-v1')[0];
+      window.originalTimingEvents=definition.events;
+      definition.events=[...Array.from({length:5},(_,beat)=>({key:'e4',beat})),{key:'f4',beat:5},{key:'g4',beat:6}];
+    });
+    await page.locator('.lesson-speed').first().click();
+    await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    await startSelectedLesson();
+    await page.clock.fastForward(2900);
+    for(const result of ['early','early','correct','early','early']){
+      await pressLessonKey('e4');
+      assert.equal(await page.locator('[data-key="e4"].lesson-'+result).count(),1,'five repeated notes can be caught up in order from late yellow to green and then early yellow');
+      await releaseLessonKey();
+      await page.clock.runFor(20);
+    }
+    assert.equal(await page.locator('#lesson-sequence .is-current').getAttribute('data-notes'),'f4','five presses consume exactly five repetitions');
+    assert.equal(await page.locator('#lesson-sequence .is-past.result-early').count(),1,'late and early repetitions retain yellow history');
+    await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+    await page.locator('.lesson-speed').first().click();
+    await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    await startSelectedLesson();
+    await page.clock.fastForward(7100);
+    await pressLessonKey('e4');
+    assert.equal(await page.locator('[data-key="e4"].lesson-wrong').count(),1,'missed repetitions expire as soon as the different note begins');
+    await releaseLessonKey();
+    await pressLessonKey('f4');
+    assert.equal(await page.locator('[data-key="f4"].lesson-correct').count(),1,'the different note can be played without catching up expired repetitions');
+    await releaseLessonKey();
+    await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+    await page.locator('.lesson-card').first().getByRole('button',{name:'Normalus',exact:true}).click();
+    await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    await startSelectedLesson();
+    await page.clock.fastForward(3680);
+    await pressLessonKey('g4');
+    assert.equal(await page.locator('[data-key="g4"].lesson-wrong').count(),1,'the final note expires when the next loop starts with a different note');
+    await releaseLessonKey();
+    await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+    await page.evaluate(async()=>{
+      const entry=new URL(document.querySelector('script[src*="app.js"]').src);
+      const {lessonsForKit}=await import(new URL('./lessons.js'+entry.search,entry).href);
+      lessonsForKit('salamander-v1')[0].events=window.originalTimingEvents;
+      delete window.originalTimingEvents;
+    });
     for(const [tempo,releaseAt,advance] of [['Normalus',450,100],['Greitas',260,80]]){
       await page.locator('.lesson-card').first().getByRole('button',{name:tempo,exact:true}).click();
       await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));

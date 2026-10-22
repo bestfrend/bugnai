@@ -266,7 +266,8 @@ function beginLesson() {
       if (target > elapsed) break;
       current.next++;
       if (!current.judged.get(cycle)?.has(index)) {
-        const expires = target + lessonResponseWindow(current, index);
+        const responseEnds = target + lessonResponseWindow(current, index);
+        const expires = target + lessonCatchupWindow(current, index);
         const nextBeat = current.events.find(next => next.beat > note.beat)?.beat;
         const previousBeat = current.events.filter(previous => previous.beat < note.beat).at(-1)?.beat;
         const repeats = current.events.some(next => next.beat === nextBeat && next.key === note.key);
@@ -274,7 +275,7 @@ function beginLesson() {
         const interval = (nextBeat - note.beat) * current.speed.beatMs;
         // Show a release before repeating the key, without shortening the
         // player's response window or changing the musical clock.
-        const cueUntil = repeats ? Math.min(expires, target + interval - Math.min(100, interval * .2)) : expires;
+        const cueUntil = repeats ? Math.min(responseEnds, target + interval - Math.min(100, interval * .2)) : responseEnds;
         current.pending.push({ key: note.key, target, expires, cueUntil, repeated });
       }
     }
@@ -327,7 +328,21 @@ function lessonCycleMs(current) {
 function lessonResponseWindow(current, index) {
   const beat = current.events[index].beat;
   const next = current.events.find(note => note.beat > beat);
-  return next ? Math.min(1000, (next.beat - beat) * current.speed.beatMs) : 1000;
+  return next ? (next.beat - beat) * current.speed.beatMs : 1000;
+}
+
+// Missed repetitions remain available, in order, until a different note/chord.
+// Cue animation still follows each individual beat's original response window.
+function lessonCatchupWindow(current, index) {
+  const note = current.events[index];
+  const group = current.groups.find(group => group.beat === note.beat);
+  const differs = next => next.keys.length !== group.keys.length || next.keys.some(key => !group.keys.includes(key));
+  const next = current.groups.find(next => next.beat > note.beat && differs(next));
+  if (next) return (next.beat - note.beat) * current.speed.beatMs;
+  const finalWindow = (current.events.at(-1).beat - note.beat) * current.speed.beatMs + 1000;
+  const nextCycleChange = current.groups.find(differs);
+  return nextCycleChange ? Math.min(finalWindow, lessonCycleMs(current) +
+    (nextCycleChange.beat - note.beat) * current.speed.beatMs) : finalWindow;
 }
 
 function lessonButton(key) {
@@ -448,16 +463,18 @@ function scoreLessonHit(key) {
     current.events.forEach((note, index) => {
       if (current.judged.get(candidateCycle)?.has(index)) return;
       const delay = elapsed - (candidateCycle * cycleMs + note.beat * current.speed.beatMs);
-      const lateWindow = lessonResponseWindow(current, index);
+      const lateWindow = lessonCatchupWindow(current, index);
       if (delay < 0 || delay >= lateWindow) return;
       if (note.key !== key) {
         awaitingCurrent = true;
         return;
       }
-      if (!closest || delay < closest.distance) closest = { cycle: candidateCycle, index, distance: delay };
+      // Consume the oldest missed repetition first; one press earns one note.
+      if (!closest || delay > closest.distance) closest = { cycle: candidateCycle, index, distance: delay };
     });
   }
-  if (closest) result = 'correct';
+  // Share the existing yellow feedback for early and late correct notes.
+  if (closest) result = closest.distance < lessonResponseWindow(current, closest.index) ? 'correct' : 'early';
   else if (!awaitingCurrent) {
     const next = nextLessonBeat(current, elapsed);
     if (next) {
