@@ -4,12 +4,15 @@
 
 GitHub saugykloje pasirinkite **Settings → Pages → Source → GitHub Actions**.
 Workflow `Publish versioned drum kit` publikuoja svetainę po kiekvieno push į
-`master`. Pirmas paleidimas rodo `1.01`, antras `1.02` ir t. t. Pakartotinai
-paleidus tą patį workflow, versija nesikeičia. Numeris žymi publikavimo bandymą:
+`master`. Versija rodoma su vienu skaitmeniu po taško: 1–9 paleidimai – `1.0`,
+10–19 – `1.1`, 20–29 – `1.2`, 90–99 – `1.9`, 100–109 – `2.0` ir t. t.
+Pakartotinai paleidus tą patį workflow, versija nesikeičia. Numeris žymi publikavimo bandymą:
 jei bandymas nepavyksta, svetainėje lieka ankstesnė sėkminga versija.
 
 Versija įrašoma tik į publikuojamą svetainę; automatinių commitų nekuriama.
-Vietinėje projekto kopijoje rodomas pradinis `1.01` užrašas.
+Vietinėje projekto kopijoje rodomas pradinis `1.0` užrašas.
+Failų podėlio žymos išlieka unikalios kiekvienam paleidimui, net jei rodoma
+versija dar nesikeičia, todėl kiekvienas atnaujinimas pasiekia naršyklę.
 Workflow numeracija turi būti išsaugota tęsiant tą patį workflow failą.
 
 ## Supabase paruošimas

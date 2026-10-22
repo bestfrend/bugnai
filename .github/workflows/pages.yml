@@ -48,8 +48,12 @@ jobs:
 
           # The workflow run number increases for each push, even with several commits.
           # Re-running an existing workflow preserves that release's version.
-          version = f"1.{int(os.environ['GITHUB_RUN_NUMBER']):02d}"
-          marker = '<span id="app-version">1.01</span>'
+          release = int(os.environ['GITHUB_RUN_NUMBER'])
+          # Display one decimal; roll over only at each hundred releases.
+          version = f"{1 + release // 100}.{release // 10 % 10}"
+          # Keep asset URLs unique on every push, even within one displayed version.
+          asset_version = f"1.{release:02d}"
+          marker = '<span id="app-version">1.0</span>'
           for name in ['index.html', 'classic.html', 'studio.html', 'stage.html', 'piano.html']:
               page = Path('_site') / name
               html = page.read_text()
@@ -60,7 +64,7 @@ jobs:
           html = admin.read_text()
           for asset in ['styles.css', 'admin.js']:
               pattern = rf'="{re.escape(asset)}(?:\?v=[^"]*)?"'
-              html, count = re.subn(pattern, f'="{asset}?v={version}"', html)
+              html, count = re.subn(pattern, f'="{asset}?v={asset_version}"', html)
               if count != 1:
                   raise SystemExit(f'Expected exactly one admin asset: {asset}')
           admin.write_text(html)
@@ -71,13 +75,13 @@ jobs:
               html = page.read_text()
               for asset in ['styles.css', 'app.js']:
                   pattern = rf'="{re.escape(asset)}(?:\?v=[^"]*)?"'
-                  html, count = re.subn(pattern, f'="{asset}?v={version}"', html)
+                  html, count = re.subn(pattern, f'="{asset}?v={asset_version}"', html)
                   if count != 1:
                       raise SystemExit(f'Expected exactly one asset in {name}: {asset}')
               page.write_text(html)
           module_import = re.compile(r'''(\b(?:from|import)\s*['"])(\./[^'"]+\.js)(['"])''')
           for module in Path('_site').glob('*.js'):
-              module.write_text(module_import.sub(lambda match: f'{match[1]}{match[2]}?v={version}{match[3]}', module.read_text()))
+              module.write_text(module_import.sub(lambda match: f'{match[1]}{match[2]}?v={asset_version}{match[3]}', module.read_text()))
           print(f'Publishing version {version}')
           PY
           python3 scripts/check-site.py _site
