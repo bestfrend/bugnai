@@ -267,6 +267,9 @@ laikymas negali viršyti natai skirto laiko. Perklausa ir pamokos rodymas naudoj
 kartojimas prasideda tik pasibaigus visai frazei. Perkusijos smūgiams atskiro
 pianino laikymo nereikia – esami būgnų ritmai išlieka vieno smūgio įvykiais.
 
+Greitam tempui visų lygių pianino pamokose naudojami šviesūs šoniniai
+klavišų kraštai, be violetinės spalvos, viršutinio ir apatinio apvado.
+
 ### Trys pianino pamokų lygiai
 
 Pianino biblioteka skirstoma pagal `level: 1 | 2 | 3`; lygiai turi atskirus

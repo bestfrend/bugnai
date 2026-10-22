@@ -355,6 +355,7 @@ footer { padding: 24px 0 32px; }
 .kit .set:not(.piano-keyboard) [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong),
 .kit .piano-keyboard[data-lesson-cue-style="glow"] [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: 2px solid #bff8ff; outline-offset: -2px; filter: brightness(1.25) saturate(1.15); box-shadow: inset 0 0 24px #eaffff, 0 0 13px 4px #61ddff !important; }
 .kit .piano-keyboard [data-key].lesson-cue { --lesson-edge-color: #7c3aed; --lesson-edge-width: 2px; }
+.kit .piano-keyboard[data-lesson-speed="fast"] [data-key].lesson-cue { --lesson-edge-color: #edf7ff; }
 .kit .piano-keyboard [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: none; filter: brightness(1.1); transition-property: transform, background; }
 .kit .piano-keyboard [data-key].lesson-cue:not([data-lesson-repeat]):not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { box-shadow: none !important; }
 .kit .piano-keyboard .white-key.lesson-cue:not([data-lesson-repeat]):not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { background: linear-gradient(#f5f8fa, #fff 65%, #f3f7f9); }

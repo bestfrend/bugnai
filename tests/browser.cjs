@@ -883,8 +883,8 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       assert.equal(await page.locator('[data-key="e4"].lesson-correct').count(),1,'the held successful press keeps its green feedback');
       const nextCue=await page.locator('[data-key="e4"]').evaluate(key=>({edge:getComputedStyle(key,'::after').borderLeftWidth,color:getComputedStyle(key,'::after').borderLeftColor,background:getComputedStyle(key).backgroundColor}));
       assert.equal(nextCue.edge,'2px','the next instructional side line is visible while the first note is still held');
-      assert.equal(nextCue.color,'rgb(124, 58, 237)','the repeated instruction contrasts with green feedback');
-      assert.equal(nextCue.background,'rgb(140, 213, 189)','the violet instruction is drawn over the green success background');
+      assert.equal(nextCue.color,tempo==='Greitas'?'rgb(237, 247, 255)':'rgb(124, 58, 237)','fast repeats keep light side edges over green feedback; normal repeats retain violet');
+      assert.equal(nextCue.background,'rgb(140, 213, 189)','the instructional edge is drawn over the green success background');
       await releaseLessonKey();
       await pressLessonKey('e4');
       assert.equal(await page.locator('[data-key="e4"].lesson-correct').count(),1,'the repeated note needs its own successful press');
