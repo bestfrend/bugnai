@@ -108,7 +108,11 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       return reply(null);
     }
     if(url.pathname==='/rest/v1/profiles'){
-      if(method==='POST'){profiles.push(req.postDataJSON());return reply(null,201);}
+      if(method==='POST'){
+        const profile=req.postDataJSON();
+        if(profiles.some(existing=>existing.nickname.toLowerCase()===profile.nickname.trim().toLowerCase()))return reply({code:'23505',message:'Nickname is already taken'},409);
+        profiles.push(profile);return reply(null,201);
+      }
       const id=url.searchParams.get('id')?.slice(3);
       return reply(id?profiles.filter(p=>p.id===id):profiles);
     }
@@ -199,6 +203,14 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert.equal(await page.locator('#language-select').inputValue(),'sv','language survives reload');
   await page.locator('#language-select').selectOption('lt');
   if(await page.locator('#login').isVisible()){
+    await page.locator('#nickname').fill('kITAS');
+    await page.locator('#login-form').evaluate(form=>form.requestSubmit());
+    await wait(()=>page.locator('#status').innerText().then(text=>text==='Šis vardas jau užimtas. Pasirink kitą vardą.'));
+    assert(await page.locator('#login').isVisible(),'a taken nickname cannot enter the app');
+    assert.equal(sessionStarts,0,'rejected registration does not start a member session');
+    await page.locator('#language-select').selectOption('sv');
+    assert.equal(await page.locator('#status').innerText(),'Namnet är redan upptaget. Välj ett annat namn.');
+    await page.locator('#language-select').selectOption('lt');
     await page.locator('#nickname').fill('Ritmas');
     await page.locator('#login-form').evaluate(form=>form.requestSubmit());
   }

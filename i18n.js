@@ -17,6 +17,7 @@ const swedish = {
   'Būgnų 🥁 komplektas': 'Trumset 🥁', 'Salamander pianinas': 'Salamanderpiano',
   'Būgnai': 'Trummor',
   'Jungiamasi…': 'Ansluter…', 'Įvesk vardą': 'Ange ditt namn',
+  'Šis vardas jau užimtas. Pasirink kitą vardą.': 'Namnet är redan upptaget. Välj ett annat namn.',
   'Vardas': 'Namn',
   'Pradėti groti': 'Börja spela',
   'Įkelti arba pakeisti profilio nuotrauką': 'Ladda upp eller ändra profilbild',

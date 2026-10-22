@@ -31,6 +31,17 @@ Programai nereikia papildomo backend serverio ar build komandos. Paleiskite:
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
+## Unikalūs vartotojų vardai
+
+Esamame Supabase projekte vieną kartą paleiskite
+[supabase/unique-nicknames.sql](supabase/unique-nicknames.sql); failą saugu kartoti.
+Naujame projekte apribojimas jau yra `schema.sql`. Vardai lyginami nepaisant
+raidžių dydžio, tarpų kraštuose ir kelių tarpų iš eilės. Apribojimas taikomas bazėje,
+todėl galioja abiem svetainės adresams bei registruojantis vienu metu.
+Anksčiau sukurtos paskyros ir ritmai lieka nepakeisti, net jei vardai kartojasi;
+toks vardas naujai paskyrai neleidžiamas. Pašalinus paskutinę paskyrą su tuo vardu,
+vardas vėl tampa laisvas. Tai nėra prisijungimas prie svetimos paskyros pagal vardą.
+
 ## Administratoriaus panelė
 
 Vartotojų ištrynimui Supabase SQL Editor paleiskite

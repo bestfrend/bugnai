@@ -67,7 +67,9 @@ async function request(path, options = {}, token) {
           ? 'Papildomoms pianino oktavoms Supabase SQL Editor paleisk piano-octaves.sql.'
           : message;
     } else if (data?.code === '23505') {
-      message = 'Šią vietą jau užėmė įrašas kitame lange. Ankstesnis ritmas nepakeistas.';
+      message = path.startsWith('/rest/v1/profiles')
+        ? 'Šis vardas jau užimtas. Pasirink kitą vardą.'
+        : 'Šią vietą jau užėmė įrašas kitame lange. Ankstesnis ritmas nepakeistas.';
     } else if (data?.code === 'anonymous_provider_disabled') {
       message = 'Supabase nustatymuose reikia įjungti anoniminį prisijungimą.';
     } else if (response.status === 429) {

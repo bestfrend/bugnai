@@ -440,3 +440,43 @@ test('only the administrator can delete an account and its data, preserving othe
   }
   assert.deepEqual((await db.query('select id from profiles order by id')).rows,before);
 });
+
+test('nicknames are reserved case-insensitively, preserve legacy profiles and release only when unused',async()=>{
+  const ids=['33333333-3333-4333-8333-333333333331','33333333-3333-4333-8333-333333333332','33333333-3333-4333-8333-333333333333'];
+  await db.exec('reset role');
+  for(const id of ids)await db.query('insert into auth.users(id) values($1)',[id]);
+  try {
+    await user(ids[0]);
+    for(const nickname of ['Pirmas','pIRMAS','\tPIRMAS\t']){
+      await assert.rejects(db.query('insert into profiles(id,nickname) values($1,$2)',[ids[0],nickname]),{code:'23505'});
+    }
+    await db.query('insert into profiles(id,nickname) values($1,$2)',[ids[0],'Ritmo  Draugas']);
+    await user(ids[1]);
+    await assert.rejects(db.query('insert into profiles(id,nickname) values($1,$2)',[ids[1],'RITMO Draugas']),{code:'23505'});
+    await db.query('insert into profiles(id,nickname) values($1,$2)',[ids[1],'Testuotojas']);
+    await assert.rejects(db.query('select * from profile_nickname_keys'),{code:'42501'});
+    await db.exec('reset role; set role anon');
+    await assert.rejects(db.query('delete from profile_nickname_keys'),{code:'42501'});
+    await db.exec('reset role');
+    await assert.rejects(db.query('update profiles set nickname=$1 where id=$2',['PIRMAS',ids[1]]),{code:'23505'});
+    // Simulate old duplicates before installing the additive migration.
+    await db.exec('drop trigger profiles_reserve_nickname on profiles');
+    await db.query('insert into profiles(id,nickname) values($1,$2)',[ids[2],'ritmo draugas']);
+    const before=(await db.query('select id,nickname from profiles order by id')).rows;
+    const migration=readFileSync('supabase/unique-nicknames.sql','utf8');
+    await db.exec(migration);
+    await db.exec(migration);
+    assert.deepEqual((await db.query('select id,nickname from profiles order by id')).rows,before,'reapplying the migration never renames existing profiles');
+    await db.query('delete from auth.users where id=$1',[ids[0]]);
+    await assert.rejects(db.query('update profiles set nickname=$1 where id=$2',['Ritmo draugas',ids[1]]),{code:'23505'});
+    await db.query('delete from auth.users where id=$1',[ids[2]]);
+    await db.query('update profiles set nickname=$1 where id=$2',['Ritmo draugas',ids[1]]);
+    await db.query('insert into auth.users(id) values($1)',[ids[2]]);
+    await user(ids[2]);
+    await db.query('insert into profiles(id,nickname) values($1,$2)',[ids[2],'Testuotojas']);
+    assert.equal((await db.query('select nickname from profiles where id=$1',[ids[2]])).rows[0].nickname,'Testuotojas','changing a nickname releases the old name');
+  } finally {
+    await db.exec('reset role');
+    for(const id of ids)await db.query('delete from auth.users where id=$1',[id]);
+  }
+});
