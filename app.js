@@ -104,8 +104,9 @@ function action(label, handler, className = '') {
 }
 
 function clearLessonCues() {
-  for (const button of document.querySelectorAll('.lesson-cue, .lesson-correct, .lesson-early, .lesson-wrong')) {
+  for (const button of document.querySelectorAll('.lesson-cue, .lesson-correct, .lesson-early, .lesson-wrong, [data-lesson-repeat]')) {
     button.classList.remove('lesson-cue', 'lesson-correct', 'lesson-early', 'lesson-wrong');
+    button.removeAttribute('data-lesson-repeat');
   }
 }
 
@@ -267,18 +268,26 @@ function beginLesson() {
       if (!current.judged.get(cycle)?.has(index)) {
         const expires = target + lessonResponseWindow(current, index);
         const nextBeat = current.events.find(next => next.beat > note.beat)?.beat;
+        const previousBeat = current.events.filter(previous => previous.beat < note.beat).at(-1)?.beat;
         const repeats = current.events.some(next => next.beat === nextBeat && next.key === note.key);
+        const repeated = repeats || current.events.some(previous => previous.beat === previousBeat && previous.key === note.key);
         const interval = (nextBeat - note.beat) * current.speed.beatMs;
         // Show a release before repeating the key, without shortening the
         // player's response window or changing the musical clock.
         const cueUntil = repeats ? Math.min(expires, target + interval - Math.min(100, interval * .2)) : expires;
-        current.pending.push({ key: note.key, target, expires, cueUntil });
+        current.pending.push({ key: note.key, target, expires, cueUntil, repeated });
       }
     }
     current.pending = current.pending.filter(note => elapsed < note.expires);
-    for (const button of document.querySelectorAll('.lesson-cue')) button.classList.remove('lesson-cue');
+    const latestCues = new Map();
     for (const note of current.pending) {
-      if (elapsed < note.cueUntil) lessonButton(note.key)?.classList.add('lesson-cue');
+      // An older response window must not cover the release of a newer repeat.
+      if (!latestCues.has(note.key) || note.target > latestCues.get(note.key).target) latestCues.set(note.key, note);
+    }
+    for (const button of document.querySelectorAll('.kit .set [data-key]')) {
+      const note = latestCues.get(button.dataset.key);
+      button.toggleAttribute('data-lesson-repeat', ACTIVE_KIT === 'salamander-v1' && !!note?.repeated);
+      button.classList.toggle('lesson-cue', !!note && elapsed < note.cueUntil);
     }
     const cycle = Math.floor(elapsed / cycleMs);
     for (const previous of current.judged.keys()) if (previous < cycle - 1) current.judged.delete(previous);
