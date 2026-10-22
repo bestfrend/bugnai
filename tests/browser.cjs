@@ -419,8 +419,8 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert.equal(await page.locator('#create-rhythm').count(),0);
   assert.equal(await page.locator('#strength-control').count(),0);
   assert(await page.locator('#recording-bar').isHidden());
-  assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'each instrument shows its own lessons');
-  assert.equal(await page.locator('.lesson-speed').count(),(kit==='salamander-v1'?1:4)*3,'lessons offer three speeds');
+  assert.equal(await page.locator('.lesson-card').count(),4,'each instrument shows its own lessons');
+  assert.equal(await page.locator('.lesson-speed').count(),12,'lessons offer three speeds');
   assert.deepEqual(await page.locator('.lesson-card').first().locator('.lesson-speed').allTextContents(),['Lėtas','Normalus','Greitas']);
   const startSelectedLesson=async()=>{
     await page.locator('#lesson-start').getByRole('button',{name:'Pradėti pamoką'}).click();
@@ -505,15 +505,15 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     const startedCount=await page.evaluate(()=>window.lessonDemoSounds.length);
     await page.clock.fastForward((kit==='salamander-v1'?2:1)*beatMs+25);
     assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),startedCount,'starting a lesson stops the demo audio');
-    const expected=kit==='salamander-v1'?'g4':'j';
+    const expected=kit==='salamander-v1'?'f4':'j';
     assert(await page.locator(`.kit .set [data-key="${expected}"]`).evaluate(element=>element.classList.contains('lesson-cue')),`${label} shows notes at the new tempo`);
     if(kit==='salamander-v1' && label==='Lėtas'){
       const cueStyle=await page.locator('.lesson-cue').first().evaluate(element=>({outline:getComputedStyle(element).outlineWidth,color:getComputedStyle(element).outlineColor,shadow:getComputedStyle(element).boxShadow}));
       assert.deepEqual(cueStyle,{outline:'3px',color:'rgb(73, 164, 119)',shadow:'none'},'piano cues use a thicker green outline without the old glow');
-      assert.equal(await page.locator('#lesson-sequence .is-current').innerText(),'Sol 2','Lithuanian piano sequence groups repeated solfege notes');
+      assert.equal(await page.locator('#lesson-sequence .is-current').innerText(),'Fa','Lithuanian piano sequence shows solfege without keyboard letters');
       await page.locator('#language-select').selectOption('sv');
       await page.clock.runFor(20);
-      assert.equal(await page.locator('#lesson-sequence .is-current').innerText(),'G · G 2','Swedish keeps note and keyboard letters with the repeat count');
+      assert.equal(await page.locator('#lesson-sequence .is-current').innerText(),'F · F','Swedish keeps note and keyboard letters');
       await page.locator('#language-select').selectOption('lt');
       await page.clock.runFor(20);
       await page.locator('[data-octave-shift="-1"]').click();
@@ -557,11 +557,11 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
   await startSelectedLesson();
-  const delayedKey=kit==='salamander-v1'?'c4':'l';
+  const delayedKey=kit==='salamander-v1'?'e4':'l';
   assert.equal(await page.locator('#lesson-sequence .lesson-sequence-note').count(),7,'the sequence reserves three past, one current and three future positions');
   assert.equal(await page.locator('#lesson-sequence .lesson-sequence-note.is-empty').count(),3,'a new lesson has no invented past notes');
   assert.equal(await page.locator('#lesson-sequence .lesson-sequence-note').nth(3).getAttribute('aria-current'),'step','the current note is always in the middle');
-  if(kit==='salamander-v1')assert.equal(await page.locator('#lesson-sequence .is-current').textContent(),'Do 2','Lithuanian white notes omit keyboard letters and group repeats');
+  if(kit==='salamander-v1')assert.equal(await page.locator('#lesson-sequence .is-current').textContent(),'Mi 2','Lithuanian white notes omit keyboard letters and group repeats');
   const skippedKey=kit==='salamander-v1'?'g4':'s';
   await pressLessonKey(skippedKey);
   assert(await page.locator(`.kit .set [data-key="${skippedKey}"]`).evaluate(element=>element.classList.contains('lesson-wrong')),'anticipation does not skip a still-pending note in the sequence');
@@ -570,12 +570,12 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   assert(await page.locator(`.kit .set [data-key="${delayedKey}"]`).evaluate(element=>element.classList.contains('lesson-correct')),'the current note is green');
   await releaseLessonKey();
   await page.clock.fastForward(150);
-  const anticipatedKey=kit==='salamander-v1'?'c4':'s';
+  const anticipatedKey=kit==='salamander-v1'?'e4':'s';
   await pressLessonKey(anticipatedKey);
   assert(await page.locator(`.kit .set [data-key="${anticipatedKey}"]`).evaluate(element=>element.classList.contains('lesson-early')),'the immediately upcoming correct note is yellow when played early');
   await releaseLessonKey();
-  if(kit==='salamander-v1')assert.equal(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('lesson-early')),false,'yellow piano feedback clears on release');
-  const nextAnticipatedKey=kit==='salamander-v1'?'g4':'j';
+  if(kit==='salamander-v1')assert.equal(await page.locator('[data-key="e4"]').evaluate(element=>element.classList.contains('lesson-early')),false,'yellow piano feedback clears on release');
+  const nextAnticipatedKey=kit==='salamander-v1'?'f4':'j';
   await page.clock.runFor(20);
   assert.equal(await page.locator('#lesson-sequence .lesson-sequence-note.is-current').getAttribute('data-notes'),nextAnticipatedKey,'the visible sequence advances after an early correct press');
   assert.equal(await page.locator('#lesson-sequence .is-due').count(),0,'an upcoming central note waits for its scheduled time before growing');
@@ -584,7 +584,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await releaseLessonKey();
   await page.clock.runFor(20);
   assert.equal(await page.locator('#lesson-sequence .is-past.result-correct').count(),kit==='salamander-v1'?0:1,'group history retains green borders for fully on-time groups');
-  assert.equal(await page.locator('#lesson-sequence .is-past.result-early').count(),kit==='salamander-v1'?1:2,'group history retains a yellow border when an early note was included');
+  assert.equal(await page.locator('#lesson-sequence .is-past.result-early').count(),2,'group history retains a yellow border when an early note was included');
   const spacing=kit==='salamander-v1'?1400:700;
   await page.clock.fastForward(spacing-150);
   await page.clock.runFor(20);
@@ -599,7 +599,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
   await startSelectedLesson();
   await page.clock.fastForward(kit==='salamander-v1'?600:350);
-  if(kit==='salamander-v1')assert(await page.locator('[data-key="c4"]').evaluate(element=>element.classList.contains('lesson-cue')),'a slow lesson cue remains visible during its response window');
+  if(kit==='salamander-v1')assert(await page.locator('[data-key="e4"]').evaluate(element=>element.classList.contains('lesson-cue')),'a slow lesson cue remains visible during its response window');
   await pressLessonKey(delayedKey);
   assert(await page.locator(`.kit .set [data-key="${delayedKey}"]`).evaluate(element=>element.classList.contains('lesson-correct')),'a delayed response before the next note and within one second is accepted');
   await releaseLessonKey();
@@ -613,13 +613,13 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     assert(stripBox.y-keyboardBox.y<=28,'portrait and desktop note sequence stays near the top of the keyboard');
     await page.clock.fastForward(450);
     await page.clock.runFor(20);
-    assert.equal(await page.locator('[data-key="c4"].lesson-cue').count(),0,'a repeated note visibly releases before the next press');
-    await pressLessonKey('c4');
-    assert(await page.locator('[data-key="c4"]').evaluate(key=>key.classList.contains('lesson-correct')),'the visual release does not shorten the response window');
+    assert.equal(await page.locator('[data-key="e4"].lesson-cue').count(),0,'a repeated note visibly releases before the next press');
+    await pressLessonKey('e4');
+    assert(await page.locator('[data-key="e4"]').evaluate(key=>key.classList.contains('lesson-correct')),'the visual release does not shorten the response window');
     await releaseLessonKey();
     await page.clock.fastForward(100);
     await page.clock.runFor(20);
-    assert.equal(await page.locator('[data-key="c4"].lesson-cue').count(),1,'the same key lights again for its next occurrence');
+    assert.equal(await page.locator('[data-key="e4"].lesson-cue').count(),1,'the same key lights again for its next occurrence');
     await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
     await page.clock.resume();
   }
@@ -654,8 +654,8 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   const promptedKey=await page.locator('.lesson-cue').first().getAttribute('data-key');
   if(lessonInput){
     await page.locator('.piano-keyboard').scrollIntoViewIfNeeded();
-    const black=await page.locator('[data-key="cs4"]').boundingBox();
-    assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('.piano-key')?.dataset.key,{x:black.x+black.width*.2,y:black.y+black.height*.5}),'cs4','a glowing white cue remains behind its overlapping black key');
+    const black=await page.locator('[data-key="ds4"]').boundingBox();
+    assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('.piano-key')?.dataset.key,{x:black.x+black.width*.2,y:black.y+black.height*.5}),'ds4','a glowing white cue remains behind its overlapping black key');
   }
   await pressLessonKey(promptedKey);
   assert(await page.locator(`.kit .set [data-key="${promptedKey}"]`).evaluate(button=>button.classList.contains('lesson-correct')),'an on-time note is green');
@@ -667,7 +667,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   }
   await releaseLessonKey();
   if(lessonInput)assert.equal(await page.locator('.lesson-correct').count(),0,'releasing the piano key clears its feedback immediately');
-  const wrongKey=kit==='salamander-v1'?'e4':'w';
+  const wrongKey=kit==='salamander-v1'?'cs4':'w';
   await pressLessonKey(wrongKey);
   assert(await page.locator(`.kit .set [data-key="${wrongKey}"]`).evaluate(button=>button.classList.contains('lesson-wrong')),'an off-time note is red');
   if(kit==='salamander-v1'){
@@ -962,12 +962,12 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await page.locator('[data-kit-link="salamander-v1"]').click();
   await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value==='salamander-v1'));
   assert.match(await page.locator('#title').innerText(),/Salamanderpiano/);
-  assert.equal(await page.locator('.lesson-card').count(),1,'switching to piano replaces drum lessons');
+  assert.equal(await page.locator('.lesson-card').count(),4,'switching to piano replaces drum lessons');
   assert.equal(await page.locator('html').getAttribute('lang'),'sv');
   assert.deepEqual(await untranslatedPublicText(page),[],'instrument switch keeps translations');
   await page.locator(`[data-kit-link="${kit}"]`).click();
   await wait(()=>page.locator('body').getAttribute('data-kit').then(value=>value===kit));
-  assert.equal(await page.locator('.lesson-card').count(),kit==='salamander-v1'?1:4,'switching back restores this instrument’s lessons');
+  assert.equal(await page.locator('.lesson-card').count(),4,'switching back restores this instrument’s lessons');
   await page.locator('#language-select').selectOption('lt');
 
   await playLongEnough(firstKey);

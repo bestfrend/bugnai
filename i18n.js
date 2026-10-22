@@ -30,7 +30,7 @@ const swedish = {
   'Piano dainelės': 'Pianolåtar', 'Būgnų pamokos': 'Trumlektioner', 'Toliau': 'Härnäst',
   'Pasirink greitį ir spausk šviečiančius mygtukus.': 'Välj tempo och tryck på de lysande knapparna.',
   'Labai lėtas': 'Mycket långsam', 'Lėtas': 'Långsam', 'Vidutinis': 'Medel', 'Normalus': 'Normal', 'Greitas': 'Snabb', 'Pradėti pamoką': 'Starta övningen', 'Stabdyti pamoką': 'Stoppa övningen',
-  'Du gaideliai': 'Två tuppar', 'Pirmas rokas': 'Första rockrytmen', 'Lėtas rokas': 'Långsam rock',
+  'Du gaideliai': 'Två tuppar', 'Odė džiaugsmui': 'Ode till glädjen', 'Londono tiltas': 'Londonbron', 'Mažas avinėlis': 'Mary hade ett litet lamm', 'Pirmas rokas': 'Första rockrytmen', 'Lėtas rokas': 'Långsam rock',
   'Crash pradžia': 'Crash-start', 'Aštuoni hi-hat': 'Åttondelar på hi-hat',
   'Rodyti daugiau vartotojų': 'Visa fler användare', 'Šiai programai reikia įjungti JavaScript.': 'JavaScript måste vara aktiverat för den här appen.',
   'Ritmo pavadinimas': 'Namn på rytmen', 'Pavadinimas': 'Namn',
