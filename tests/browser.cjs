@@ -841,6 +841,11 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     const blackCount=page.locator('[data-key="cs4"] .lesson-repeat-count');
     assert.equal(await blackCount.textContent(),'2','black keys also show repeated presses');
     assert(await blackCount.isVisible());
+    const blackRepeat=await page.locator('[data-key="cs4"]').evaluate(key=>{
+      const read=()=>{const style=getComputedStyle(key);return {shadow:style.boxShadow,border:style.borderColor};};
+      const cue=read();key.classList.remove('lesson-cue');const idle=read();key.classList.add('lesson-cue');return {cue,idle};
+    });
+    assert.deepEqual(blackRepeat.cue,blackRepeat.idle,'black repeats also retain their ordinary frame and depth');
     assert.equal(await blackCount.evaluate(label=>getComputedStyle(label).color),'rgb(244, 247, 252)','black key numbers are nearly white');
     await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
     assert.equal(await page.locator('.lesson-repeat-count').count(),0,'stopping a lesson removes the numbers');
@@ -856,10 +861,11 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       await page.locator('.lesson-card').first().getByRole('button',{name:tempo,exact:true}).click();
       await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
       await page.clock.pauseAt(await page.evaluate(()=>Date.now()+50));
-      const idleShadow=await page.locator('[data-key="e4"]').evaluate(key=>{key.getAnimations().forEach(animation=>animation.finish());return getComputedStyle(key).boxShadow;});
+      const idleVisual=await page.locator('[data-key="e4"]').evaluate(key=>{key.getAnimations().forEach(animation=>animation.finish());const style=getComputedStyle(key);return {shadow:style.boxShadow,border:style.borderColor};});
+      const idleShadow=idleVisual.shadow;
       await startSelectedLesson();
       const cueStyle=await page.locator('.lesson-cue').first().evaluate(element=>{
-        const read=()=>{element.getAnimations().forEach(animation=>animation.finish());const style=getComputedStyle(element);return {outline:style.outlineStyle,shadow:style.boxShadow,transform:style.transform};};
+        const read=()=>{element.getAnimations().forEach(animation=>animation.finish());const style=getComputedStyle(element);return {outline:style.outlineStyle,shadow:style.boxShadow,border:style.borderColor,transform:style.transform};};
         const cue=read(),wasPressed=element.classList.contains('pressed');
         element.classList.remove('lesson-cue');element.classList.add('pressed');
         const pressed=read();
@@ -868,7 +874,8 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       });
       assert.notEqual(cueStyle.transform,'none','a repeated lesson note visibly depresses the key');
       assert.equal(cueStyle.transform,cueStyle.pressed.transform,'repeated cues reuse the real key press movement');
-      assert.equal(cueStyle.shadow,cueStyle.pressed.shadow,'repeated cues reuse the inset key depth, without an outer glow');
+      assert.equal(cueStyle.shadow,idleShadow,'repeated cues keep ordinary key depth without the dark inset frame');
+      assert.equal(cueStyle.border,idleVisual.border,'repeated cues keep the ordinary border while retaining the press movement');
       const [stripBox,keyboardBox]=await Promise.all([page.locator('#lesson-sequence').boundingBox(),page.locator('.piano-keyboard').boundingBox()]);
       assert(stripBox.y-keyboardBox.y<=28,'portrait and desktop note sequence stays near the top of the keyboard');
       await page.clock.fastForward(releaseAt);

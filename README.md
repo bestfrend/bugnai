@@ -269,6 +269,8 @@ pianino laikymo nereikia – esami būgnų ritmai išlieka vieno smūgio įvykia
 
 Greitam tempui visų lygių pianino pamokose naudojami šviesūs šoniniai
 klavišų kraštai, be violetinės spalvos, viršutinio ir apatinio apvado.
+Pasikartojančios natos išlaiko greitą klavišo paspaudimo ir atleidimo judesį,
+bet automatinis rodymas neprideda tamsaus vidinio rėmelio.
 
 ### Trys pianino pamokų lygiai
 

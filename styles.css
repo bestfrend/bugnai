@@ -420,6 +420,10 @@ footer { padding: 24px 0 32px; }
 .piano-keyboard.full-range .black-key { padding-bottom: 0; }
 .white-key.pressed, .white-key.lesson-cue[data-lesson-repeat] { transform: perspective(500px) rotateX(-3deg) translateY(3px); border-color: #8292a5; background: linear-gradient(#d8e0e9, #f2f5f8 65%, #d8e0e9); box-shadow: inset 3px 0 5px #63788b88, inset -3px 0 5px #63788b88, inset 0 3px 7px #68778b55, inset 0 -2px #9aaaba; }
 .black-key.pressed, .black-key.lesson-cue[data-lesson-repeat] { transform: perspective(500px) rotateX(-4deg); border-color: #42526a; background: linear-gradient(100deg, #28354a, #0c1421); box-shadow: inset 3px 0 5px #000b, inset -3px 0 5px #000b, inset 0 3px 8px #02050bbb, inset 0 -2px #060c16; }
+/* Repeated instructions keep the press movement and ordinary key depth,
+   without inheriting the dark inset frame from a physical press. */
+.piano-keyboard .white-key.lesson-cue[data-lesson-repeat] { border-color: #bdc7d5; box-shadow: inset 0 -5px #bcc7d6; }
+.piano-keyboard .black-key.lesson-cue[data-lesson-repeat] { border-color: currentColor #070e1a #070e1a; box-shadow: inset 0 -5px #070d17, 2px 5px 5px #0005; }
 @media (prefers-reduced-motion: reduce) { .piano-key { transition: none; } }
 .piano-key:focus-visible { outline: 3px solid #de4a90; outline-offset: -4px; }
 .piano-key[aria-disabled="true"] { opacity: .55; cursor: wait; }
