@@ -520,9 +520,10 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
     const expected=kit==='salamander-v1'?'f4':'j';
     assert(await page.locator(`.kit .set [data-key="${expected}"]`).evaluate(element=>element.classList.contains('lesson-cue')),`${label} shows notes at the new tempo`);
     if(kit==='salamander-v1' && label==='Lėtas'){
-      const cueStyle=await page.locator('.lesson-cue').first().evaluate(element=>({outline:getComputedStyle(element).outlineStyle,shadow:getComputedStyle(element).boxShadow}));
+      const cueStyle=await page.locator('.lesson-cue').first().evaluate(element=>({outline:getComputedStyle(element).outlineStyle,shadow:getComputedStyle(element).boxShadow,transform:getComputedStyle(element).transform}));
       assert.equal(cueStyle.outline,'none','lesson cues have no top or bottom outline');
-      assert.equal(cueStyle.shadow,'none','the instructional cue itself has no shadow');
+      assert.equal(cueStyle.shadow,'none','a non-repeated cue has no shadow');
+      assert.equal(cueStyle.transform,'none','non-repeated notes keep their existing cue');
       const cueEdges=await page.locator('.lesson-cue').first().evaluate(key=>{
         const edge=getComputedStyle(key,'::after');
         return {left:edge.borderLeftWidth,right:edge.borderRightWidth,top:edge.borderTopWidth,bottom:edge.borderBottomWidth,color:edge.borderLeftColor,shadow:edge.boxShadow};
@@ -629,6 +630,17 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       await page.clock.pauseAt(await page.evaluate(()=>Date.now()+50));
       const idleShadow=await page.locator('[data-key="e4"]').evaluate(key=>{key.getAnimations().forEach(animation=>animation.finish());return getComputedStyle(key).boxShadow;});
       await startSelectedLesson();
+      const cueStyle=await page.locator('.lesson-cue').first().evaluate(element=>{
+        const read=()=>{element.getAnimations().forEach(animation=>animation.finish());const style=getComputedStyle(element);return {outline:style.outlineStyle,shadow:style.boxShadow,transform:style.transform};};
+        const cue=read(),wasPressed=element.classList.contains('pressed');
+        element.classList.remove('lesson-cue');element.classList.add('pressed');
+        const pressed=read();
+        element.classList.toggle('pressed',wasPressed);element.classList.add('lesson-cue');
+        return {...cue,pressed};
+      });
+      assert.notEqual(cueStyle.transform,'none','a repeated lesson note visibly depresses the key');
+      assert.equal(cueStyle.transform,cueStyle.pressed.transform,'repeated cues reuse the real key press movement');
+      assert.equal(cueStyle.shadow,cueStyle.pressed.shadow,'repeated cues reuse the inset key depth, without an outer glow');
       const [stripBox,keyboardBox]=await Promise.all([page.locator('#lesson-sequence').boundingBox(),page.locator('.piano-keyboard').boundingBox()]);
       assert(stripBox.y-keyboardBox.y<=28,'portrait and desktop note sequence stays near the top of the keyboard');
       await page.clock.fastForward(releaseAt);
