@@ -249,6 +249,21 @@ ir pasirinktu tempu. Perklausą galima sustabdyti, o jai pasibaigus pradėti pam
 ar klausyti dar kartą. Pavyzdys neregistruojamas kaip vartotojo atlikimas;
 pradėjus pamoką arba pakeitus instrumentą, perklausa nutraukiama.
 
+### Pianino pamokų laiko standartas
+
+Esamos ir naujos pianino pamokos aprašomos `lessons.js` per `melody(...)`:
+`[klavišas, tarpas_iki_kito_įvykio, laikymo_trukmė]` nurodo laiką muzikiniais
+mušimais; `[null, trukmė]` – pauzę. Pavyzdžiui,
+`melody([['c4', 1, .8], ['d4', 2, 1.8], [null, .5]])`.
+Paprastas `'c4'` reiškia vieną mušimą su trumpu atleidimu prieš kitą natą.
+
+Generatorius sukuria `events` su `beat` ir `duration` bei bendrą
+`durationBeats`, įskaitant paskutinę pauzę. Trukmės turi būti teigiamos;
+laikymas negali viršyti natai skirto laiko. Perklausa ir pamokos rodymas naudoja
+šiuos pačius duomenis. Greičio pasirinkimas proporcingai keičia natas ir pauzes;
+kartojimas prasideda tik pasibaigus visai frazei. Perkusijos smūgiams atskiro
+pianino laikymo nereikia – esami būgnų ritmai išlieka vieno smūgio įvykiais.
+
 ### Bendras būgnų dizainas
 
 Visi trys būgnų garsų rinkiniai naudoja tą patį scenos dizainą: vertikaliame

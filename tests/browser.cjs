@@ -509,17 +509,21 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   await page.evaluate(()=>{
     window.lessonDemoSounds=[];
     window.lessonDemoLiveHits=0;
+    window.lessonDemoReleases=[];
     window.addEventListener('drumhit',()=>window.lessonDemoLiveHits++);
     if(window.AudioContext){
       const create=AudioContext.prototype.createBufferSource;
       AudioContext.prototype.createBufferSource=function(...args){
-        const source=create.apply(this,args),start=source.start.bind(source);
-        source.start=(...args)=>{window.lessonDemoSounds.push(performance.now());return start(...args);};
+        const source=create.apply(this,args),start=source.start.bind(source),stop=source.stop.bind(source);
+        let started;
+        source.start=(...args)=>{started=performance.now();window.lessonDemoSounds.push(started);return start(...args);};
+        source.stop=(...args)=>{if(args.length&&started!==undefined)window.lessonDemoReleases.push({started,at:performance.now()});return stop(...args);};
         return source;
       };
     }else{
-      const play=HTMLMediaElement.prototype.play;
-      HTMLMediaElement.prototype.play=function(...args){window.lessonDemoSounds.push(performance.now());return play.apply(this,args);};
+      const play=HTMLMediaElement.prototype.play,pause=HTMLMediaElement.prototype.pause;
+      HTMLMediaElement.prototype.play=function(...args){this.lessonDemoStarted=performance.now();window.lessonDemoSounds.push(this.lessonDemoStarted);return play.apply(this,args);};
+      HTMLMediaElement.prototype.pause=function(...args){if(this.lessonDemoStarted!==undefined){window.lessonDemoReleases.push({started:this.lessonDemoStarted,at:performance.now()});delete this.lessonDemoStarted;}return pause.apply(this,args);};
     }
   });
   for(const [label,beatMs] of [['Lėtas',1400],['Normalus',520],['Greitas',350]]){
@@ -587,6 +591,42 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       assert(await page.locator('#lesson-sequence').isVisible(),'returning to the matching octave restores the sequence');
     }
     await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+  }
+  if(kit==='salamander-v1'){
+    await page.clock.pauseAt(await page.evaluate(()=>Date.now()+50));
+    await page.locator('.lesson-card').first().getByRole('button',{name:'Normalus',exact:true}).click();
+    await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
+    const before=await page.evaluate(()=>window.lessonDemoSounds.length);
+    await page.locator('#listen-lesson').click();
+    await wait(()=>page.evaluate(count=>window.lessonDemoSounds.length>count,before));
+    await page.clock.runFor(14*520+40);
+    await page.clock.runFor(1.65*520+40);
+    const releaseLengths=await page.evaluate(before=>{
+      const starts=window.lessonDemoSounds;
+      return [0,14].map(index=>{
+        const started=starts[before+index];
+        const release=window.lessonDemoReleases.find(release=>release.started===started);
+        return release ? release.at-started : null;
+      });
+    },before);
+    assert(Math.abs(releaseLengths[0]-.8*520)<=12,'preview quarter notes release at their written hold');
+    assert(Math.abs(releaseLengths[1]-1.65*520)<=12,'preview sustained notes use their separate written hold');
+    assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),before+15,'the preview leaves the written phrase break silent');
+    await page.clock.runFor(200);
+    assert.equal(await page.evaluate(()=>window.lessonDemoSounds.length),before+16,'the next phrase starts after the rest');
+    await page.locator('#listen-lesson').click();
+    await startSelectedLesson();
+    await page.clock.fastForward(14*520+600);
+    await page.clock.runFor(20);
+    assert.equal(await page.locator('[data-key="d4"].lesson-cue').count(),1,'the lesson holds its long note beyond a quarter-note interval');
+    await page.clock.fastForward(300);
+    await page.clock.runFor(20);
+    assert.equal(await page.locator('.lesson-cue').count(),0,'the written rest releases all visual cues');
+    await page.clock.fastForward(150);
+    await page.clock.runFor(20);
+    assert.equal(await page.locator('[data-key="e4"].lesson-cue').count(),1,'visual guidance starts the next phrase on the same musical beat as the preview');
+    await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
+    await page.clock.resume();
   }
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
@@ -674,6 +714,8 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       const {lessonsForKit}=await import(new URL('./lessons.js'+entry.search,entry).href);
       const definition=lessonsForKit('salamander-v1')[0];
       window.originalTimingEvents=definition.events;
+      window.originalTimingDuration=definition.durationBeats;
+      delete definition.durationBeats;
       definition.events=[...Array.from({length:5},(_,beat)=>({key:'e4',beat})),{key:'f4',beat:5},{key:'g4',beat:6}];
     });
     await page.locator('.lesson-speed').first().click();
@@ -731,6 +773,8 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       const entry=new URL(document.querySelector('script[src*="app.js"]').src);
       const {lessonsForKit}=await import(new URL('./lessons.js'+entry.search,entry).href);
       lessonsForKit('salamander-v1')[0].events=window.originalTimingEvents;
+      lessonsForKit('salamander-v1')[0].durationBeats=window.originalTimingDuration;
+      delete window.originalTimingDuration;
       delete window.originalTimingEvents;
     });
     for(const [tempo,releaseAt,advance] of [['Normalus',450,100],['Greitas',260,80]]){
@@ -786,16 +830,16 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
   const lastNote=await page.evaluate(async kit=>{
     const {lessonsForKit,lessonSpeeds}=await import('./lessons.js');
     const note=lessonsForKit(kit)[0].events.at(-1);
-    return {key:note.key,time:note.beat*lessonSpeeds[0].beatMs};
+    return {key:note.key,time:note.beat*lessonSpeeds[0].beatMs,hold:note.duration !== undefined ? note.duration*lessonSpeeds[0].beatMs : 1000};
   },kit);
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));
   await startSelectedLesson();
-  await page.clock.fastForward(lastNote.time+800);
-  assert(await page.locator(`.kit .set [data-key="${lastNote.key}"]`).evaluate(element=>element.classList.contains('lesson-cue')),'the last note allows a full second to respond');
+  await page.clock.fastForward(lastNote.time+lastNote.hold-200);
+  assert(await page.locator(`.kit .set [data-key="${lastNote.key}"]`).evaluate(element=>element.classList.contains('lesson-cue')),'the final cue lasts for its written hold (or one second for drums)');
   assert.equal(await page.locator('#lesson-sequence .is-past.result-wrong').count(),3,'unplayed notes appear as dimmed red history');
   await page.clock.fastForward(250);
-  assert.equal(await page.locator(`.kit .set [data-key="${lastNote.key}"]`).evaluate(element=>element.classList.contains('lesson-cue')),false,'the final cue clears after its one-second response window');
+  assert.equal(await page.locator(`.kit .set [data-key="${lastNote.key}"]`).evaluate(element=>element.classList.contains('lesson-cue')),false,'the final cue releases at its written ending');
   await page.locator('.lesson-card.is-playing').getByRole('button',{name:'Stabdyti pamoką'}).click();
   await page.locator('.lesson-speed').first().click();
   await wait(()=>page.locator('#lesson-start').count().then(count=>count===1));

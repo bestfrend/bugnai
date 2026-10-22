@@ -1,41 +1,50 @@
-// Short beginner arrangements of public-domain melodies, within C4–A4.
-// A tuple gives a note's length in beats; plain notes last one beat.
-function melody(notes) {
+// Beginner arrangements. All piano timing is expressed in beats, independent
+// of playback speed: [key, spacing, hold], or [null, spacing] for a rest.
+// A plain key is a quarter note. Short release gaps keep repetitions distinct.
+export function melody(notes) {
+  if (!Array.isArray(notes) || !notes.length) throw new TypeError('A melody needs notes.');
   let time = 0;
-  return notes.map(note => {
-    const [key, length] = Array.isArray(note) ? note : [note, 1];
-    const event = { key, beat: time };
-    time += length;
-    return event;
-  });
+  const events = [];
+  for (const note of notes) {
+    const [key, beats = 1, hold = beats - Math.min(.2, beats * .2)] = Array.isArray(note) ? note : [note];
+    if (!Number.isFinite(beats) || beats <= 0) throw new TypeError('Spacing must be positive beats.');
+    if (key !== null) {
+      if (!/^(?:(?:c|cs|d|ds|e|f|fs|g|gs|a|as|b)[2-6]|c7)$/.test(key) ||
+          !Number.isFinite(hold) || hold <= 0 || hold > beats) throw new TypeError('Invalid piano note or hold.');
+      events.push({ key, beat: time, duration: hold });
+    }
+    time += beats;
+  }
+  if (!events.length) throw new TypeError('A melody needs a sounding note.');
+  return { events, durationBeats: time };
 }
 
 const pianoLessons = [
-  { id: 'ode-to-joy', title: 'Odė džiaugsmui', events: melody([
+  { id: 'ode-to-joy', title: 'Odė džiaugsmui', ...melody([
     'e4', 'e4', 'f4', 'g4', 'g4', 'f4', 'e4', 'd4',
-    'c4', 'c4', 'd4', 'e4', 'e4', 'd4', ['d4', 2],
+    'c4', 'c4', 'd4', 'e4', ['e4', 1.5], ['d4', .5], ['d4', 1.75, 1.65], [null, .25],
     'e4', 'e4', 'f4', 'g4', 'g4', 'f4', 'e4', 'd4',
-    'c4', 'c4', 'd4', 'e4', 'd4', 'c4', 'c4'
+    'c4', 'c4', 'd4', 'e4', ['d4', 1.5], ['c4', .5], ['c4', 1.5, 1.4], [null, .5]
   ]) },
-  { id: 'london-bridge', title: 'Londono tiltas', events: melody([
-    ['g4', 1.5], ['a4', .5], 'g4', 'f4', 'e4', 'f4', ['g4', 2],
-    'd4', 'e4', ['f4', 2], 'e4', 'f4', ['g4', 2],
-    ['g4', 1.5], ['a4', .5], 'g4', 'f4', 'e4', 'f4', ['g4', 2],
-    ['d4', 2], ['g4', 2], 'e4', 'c4'
+  { id: 'london-bridge', title: 'Londono tiltas', ...melody([
+    ['g4', 1.5], ['a4', .5], 'g4', 'f4', 'e4', 'f4', ['g4', 1.75, 1.65], [null, .25],
+    'd4', 'e4', ['f4', 2], 'e4', 'f4', ['g4', 1.75, 1.65], [null, .25],
+    ['g4', 1.5], ['a4', .5], 'g4', 'f4', 'e4', 'f4', ['g4', 1.75, 1.65], [null, .25],
+    ['d4', 2], ['g4', 2], 'e4', ['c4', 2.5, 2.4], [null, .5]
   ]) },
-  { id: 'mary-little-lamb', title: 'Mažas avinėlis', events: melody([
-    'e4', 'd4', 'c4', 'd4', 'e4', 'e4', ['e4', 2],
-    'd4', 'd4', ['d4', 2], 'e4', 'g4', ['g4', 2],
+  { id: 'mary-little-lamb', title: 'Mažas avinėlis', ...melody([
+    'e4', 'd4', 'c4', 'd4', 'e4', 'e4', ['e4', 1.75, 1.65], [null, .25],
+    'd4', 'd4', ['d4', 2], 'e4', 'g4', ['g4', 1.75, 1.65], [null, .25],
     'e4', 'd4', 'c4', 'd4', 'e4', 'e4', 'e4', 'e4',
-    'd4', 'd4', 'e4', 'd4', 'c4'
+    'd4', 'd4', 'e4', 'd4', ['c4', 3.5, 3.4], [null, .5]
   ]) },
-  { id: 'two-roosters', title: 'Du gaideliai', events: melody([
-    'c4', 'c4', 'g4', 'g4', 'a4', 'a4', 'g4',
-    'f4', 'f4', 'e4', 'e4', 'd4', 'd4', 'c4',
-    'g4', 'g4', 'f4', 'f4', 'e4', 'e4', 'd4',
-    'g4', 'g4', 'f4', 'f4', 'e4', 'e4', 'd4',
-    'c4', 'c4', 'g4', 'g4', 'a4', 'a4', 'g4',
-    'f4', 'f4', 'e4', 'e4', 'd4', 'd4', 'c4'
+  { id: 'two-roosters', title: 'Du gaideliai', ...melody([
+    'c4', 'c4', 'g4', 'g4', 'a4', 'a4', ['g4', 1.75, 1.65], [null, .25],
+    'f4', 'f4', 'e4', 'e4', 'd4', 'd4', ['c4', 1.75, 1.65], [null, .25],
+    'g4', 'g4', 'f4', 'f4', 'e4', 'e4', ['d4', 2],
+    'g4', 'g4', 'f4', 'f4', 'e4', 'e4', ['d4', 1.75, 1.65], [null, .25],
+    'c4', 'c4', 'g4', 'g4', 'a4', 'a4', ['g4', 1.75, 1.65], [null, .25],
+    'f4', 'f4', 'e4', 'e4', 'd4', 'd4', ['c4', 1.5, 1.4], [null, .5]
   ]) }
 ];
 
