@@ -88,7 +88,6 @@ const swedish = {
   'Ritmas ištrintas. Gali sukurti naują.': 'Inspelningen har tagits bort. Du kan skapa en ny.',
   'Nepavyko paleisti garso. Paliesk būgną ir bandyk atkurti dar kartą.': 'Det gick inte att spela upp ljudet. Tryck på en tangent eller trumma och försök igen.',
   'Pamoka baigta. Gali įrašyti savo ritmą.': 'Övningen är klar. Du kan spela in din egen rytm.',
-  'Nebaigtas bandymas atmestas. Pasirinktas kitas instrumentas.': 'Det oavslutade försöket avbröts när du bytte instrument.',
   'Prisijungimas šiame įrenginyje pasikeitė. Perkrauk puslapį.': 'Inloggningen på den här enheten har ändrats. Ladda om sidan.',
   'Instrumento įkelti nepavyko. Patikrink internetą ir bandyk dar kartą.': 'Kunde inte ladda instrumentet. Kontrollera anslutningen och försök igen.',
   'Nepavyko įkelti būgnų garsų.': 'Kunde inte ladda instrumentljuden.',

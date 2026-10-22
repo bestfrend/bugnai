@@ -1585,7 +1585,7 @@ window.addEventListener('instrumentwillchange', () => {
   updateRecordBar();
   // Refresh only if draft controls changed; ordinary navigation leaves library DOM intact.
   if (discarded) refreshControls();
-  if (!recording) status(discarded ? 'Nebaigtas bandymas atmestas. Pasirinktas kitas instrumentas.' : '');
+  if (!recording) status('');
 });
 window.addEventListener('instrumentchanged', () => renderLessons());
 window.addEventListener('pagehide', () => {
