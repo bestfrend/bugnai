@@ -12,6 +12,7 @@ let liveRefreshTimer;
 let refreshGeneration = 0;
 let pendingRefreshTimer;
 const deletingMembers = new Set();
+const memberDeleteErrors = new Map();
 function readDisconnectKeys(key) {
   try {
     const keys = JSON.parse(sessionStorage.getItem(key) || '[]');
@@ -74,6 +75,7 @@ async function adminRpc(name, parameters = {}) {
   if (!response.ok) {
     const error = new Error(data?.message || 'Nepavyko gauti narių sąrašo.');
     error.status = response.status;
+    error.code = data?.code;
     throw error;
   }
   return data;
@@ -87,6 +89,7 @@ async function deleteMember(member) {
   if (deletingMembers.has(member.id)) return;
   if (!window.confirm(`Ištrinti vartotoją „${member.nickname}“ ir visus jo ritmus, nuotrauką bei vietos istoriją? Šio veiksmo atšaukti negalima.`)) return;
   deletingMembers.add(member.id);
+  memberDeleteErrors.delete(member.id);
   render();
   try {
     await adminRpc('admin_delete_member', { p_member_id: member.id });
@@ -96,9 +99,12 @@ async function deleteMember(member) {
     render();
     if (await refresh(true)) setStatus(`Vartotojas „${member.nickname}“ ištrintas.`);
   } catch (error) {
-    setStatus(error.status === 404
-      ? 'Ištrynimas neparuoštas arba vartotojas jau ištrintas. Supabase SQL Editor paleiskite admin-delete-member.sql ir atnaujinkite sąrašą.'
-      : error.message, true);
+    const setup = error.code === 'PGRST202' || (error.status === 404 && !error.code);
+    const message = setup
+      ? 'Duomenų bazėje neįdiegtas vartotojų ištrynimas. Supabase SQL Editor paleiskite admin-delete-member.sql.'
+      : error.code === 'P0002' ? 'Vartotojas jau ištrintas. Atnaujinkite sąrašą.' : error.message;
+    memberDeleteErrors.set(member.id, { message, setup });
+    setStatus(message, true);
   } finally {
     deletingMembers.delete(member.id);
     render();
@@ -272,6 +278,22 @@ function render() {
     remove.disabled = deletingMembers.has(member.id);
     remove.addEventListener('click', () => deleteMember(member));
     controls.append(remove);
+    const failure = memberDeleteErrors.get(member.id);
+    if (failure) {
+      const error = document.createElement('small');
+      error.className = 'admin-delete-error';
+      error.setAttribute('role', 'alert');
+      error.textContent = failure.message;
+      if (failure.setup) {
+        const sql = document.createElement('a');
+        sql.href = 'https://github.com/bestfrend/bugnai/blob/master/supabase/admin-delete-member.sql';
+        sql.target = '_blank';
+        sql.rel = 'noopener';
+        sql.textContent = 'Atverti SQL failą';
+        error.append(sql);
+      }
+      controls.append(error);
+    }
     row.append(identity, state, sessionStarted, device, approximate, exact, rhythms, joined, controls);
     body.append(row);
   }
@@ -321,7 +343,7 @@ async function refresh(silent = false) {
     if (!adminCode || generation !== refreshGeneration) return false;
     members = next;
     render();
-    setStatus('');
+    if (!silent) setStatus('');
     return true;
   } catch (error) {
     if (generation !== refreshGeneration) return false;

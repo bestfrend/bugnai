@@ -473,6 +473,8 @@ footer { padding: 24px 0 32px; }
 .admin-table td { font-size: 14px; }
 .admin-member-actions .action { display: block; white-space: nowrap; }
 .admin-member-actions .admin-delete-member { margin-top: 8px; min-height: 28px; padding: 4px 8px; font-size: 11px; }
+.admin-delete-error { max-width: 240px; margin-top: 8px; color: #ffb6bd; font-size: 11px; line-height: 1.5; white-space: normal; }
+.admin-delete-error a { display: block; margin-top: 4px; color: #c5dfff; text-underline-offset: 3px; }
 .admin-table td strong, .admin-table td small { display: block; }
 .admin-table .exact-location-cell { min-width: 285px; }
 .coordinate-actions { display: flex; align-items: center; gap: 10px; white-space: nowrap; }

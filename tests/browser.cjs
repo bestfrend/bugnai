@@ -1250,7 +1250,7 @@ async function adminScenario(browser){
   let locationAccuracy=8;
   let disconnectedMember=false,disconnectCancellations=0;
   let memberListRequests=0;
-  let deleteAttempts=0,deleteFails=false;
+  let deleteAttempts=0,deleteFails=false,deleteMissing=false;
   const deletedMembers=new Set();
   let liveSocket;
   let liveJoins=0;
@@ -1274,6 +1274,7 @@ async function adminScenario(browser){
       const body=route.request().postDataJSON();
       assert.equal(body.p_code,'test-admin-code-123');
       assert.equal(body.p_member_id,other);
+      if(deleteMissing)return route.fulfill({status:404,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:JSON.stringify({code:'PGRST202',message:'Could not find the function public.admin_delete_member'})});
       if(!deleteFails)deletedMembers.add(body.p_member_id);
       return route.fulfill({status:deleteFails?503:200,headers:{'access-control-allow-origin':'*','content-type':'application/json'},body:deleteFails?JSON.stringify({message:'Try again'}):'null'});
     }
@@ -1373,12 +1374,29 @@ async function adminScenario(browser){
   await wait(()=>page.locator('#admin-status').innerText().then(text=>text==='Try again'));
   assert.equal(await page.locator('#member-rows tr').count(),2,'failed deletion preserves the member');
   assert(await removeMember().isEnabled(),'failed deletion can be retried manually');
+  await page.clock.fastForward(60000);
+  locationChanged();
+  await page.clock.runFor(150);
+  assert.equal(await page.locator('#admin-status').innerText(),'Try again','automatic refresh must not erase the deletion error');
+  assert.equal(await page.locator('.admin-delete-error').innerText(),'Try again','failure is visible beside the delete button');
+  assert.equal(deleteAttempts,1,'automatic refresh never retries deletion');
   deleteFails=false;
+  deleteMissing=true;
+  page.once('dialog',dialog=>dialog.accept());
+  await removeMember().click();
+  await wait(()=>deleteAttempts===2);
+  await wait(()=>page.locator('.admin-delete-error').innerText().then(text=>text.includes('admin-delete-member.sql')));
+  const migrationLink=page.locator('.admin-delete-error a');
+  assert.equal(await migrationLink.getAttribute('href'),'https://github.com/bestfrend/bugnai/blob/master/supabase/admin-delete-member.sql');
+  await page.clock.fastForward(60000);
+  assert.match(await page.locator('#admin-status').innerText(),/neįdiegtas vartotojų ištrynimas/);
+  assert.equal(await page.locator('#member-rows tr').count(),2,'a missing migration does not remove the member from the UI');
+  deleteMissing=false;
   page.once('dialog',dialog=>{assert.match(dialog.message(),/visus jo ritmus/);return dialog.accept();});
   await removeMember().click();
   await wait(()=>page.locator('#member-rows tr').count().then(count=>count===1));
   await wait(()=>page.locator('#admin-status').innerText().then(text=>text.includes('ištrintas')));
-  assert.equal(deleteAttempts,2);
+  assert.equal(deleteAttempts,3);
   assert.match(await page.locator('#member-rows').innerText(),/Ritmas/,'other members remain');
   await page.locator('#admin-refresh').click();
   assert.equal(await page.locator('#member-rows tr').count(),1,'deleted members remain absent after refresh');
