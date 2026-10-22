@@ -528,7 +528,7 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
         const edge=getComputedStyle(key,'::after');
         return {left:edge.borderLeftWidth,right:edge.borderRightWidth,top:edge.borderTopWidth,bottom:edge.borderBottomWidth,color:edge.borderLeftColor,shadow:edge.boxShadow};
       });
-      assert.deepEqual(cueEdges,{left:'3px',right:'3px',top:'0px',bottom:'0px',color:'rgb(73, 164, 119)',shadow:'none'},'only the left and right instructional lines are drawn');
+      assert.deepEqual(cueEdges,{left:'2px',right:'2px',top:'0px',bottom:'0px',color:'rgb(124, 58, 237)',shadow:'none'},'only the left and right instructional lines are drawn');
       assert.equal(await page.locator('#lesson-sequence .is-current').innerText(),'Fa','Lithuanian piano sequence shows solfege without keyboard letters');
       await page.locator('#language-select').selectOption('sv');
       await page.clock.runFor(20);
@@ -652,10 +652,11 @@ async function instrumentScenario(browser,file,kit,mobile=false,forceFallback=fa
       await page.clock.fastForward(advance);
       await page.clock.runFor(20);
       assert.equal(await page.locator('[data-key="e4"].lesson-cue').count(),1,'the same key lights again for its next occurrence');
-      assert.equal(await page.locator('[data-key="e4"].lesson-correct').count(),0,'the previous held success must not cover the next instruction');
-      const nextCue=await page.locator('[data-key="e4"]').evaluate(key=>({edge:getComputedStyle(key,'::after').borderLeftWidth,background:getComputedStyle(key).backgroundColor}));
-      assert.equal(nextCue.edge,tempo==='Greitas'?'1px':'3px','the next instructional side line is visible while the first note is still held');
-      assert.notEqual(nextCue.background,'rgb(140, 213, 189)','the old green success background is cleared');
+      assert.equal(await page.locator('[data-key="e4"].lesson-correct').count(),1,'the held successful press keeps its green feedback');
+      const nextCue=await page.locator('[data-key="e4"]').evaluate(key=>({edge:getComputedStyle(key,'::after').borderLeftWidth,color:getComputedStyle(key,'::after').borderLeftColor,background:getComputedStyle(key).backgroundColor}));
+      assert.equal(nextCue.edge,'2px','the next instructional side line is visible while the first note is still held');
+      assert.equal(nextCue.color,'rgb(124, 58, 237)','the repeated instruction contrasts with green feedback');
+      assert.equal(nextCue.background,'rgb(140, 213, 189)','the violet instruction is drawn over the green success background');
       await releaseLessonKey();
       await pressLessonKey('e4');
       assert.equal(await page.locator('[data-key="e4"].lesson-correct').count(),1,'the repeated note needs its own successful press');

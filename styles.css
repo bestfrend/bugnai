@@ -343,11 +343,12 @@ footer { padding: 24px 0 32px; }
 /* Keep the original glow as an explicit opt-in; piano cues default to side lines. */
 .kit .set:not(.piano-keyboard) [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong),
 .kit .piano-keyboard[data-lesson-cue-style="glow"] [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: 2px solid #bff8ff; outline-offset: -2px; filter: brightness(1.25) saturate(1.15); box-shadow: inset 0 0 24px #eaffff, 0 0 13px 4px #61ddff !important; }
-.kit .piano-keyboard [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { --lesson-edge-color: #49a477; --lesson-edge-width: 3px; outline: none; filter: brightness(1.1); transition-property: transform, background; }
+.kit .piano-keyboard [data-key].lesson-cue { --lesson-edge-color: #7c3aed; --lesson-edge-width: 2px; }
+.kit .piano-keyboard [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { outline: none; filter: brightness(1.1); transition-property: transform, background; }
 .kit .piano-keyboard [data-key].lesson-cue:not([data-lesson-repeat]):not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { box-shadow: none !important; }
 .kit .piano-keyboard .white-key.lesson-cue:not([data-lesson-repeat]):not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { background: linear-gradient(#f5f8fa, #fff 65%, #f3f7f9); }
-.kit .piano-keyboard[data-lesson-speed="fast"] [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { --lesson-edge-color: #e4f1f8; --lesson-edge-width: 1px; filter: brightness(1.08); }
-.kit .piano-keyboard [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong)::after { content: ""; position: absolute; inset: 0; box-sizing: border-box; border-left: var(--lesson-edge-width) solid var(--lesson-edge-color); border-right: var(--lesson-edge-width) solid var(--lesson-edge-color); border-top: 0; border-bottom: 0; border-radius: 0; box-shadow: none; pointer-events: none; }
+.kit .piano-keyboard[data-lesson-speed="fast"] [data-key].lesson-cue:not(.lesson-correct):not(.lesson-early):not(.lesson-wrong) { filter: brightness(1.08); }
+.kit .piano-keyboard [data-key].lesson-cue::after { content: ""; position: absolute; inset: 0; box-sizing: border-box; border-left: var(--lesson-edge-width) solid var(--lesson-edge-color); border-right: var(--lesson-edge-width) solid var(--lesson-edge-color); border-top: 0; border-bottom: 0; border-radius: 0; box-shadow: none; pointer-events: none; }
 .kit .piano-keyboard[data-lesson-cue-style="glow"] [data-key].lesson-cue::after { display: none; }
 .kit .set [data-key].lesson-correct, .kit .set [data-key].lesson-early, .kit .set [data-key].lesson-wrong { transition: none; }
 .kit .set [data-key].lesson-correct { background: #8cd5bd !important; }
